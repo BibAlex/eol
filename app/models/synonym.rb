@@ -11,7 +11,6 @@ class Synonym < SpeciesSchemaModel
   has_one  :taxon_concept_name
   has_many :agents_synonyms
   has_many :agents, :through => :agents_synonyms
-  has_many :agents_synonyms
 
   before_save :set_preferred
   after_update :update_taxon_concept_name, :update_vetted_on_synonyms_for_same_tc
