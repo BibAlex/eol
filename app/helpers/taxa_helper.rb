@@ -224,28 +224,22 @@ module TaxaHelper
     end
   end
 
-  # TODO - move this to CommonNameDisplay
   def common_names_by_language(names, preferred_language_id)
     names_by_language = {}
-    # Get some languages we'll need
-    eng     = Language.english
-    pref    = Language.find(preferred_language_id)
-    unknown = Language.unknown
-    # Build a hash with language label as key and an array of CommonNameDisplay objects as values
+    # Get preferred languages we'll need
+    pref = Language.find(preferred_language_id)
+    
+    # Build a hash with language label as key and an array of TaxonConceptName objects as values
     names.each do |name|
-      k = name.language_label
+      k = name.language.label
       k = unknown.label if k.blank?
       names_by_language.key?(k) ? names_by_language[k] << name : names_by_language[k] = [name]
     end
-    remove_duplicate_names(names_by_language)
     results = []
     # Put preferred first
     results << [pref.label, names_by_language.delete(pref.label)] if names_by_language.key?(pref.label)
     # Sort the rest by language label
     names_by_language.to_a.sort_by {|a| a[0].to_s}.each {|a| results << a}
-    # Move unknown to the end
-    unknown_data = names_by_language.key?(unknown.label) ? [unknown.label, names_by_language.delete(unknown.label)] : nil
-    results << unknown_data if unknown_data
     results
   end
 

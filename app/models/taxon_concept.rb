@@ -126,36 +126,33 @@ class TaxonConcept < SpeciesSchemaModel
     quick_common_names(taxon_concept_ids, hierarchy)
   end
 
-  # TODO - this will now be called on ALL taxon pages.  Eep!  Make this more efficient:
   def common_names(options = {})
+    unknown_id = Language.unknown.id
     if options[:hierarchy_entry_id]
-      tcn = TaxonConceptName.find_all_by_source_hierarchy_entry_id_and_vern(options[:hierarchy_entry_id], 1, :include => [ :name, :language ],
-        :select => {:taxon_concept_names => [ :preferred, :vetted_id ], :names => :string, :languages => '*'})
+      tcn = TaxonConceptName.find_all_by_source_hierarchy_entry_id_and_vern(options[:hierarchy_entry_id], 1, :include => [ :name, :language, :synonym ],
+        :select => {:taxon_concept_names => [ :preferred, :vetted_id, :synonym_id ], :names => :string, :languages => '*'})
     else
-      tcn = TaxonConceptName.find_all_by_taxon_concept_id_and_vern(self.id, 1, :include => [ :name, :language ],
-        :select => {:taxon_concept_names => [ :preferred, :vetted_id ], :names => :string, :languages => '*'})
+      common_names_by_curators = TaxonConceptName.find_by_sql("
+        SELECT t.preferred, t.vetted_id, t.name_id, t.language_id, n.string as common_name, ag.full_name as sources, 1 as added_by_curator 
+          FROM taxon_concept_names t 
+          LEFT JOIN names n ON n.id = t.name_id 
+          LEFT JOIN synonyms syn ON syn.id = t.synonym_id 
+          LEFT JOIN agents_synonyms agsyn ON  syn.id = agsyn.synonym_id 
+          LEFT JOIN agents ag ON agsyn.agent_id = ag.id 
+          WHERE (t.vern = 1 AND t.taxon_concept_id = #{self.id})")
+      common_names_by_content_partners = TaxonConceptName.find_by_sql("
+        SELECT t.preferred, t.vetted_id, t.name_id, t.language_id, n.string as common_name, ag.full_name as sources, 0 as added_by_curator 
+          FROM taxon_concept_names t 
+          LEFT JOIN names n ON n.id = t.name_id 
+          LEFT JOIN synonyms syn ON (syn.name_id = t.name_id AND syn.language_id = t.language_id) 
+          LEFT JOIN hierarchies h ON  syn. hierarchy_id = h.id 
+          LEFT JOIN agents ag ON h.agent_id = ag.id 
+          WHERE (t.vern = 1 AND t.taxon_concept_id = #{self.id})")
     end
-
-    sorted_names = TaxonConceptName.sort_by_language_and_name(tcn)
-    duplicate_check = {}
-    name_languages = {}
-    # remove duplicate names in the same language
-    sorted_names.each_with_index do |tcn, index|
-      lang = tcn.language.blank? ? '' : tcn.language.iso_639_1
-      duplicate_check[lang] ||= []
-      sorted_names[index] = nil if duplicate_check[lang].include?(tcn.name.string)
-      duplicate_check[lang] << tcn.name.string
-      name_languages[tcn.name.string] = lang
-    end
-
-    # now removing anything without a language if it exists with a language
-    sorted_names.each_with_index do |tcn, index|
-      next if tcn.nil?
-      lang = tcn.language.blank? ? '' : tcn.language.iso_639_1
-      sorted_names[index] = nil if lang.blank? && !name_languages[tcn.name.string].blank?
-    end
-
-    sorted_names.compact
+    total_common_names = common_names_by_curators + common_names_by_content_partners
+    merged_common_names = TaxonConceptName.group_and_merge_names(total_common_names)
+    common_names_to_display = merged_common_names.select { |n| !n.language_id.blank? && n.language_id != unknown_id }
+    common_names_to_display.compact
   end
 
   # Return the curators who actually get credit for what they have done (for example, a new curator who hasn't done

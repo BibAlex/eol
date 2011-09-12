@@ -51,7 +51,7 @@ $USE_SSL_FOR_LOGIN=false
 # THIS IS WHERE ALL THE IMAGES/VIDEOS LIVE:
 $CONTENT_SERVERS = ['http://content.eol.org/'] if !$CONTENT_SERVERS
 
-$AGENT_ID_OF_DEFAULT_COMMON_NAME_SOURCE = Agent.first.id rescue nil # Because it doesn't much matter, here in development.
+$AGENT_ID_OF_DEFAULT_COMMON_NAME_SOURCE = 3 # Because it doesn't much matter, here in development.
 
 $SKIP_URL_VALIDATIONS = true
 

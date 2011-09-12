@@ -34,4 +34,70 @@ class TaxonConceptName < SpeciesSchemaModel
     }, val, self[:name_id], self[:taxon_concept_id], self[:source_hierarchy_entry_id]]))
   end
 
+  def synonym_ids
+    @synonym_ids ||= [self.synonym_id]
+  end
+
+  def self.group_and_merge_names(names)
+    # @default_source = Agent.find($AGENT_ID_OF_DEFAULT_COMMON_NAME_SOURCE).full_name rescue nil
+    new_names = []
+    previous = nil
+    names.sort.each do |name|
+      if previous
+        if previous === name
+          new_names.last.merge!(name)
+        else
+          # new_names.last.sources = @default_source.to_a if new_names.last.sources.empty? # default source if one doesn't exist
+          new_names << name
+        end
+      else # this is the first one.
+        new_names << name
+      end
+      previous = name
+    end
+    new_names
+  end
+
+  def merge!(other)
+    unless other.sources.to_a == ["Encyclopedia of Life"] || other.sources.nil?
+      name_sources = []
+      if self.sources.to_a == ["Encyclopedia of Life"] || self.sources.nil?
+        self.added_by_curator = other.added_by_curator.to_i
+        name_sources = other.sources.to_a
+      else
+        if self.added_by_curator == 0
+          if other.added_by_curator.to_i == 0
+            name_sources = self.sources.to_a + other.sources.to_a
+          else
+            name_sources = self.sources.to_a
+          end
+        else
+          if other.added_by_curator.to_i == 0
+            self.added_by_curator = 0
+            name_sources = other.sources.to_a
+          else
+            name_sources = self.sources.to_a + other.sources.to_a
+          end
+        end
+      end
+      self.sources = name_sources.compact.uniq
+    end
+    self.sources
+  end
+
+  def <=>(other)
+    if self.language.label == other.language.label
+      if self.common_name == other.common_name
+          self.vetted_id <=> other.vetted_id
+      else
+        self.common_name <=> other.common_name
+      end
+    else
+      self.language.label.to_s <=> other.language.label.to_s
+    end
+  end
+
+  def ===(other)
+    self.language.label == other.language.label && self.name_id == other.name_id
+  end
 end

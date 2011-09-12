@@ -59,7 +59,7 @@ class Taxa::NamesController < TaxaController
     @languages = Language.with_iso_639_1.sort_by{ |l| l.label }
     @languages.collect! {|lang|  [lang.label.to_s.truncate(20), lang.id] }
     @common_names = get_common_names
-    @common_names_count = @common_names.collect{|cn| [cn.name_id,cn.language_id]}.uniq.count
+    @common_names_count = @common_names.count
     @assistive_section_header = I18n.t(:assistive_names_common_header)
     current_user.log_activity(:viewed_taxon_concept_names_common_names, :taxon_concept_id => @taxon_concept.id)
   end
@@ -92,17 +92,15 @@ class Taxa::NamesController < TaxaController
 private
 
   def get_common_names
-    unknown_id = Language.unknown.id
     if @selected_hierarchy_entry
-      names = EOL::CommonNameDisplay.find_by_hierarchy_entry_id(@selected_hierarchy_entry.id)
+      names = @taxon_concept.common_names(:hierarchy_entry_id => @selected_hierarchy_entry.id)
     else
-      names = EOL::CommonNameDisplay.find_by_taxon_concept_id(@taxon_concept.id)
+      names = @taxon_concept.common_names
     end
-    common_names = names.select {|n| n.language_id != unknown_id}
   end
 
   def common_names_count
-    @common_names_count = get_common_names.collect{|cn| [cn.name_id,cn.language_id]}.uniq.count if @common_names_count.nil?
+    @common_names_count = get_common_names.count if @common_names_count.nil?
     @common_names_count
   end
 

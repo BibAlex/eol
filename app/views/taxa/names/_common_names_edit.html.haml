@@ -4,12 +4,12 @@
 - names_by_language = common_names_by_language(@common_names, current_user.language_id)
 - names_by_language.each do |language_names_pair|
   - language = language_names_pair[0]
-  - names = language_names_pair[1]
+  - taxon_concept_names = language_names_pair[1]
   - form_tag "/pages/#{@taxon_concept.id}/names/common_names/update", :method => :put, :class => 'update_common_names' do
     = hidden_field_tag "trusted_name_clicked_on", "false"
     = hidden_field_tag "trusted_synonym_clicked_on", "false"
     = hidden_field_tag "trusted_name_checked", "false"
-    = hidden_field_tag 'language_id', names[0].language_id
+    = hidden_field_tag 'language_id', taxon_concept_names[0].language_id
     = hidden_field_tag "hierarchy_entry_id", @selected_hierarchy_entry_id
     %h4= language
     %table.standard.edit_common_names
@@ -20,6 +20,19 @@
           %th= I18n.t(:names_sources_column_header)
           %th= I18n.t(:names_curation_column_header)
       %tbody
-        - names.each do |name|
+        - taxon_concept_names.each do |taxon_concept_name|
           %tr
-            = render :partial => 'common_names_edit_row', :locals => {:name => name }
+            %td{:class => 'preferred_name_selector'}
+              = radio_button_tag 'preferred_name_id', taxon_concept_name.name_id, taxon_concept_name.preferred.to_i == 1 ? TRUE : FALSE
+            %td
+              = taxon_concept_name.common_name
+            %td
+              - sources = taxon_concept_name.sources
+              - unless sources.blank?
+                - sources.sort.each do |source|
+                  %p= source
+            %td{:class => 'vet_common_name'}
+              - unique_id = "name-#{taxon_concept_name.language_id}-#{taxon_concept_name.name_id}"
+              = select_tag("#{unique_id}", options_for_select(@common_name_vet_options, taxon_concept_name.vetted_id.to_s),
+                {:data_url => vet_common_name_taxon_name_path(:taxon_id => @taxon_concept.id, :id => taxon_concept_name.name_id, :language_id => taxon_concept_name.language_id, :unique_id => unique_id, :vetted_id => 'REPLACE_ME')})
+            

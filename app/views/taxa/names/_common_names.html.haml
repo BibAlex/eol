@@ -10,7 +10,7 @@
 
   - names_by_language.each_with_index do |language_names_pair, index|
     - language = language_names_pair[0]
-    - names = language_names_pair[1]
+    - taxon_concept_names = language_names_pair[1]
     %h4= language
     %table.standard
       %thead
@@ -19,12 +19,17 @@
           %th= I18n.t(:names_sources_column_header)
           %th= I18n.t(:names_status_column_header)
       %tbody
-        - names.each do |name|
+        - taxon_concept_names.each do |taxon_concept_name|
           %tr
-            %td{:class => name.preferred.to_i == 1 ? 'preferred' : nil,
-              :title => name.preferred.to_i == 1 ? I18n.t(:name_preferred_for_language_yes) : nil}
-              = name.string
+            %td{:class => taxon_concept_name.preferred.to_i == 1 ? 'preferred' : nil,
+              :title => taxon_concept_name.preferred.to_i == 1 ? I18n.t(:name_preferred_for_language_yes) : nil}
+              = taxon_concept_name.name.string
             %td
-              = name.agent_names
+              - if taxon_concept_name.synonym.nil?
+                - agent = Agent.find($AGENT_ID_OF_DEFAULT_COMMON_NAME_SOURCE) rescue nil
+                %p= agent.full_name unless agent.nil?
+              -else
+                - taxon_concept_name.synonym.agents.each do |agent|
+                  %p= agent.full_name
             %td
-              = Vetted.find_by_id(name.vetted_id).label
+              = Vetted.find_by_id(taxon_concept_name.vetted_id).label
