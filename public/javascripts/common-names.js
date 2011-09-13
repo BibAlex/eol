@@ -11,7 +11,7 @@ if (!EOL.init_common_name_behaviors) {
     });
     // Checkbox may ask the user to confirm; if they don't, it re-checks the box:
     $('td.vet_common_name select').change(function() {
-      var $update = $(this).closest('tr');
+      var $update = $(this).closest('td');
       var url = $(this).attr('data_url');
       url = url.replace(/REPLACE_ME/, $(this).val());
       EOL.ajax_submit($(this), {url: url, update: $update, data: {}, type: 'GET'}); // data is in the url.

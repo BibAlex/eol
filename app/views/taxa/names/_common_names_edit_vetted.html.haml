@@ -1,0 +1,4 @@
+= javascript_include_tag 'common-names'
+- unique_id = "name-#{language_id}-#{name_id}"
+= select_tag("#{unique_id}", options_for_select(@common_name_vet_options, vetted_id.to_s),
+  {:data_url => vet_common_name_taxon_name_path(:taxon_id => taxon_concept_id, :id => name_id, :language_id => language_id, :unique_id => unique_id, :vetted_id => 'REPLACE_ME')})

@@ -1136,7 +1136,7 @@ class TaxonConcept < SpeciesSchemaModel
   # This needs to work on both TCNs and Synonyms.  Which, of course, smells like bad design, so.... TODO - review.
   def vet_common_name(options = {})
     vet_taxon_concept_names(options)
-    vet_synonyms(options)
+    # vet_synonyms(options)
   end
 
   def self.supercede_by_ids(id1, id2)

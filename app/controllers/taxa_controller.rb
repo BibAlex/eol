@@ -199,24 +199,13 @@ class TaxaController < ApplicationController
     return if taxon_concept_invalid?(tc)
     if current_user.is_curator?
       if !params[:preferred_name_id].nil?
-        name = Name.find(params[:preferred_name_id])
-        language = Language.find(params[:language_id])
-        tc.add_common_name_synonym(name.string, :agent => current_user.agent, :language => language, :preferred => 1,
-                                   :vetted => Vetted.trusted)
-        expire_taxa([tc.id])
-      end
-
-      if params[:trusted_name_clicked_on] != "false"
-        if params[:trusted_name_checked] == "true"
-          name = Name.find(params[:trusted_name_clicked_on])
-          language = Language.find(params[:language_id])
-          tc.add_common_name_synonym(name.string, :agent => current_user.agent, :language => language,
-                                     :vetted => Vetted.trusted, :preferred => 0)
-          expire_taxa([tc.id])
-        elsif params[:trusted_synonym_clicked_on] != "false"
-          tcn = TaxonConceptName.find_by_synonym_id_and_taxon_concept_id(params[:trusted_synonym_clicked_on], tc.id)
-          tc.delete_common_name(tcn)
-          expire_taxa([tc.id])
+        tcn = TaxonConceptName.find_all_by_language_id_and_taxon_concept_id(params[:language_id].to_i, tc.id)
+        tcn.each do |t|
+          if t.name_id == params[:preferred_name_id].to_i
+            t.update_attribute(:preferred, true)
+          else
+            t.update_attribute(:preferred, false)
+          end
         end
       end
       current_user.log_activity(:updated_common_names, :taxon_concept_id => tc.id)

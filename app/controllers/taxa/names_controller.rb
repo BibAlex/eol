@@ -83,8 +83,8 @@ class Taxa::NamesController < TaxaController
       format.js do
         # TODO - this is a huge waste of time, but I couldn't come up with a timely solution... we only need ONE set
         # of names, here, not all of them:
-        render :partial => 'common_names_edit_row', :locals => {:common_names => get_common_names,
-          :language => TranslatedLanguage.find(language_id).label, :name_id => name_id }
+        render :partial => 'common_names_edit_vetted', :locals => {:taxon_concept_id => @taxon_concept.id, 
+          :language_id => language_id, :name_id => name_id, :vetted_id => vetted.id }
       end
     end
   end

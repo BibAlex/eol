@@ -32,7 +32,4 @@
                 - sources.sort.each do |source|
                   %p= source
             %td{:class => 'vet_common_name'}
-              - unique_id = "name-#{taxon_concept_name.language_id}-#{taxon_concept_name.name_id}"
-              = select_tag("#{unique_id}", options_for_select(@common_name_vet_options, taxon_concept_name.vetted_id.to_s),
-                {:data_url => vet_common_name_taxon_name_path(:taxon_id => @taxon_concept.id, :id => taxon_concept_name.name_id, :language_id => taxon_concept_name.language_id, :unique_id => unique_id, :vetted_id => 'REPLACE_ME')})
-            
+              = render :partial => 'common_names_edit_vetted', :locals => {:taxon_concept_id => @taxon_concept.id, :language_id => taxon_concept_name.language_id, :name_id => taxon_concept_name.name_id, :vetted_id => taxon_concept_name.vetted_id }
