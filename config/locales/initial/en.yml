@@ -2231,7 +2231,7 @@ en:
   thank_you_for_your_generous_support: "Thank you for your generous support"
   thank_you: "Thank You"
   the_amount_entered_was: "The amount entered was : US %{number}"
-  the_comment_was_successfully_u: "The comment was successfully updated."
+  the_comment_was_successfully_updated: "The comment was successfully updated."
   the_content_could_not_be_displ: "The content could not be displayed."
   the_content_was_updated: "The content was updated."
   the_cp_count_info: "The count represents the total number of content partners with published data objects under the respective SPM subject category."

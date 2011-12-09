@@ -26,8 +26,19 @@
           = render :partial => 'activity_logs/community_activity_log', :locals => {:item => item}
         - else
           - raise "Unknown activity log type: #{item.class.name}"
+        - if item.user_id == current_user.id && item.deleted == 0
+          %p.delete= link_to(I18n.t(:delete), comment_path(item.id), :method => :delete, :confirm => I18n.t("are_you_sure_this_action_cannot_be_undone"))
+          %p.edit= link_to(I18n.t(:edit), edit_comment_path(item.id), :'data-to-edit' => item.body)
         - unless supress_reply || ! item.user
-          %p.reply= link_to(I18n.t(:reply), '#new_comment', :'data-reply-to' => item.user.full_name, :'data-reply-to-type' => item.class.name, :'data-reply-to-id' => item.id)
+          %p.reply= link_to(I18n.t(:reply), '#new_comment', :'data-reply-to' => item.user.full_name, :'data-reply-to-type' => item.class.name, :'data-reply-to-id' => item.id) if item.deleted == 0
+        - if item.user_id == current_user.id
+          .edit_comment_form
+            - form_for item do |f|
+              %fieldset
+                = f.text_area :body,{:cols=>30, :rows=>2}
+                %fieldset.actions
+                  = submit_tag (I18n.t(:save_comment_lowercase), :'data-url' => edit_comment_path(item.id))
+                  %a(href="#") cancel
   - unless hide_pagination
     = will_paginate log, :previous_label => I18n.t(:pagination_previous), :next_label => I18n.t(:pagination_next),
       :inner_window => 2, :outer_window => 2
