@@ -1,0 +1,15 @@
+- if @news_items.nil? == false && @news_items.size > 0
+  
+  = will_paginate @news_items
+  - for news_item in @news_items
+    %b
+      = news_item.title
+    %br
+    %i
+      = news_item.display_date
+    %br
+    = news_item.abstract
+    %br    
+    = link_to(I18n.t(:details), { :action => :show, :id => news_item.id }) if news_item.description != ''
+    %br
+    %br
