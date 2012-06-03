@@ -320,7 +320,15 @@ class SolrAPI
     response = Net::HTTP.start(@action_uri.host, @action_uri.port) {|http| http.get(@action_url + "/select/?q=#{query}&version=2.2&start=0&rows=10&indent=on&wt=json") }
   end
   
+  def log_solr(method, xml)
+    @solr_log = SolrLog.new()
+    @solr_log.action = method
+    @solr_log.solr_query = xml
+    @solr_log.save()
+  end
+  
   def post_xml(method, xml)
+    log_solr(method, xml)
     post_url = @action_url + "/#{method}"
     request = Net::HTTP::Post.new(post_url)
     request.body = xml
