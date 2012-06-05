@@ -324,6 +324,7 @@ class SolrAPI
     @solr_log = SolrLog.new()
     @solr_log.action = method
     @solr_log.solr_query = xml
+    @solr_log.node = $NODE_NAME
     @solr_log.save()
   end
   

@@ -4,6 +4,9 @@ class LogSolrActivities < ActiveRecord::Migration
       t.string :node, :limit => 128
       t.string :action
       t.text :solr_query
+      t.text :column_names
+      t.string :row_separator
+      t.string :column_separator
       t.timestamps
     end
     

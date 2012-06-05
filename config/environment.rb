@@ -101,6 +101,9 @@ Rails::Initializer.run do |config|
   $CONTENT_SERVER_AGENT_LOGOS_PATH = "/content_partners/"
   $SINGLE_DOMAIN_CONTENT_SERVER = 'http://localhost/'
   $SPECIES_IMAGE_FORMAT = "jpg" # the extension of all species images on the content server
+  
+  # Node Name for Synchronizing data
+  $NODE_NAME = "MBL"
 
   # MEDIA CENTER CONFIGURATION
   $MAX_IMAGES_PER_PAGE = 40 # number of thumbnail images to show per page
