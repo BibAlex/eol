@@ -325,6 +325,7 @@ class SolrAPI
     @solr_log.action = method
     @solr_log.solr_query = xml
     @solr_log.node = $NODE_NAME
+    @solr_log.core = @core
     @solr_log.save()
   end
   
