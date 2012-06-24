@@ -5,6 +5,7 @@ class CreateSolrLog < ActiveRecord::Migration
       t.string :action, :limit => 128
       t.string :object_id
       t.string :object_type
+      t.integer :peer_site_id
       t.timestamps
     end    
   end
