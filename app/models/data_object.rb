@@ -638,13 +638,12 @@ class DataObject < ActiveRecord::Base
           # creating another instance to remove any change of this instance not
           # matching the database and indexing stale or changed information
           object_to_index = DataObject.find(self.id)
-          EOL::Solr::DataObjectsCoreRebuilder.reindex_single_object(object_to_index)
+          EOL::Solr::DataObjectsCoreRebuilder.reindex_single_object(object_to_index)          
         end
       end
     else
       # hidden, so delete it from solr
-      solr_connection = SolrAPI.new($SOLR_SERVER, $SOLR_DATA_OBJECTS_CORE)
-      solr_connection.delete_by_id(self.id)
+      EOL::Solr::DataObjectsCoreRebuilder.delete_single_object(self.id)
     end
   end
 
@@ -1019,6 +1018,7 @@ class DataObject < ActiveRecord::Base
       'date_created' => self.updated_at.solr_timestamp || self.created_at.solr_timestamp }
     base_index_hash[:user_id] = options[:user].id if options[:user]
     EOL::Solr::ActivityLog.index_notifications(base_index_hash, notification_recipient_objects(options))
+    SolrLog.log_transaction($SOLR_ACTIVITY_LOGS_CORE, id, 'data_object', 'update')
     queue_notifications
   end
 

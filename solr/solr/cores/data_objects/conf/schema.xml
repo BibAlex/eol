@@ -23,6 +23,19 @@
                 <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
             </analyzer>
         </fieldType>
+        
+        <fieldType name="text_ar" class="solr.TextField" positionIncrementGap="100">
+            <analyzer type="index">
+                <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+                <filter class="solr.ArabicNormalizationFilterFactory"/>
+  				<filter class="solr.ArabicStemFilterFactory"/>
+            </analyzer>
+            <analyzer type="query">
+                <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+                <filter class="solr.ArabicNormalizationFilterFactory"/>
+  				<filter class="solr.ArabicStemFilterFactory"/>
+            </analyzer>
+        </fieldType>
     </types>
     
     <!-- begin data schema -->
@@ -36,6 +49,8 @@
         <field name="published" type="int" indexed="true" stored="true" required="true"/>
         <field name="data_rating" type="float" indexed="true" stored="true" required="true"/>
         <field name="description" type="text" indexed="true" stored="true" required="false"/>
+        <field name="description_ar" type="text_ar" indexed="true" stored="true" required="false"/>
+        <copyField source="description" dest="description_ar"/>
         <field name="created_at" type="date" indexed="true" stored="true" required="true"/>
         <field name="added_by_user_id" type="int" indexed="true" stored="true" required="false"/>
         <field name="is_translation" type="boolean" indexed="true" stored="true" required="false"/>
