@@ -1,5 +1,7 @@
 class ContentPartner < ActiveRecord::Base
 
+  include EOL::PeerSites
+
   belongs_to :user
   belongs_to :content_partner_status
 
@@ -11,6 +13,7 @@ class ContentPartner < ActiveRecord::Base
   # has_many :google_analytics_partner_summaries
   has_many :google_analytics_partner_taxa
   has_many :content_partner_agreements
+  has_many :media_download_statuses, :as => :target_row
 
   before_validation_on_create :set_default_content_partner_status
 

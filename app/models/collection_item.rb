@@ -2,6 +2,8 @@
 # git grep "has_many :collection_items, :as" app
 class CollectionItem < ActiveRecord::Base
 
+  include EOL::PeerSites
+
   belongs_to :collection, :touch => true
   belongs_to :object, :polymorphic => true
   belongs_to :added_by_user, :class_name => User.to_s, :foreign_key => :added_by_user_id
@@ -62,6 +64,7 @@ class CollectionItem < ActiveRecord::Base
         return nil
       end
       solr_connection.create(solr_index_hash)
+      SolrLog.log_transaction($SOLR_COLLECTION_ITEMS_CORE, self.id, 'CollectionItem', 'update')
     end
   end
 
@@ -117,6 +120,7 @@ class CollectionItem < ActiveRecord::Base
       return nil
     end
     solr_connection.delete_by_query("collection_item_id:#{self.id}")
+    SolrLog.log_transaction($SOLR_COLLECTION_ITEMS_CORE, self.id, 'CollectionItem', 'delete')
   end
 
   # This is somewhat expensive (can take a second to run), so use sparringly.

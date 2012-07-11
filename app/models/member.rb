@@ -1,5 +1,7 @@
 class Member < ActiveRecord::Base
 
+  include EOL::PeerSites
+
   belongs_to :community
   belongs_to :user
 

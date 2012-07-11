@@ -1,6 +1,7 @@
 class Resource < ActiveRecord::Base
 
   # This class represents some notion of a set of data.  For example, a collection of images of butterflies.
+  include EOL::PeerSites
 
   belongs_to :service_types
   belongs_to :license

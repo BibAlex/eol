@@ -1,6 +1,7 @@
 class Collection < ActiveRecord::Base
 
   include EOL::ActivityLoggable
+  include EOL::PeerSites
 
   belongs_to :user # This is the OWNER.  Use #users rather than #user... this basically only gets set once.
   belongs_to :sort_style
@@ -19,6 +20,7 @@ class Collection < ActiveRecord::Base
       'JOIN collections c ON (cc.collection_id = c.id) ' +
       'JOIN collection_items ci ON (ci.collection_id = c.id) ' +
       'WHERE ci.object_type = "Collection" AND ci.object_id = #{id} AND cm.published = 1'
+  has_many :media_download_statuses, :as => :target_row
 
   has_one :resource
   has_one :resource_preview, :class_name => Resource.to_s, :foreign_key => :preview_collection_id

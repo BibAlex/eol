@@ -234,7 +234,6 @@ Rails::Initializer.run do |config|
   # URLs are not handled correctly in email (IMO), but this fixes it:
   config.action_mailer.default_url_options = { :host => "eol.org" }
 
-
   begin
     require 'config/environments/local.rb'
   rescue LoadError
@@ -314,6 +313,10 @@ $EOL_YOUTUBE_ACCOUNT  = "http://www.youtube.com/user/EncyclopediaOfLife/"
 
 $CURATOR_COMMUNITY_NAME = 'EOL Curators'
 $CURATOR_COMMUNITY_DESC = 'This is a special community intended for EOL curators to discuss matters related to curation on the Encylopedia of Life.'
+
+# id for peer site
+PEER_SITE_ID = 1
+
 
 # load the system configuration
 require File.dirname(__FILE__) + '/system' if File.file?(File.dirname(__FILE__) + '/system.rb')

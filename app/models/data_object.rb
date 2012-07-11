@@ -11,6 +11,7 @@ class DataObject < ActiveRecord::Base
 
   include ModelQueryHelper
   include EOL::ActivityLoggable
+  include EOL::PeerSites
 
   belongs_to :data_type
   belongs_to :data_subtype, :class_name => DataType.to_s, :foreign_key => :data_subtype_id
@@ -56,6 +57,7 @@ class DataObject < ActiveRecord::Base
   has_many :all_versions, :class_name => DataObject.to_s, :foreign_key => :guid, :primary_key => :guid, :select => 'id, guid, language_id'
   has_many :all_published_versions, :class_name => DataObject.to_s, :foreign_key => :guid, :primary_key => :guid, :order => "id desc",
     :conditions => 'published = 1'
+  has_many :media_download_statuses, :as => :target_row
 
   has_and_belongs_to_many :hierarchy_entries
   has_and_belongs_to_many :audiences
@@ -655,8 +657,7 @@ class DataObject < ActiveRecord::Base
       end
     else
       # hidden, so delete it from solr
-      solr_connection = SolrAPI.new($SOLR_SERVER, $SOLR_DATA_OBJECTS_CORE)
-      solr_connection.delete_by_id(self.id)
+      EOL::Solr::DataObjectsCoreRebuilder.delete_single_object(self.id)
     end
   end
 
@@ -1070,6 +1071,7 @@ class DataObject < ActiveRecord::Base
       'date_created' => self.updated_at.solr_timestamp || self.created_at.solr_timestamp }
     base_index_hash[:user_id] = options[:user].id if options[:user]
     EOL::Solr::ActivityLog.index_notifications(base_index_hash, notification_recipient_objects(options))
+    SolrLog.log_transaction($SOLR_ACTIVITY_LOGS_CORE, id, 'DataObject', 'update')
     queue_notifications
   end
 

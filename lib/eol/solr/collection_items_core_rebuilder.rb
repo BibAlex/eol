@@ -9,12 +9,14 @@ module EOL
       def self.obliterate
         solr_api = self.connect
         solr_api.delete_all_documents
+        SolrLog.log_transaction($SOLR_COLLECTION_ITEMS_CORE, 0, '', 'delete_all')
       end
 
       def self.begin_rebuild(options = {})
         options[:optimize] = true unless defined?(options[:optimize])
         solr_api = self.connect
         solr_api.delete_all_documents
+        SolrLog.log_transaction($SOLR_COLLECTION_ITEMS_CORE, 0, '', 'delete_all')
         self.start_to_index_collection_items(solr_api)
         solr_api.optimize if options[:optimize]
       end
@@ -22,7 +24,7 @@ module EOL
       def self.reindex_collection_items_by_ids(ids)
         return if ids.empty?
         solr_api = self.connect
-        objects_to_send = self.lookup_collection_items(ids);
+        objects_to_send = self.lookup_collection_items(ids)
         objects_to_send.each do |o|
           o['title'] = SolrAPI.text_filter(o['title']) if o['title']
           o['annotation'] = SolrAPI.text_filter(o['annotation']) if o['annotation']
@@ -40,7 +42,7 @@ module EOL
         i = start
         while i <= max_id
           objects_to_send = []
-          objects_to_send += self.lookup_collection_items(i, limit);
+          objects_to_send += self.lookup_collection_items(i, limit)
           objects_to_send.each do |o|
             o['title'] = SolrAPI.text_filter(o['title']) if o['title']
             o['annotation'] = SolrAPI.text_filter(o['annotation']) if o['annotation']
@@ -65,6 +67,7 @@ module EOL
           begin
             hash = i.solr_index_hash
             objects_to_send << hash
+            SolrLog.log_transaction($SOLR_COLLECTION_ITEMS_CORE, i.id, 'CollectionItem', 'update')
           rescue EOL::Exceptions::InvalidCollectionItemType => e
             logger.error "** EOL::Solr::CollectionItemsCoreRebuilder: #{e.message}"
             puts "** #{e.message}"

@@ -1,8 +1,9 @@
 class NewsItem < ActiveRecord::Base
   uses_translations
+  include EOL::PeerSites
+
   belongs_to :user
-  
-  
+
   def visible?
     self.activated_on <= Time.now && self.active
   end

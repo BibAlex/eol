@@ -1,6 +1,7 @@
 class Community < ActiveRecord::Base
 
   include EOL::ActivityLoggable
+  include EOL::PeerSites
 
   has_and_belongs_to_many :collections, :uniq => true
 
@@ -12,6 +13,7 @@ class Community < ActiveRecord::Base
              'JOIN collections_communities cc ON (cc.collection_id = c.id) WHERE cc.community_id = #{self.id}'
   has_many :containing_collections, :through => :collection_items, :source => :collection
   has_many :comments, :as => :parent
+  has_many :media_download_statuses, :as => :target_row
 
   named_scope :published, :conditions => 'published = 1'
 
