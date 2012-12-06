@@ -442,6 +442,8 @@ EolUpgrade::Application.routes.draw do
     end
   end
 
+  resources :sync_event_update, :to => 'sync_events#query'
+
   # Named API Routes:
   match 'api' => 'api/docs#index' # Default is actually the documenation
   match 'api/docs' => 'api/docs#index' # Default is actually the documenation

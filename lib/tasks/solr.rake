@@ -37,14 +37,14 @@ namespace :solr do
     if $SOLR_DIR
       command << '-s' << $SOLR_DIR
     end
-    exec(command.join(" "))
+    #exec(command.join(" "))
   end
 
   desc 'Stop the Solr instance'
   task :stop => :environment do
     puts "** Stopping Background Solr instance for EOL..."
     FileUtils.cd($SOLR_DIR) do
-      exec([Rails.root.join('bin', 'solr'), 'stop'].join(" "))
+      #exec([Rails.root.join('bin', 'solr'), 'stop'].join(" "))
     end
   end
 

@@ -148,6 +148,7 @@ class UsersController < ApplicationController
       @user.clear_entered_password
       send_verification_email
       EOL::GlobalStatistics.increment('users')
+      SyncPeerLog.log_add_user(@user.id, params[:user])
       redirect_to pending_user_path(@user), :status => :moved_permanently
     else
       failed_to_create_user and return

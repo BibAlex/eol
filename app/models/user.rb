@@ -758,4 +758,19 @@ private
     Notification.create(:user_id => self.id)
   end
 
+  ################
+  # Sync Methods #
+  ################
+
+  def self.add_user(user_site_id, user_site_object_id, action_taken_at_time, params)
+    user = User.new
+    user.site_id = user_site_id
+    user.user_site_object_id = user_site_object_id
+    user.username = params[:username]
+    user.agreed_with_terms = params[:agreed_with_terms]
+    user.created_at = action_taken_at_time
+
+    return @user.save
+  end
+
 end
