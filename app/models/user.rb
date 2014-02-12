@@ -64,21 +64,21 @@ class User < ActiveRecord::Base
 
   @email_format_re = %r{^(?:[_\+a-z0-9-]+)(\.[_\+a-z0-9-]+)*@([a-z0-9-]+)(\.[a-zA-Z0-9\-\.]+)*(\.[a-z]{2,4})$}i
 
-  validate :ensure_unique_username_against_master, if: :eol_authentication?
+  validate :ensure_unique_username_against_master, :if => :eol_authentication? && "site_id == PEER_SITE_ID"
+  
+  validates_presence_of :given_name, :if => :given_name_required?
+  validates_presence_of :family_name, :if => :first_last_names_required?
+  validates_presence_of :username, :if => :eol_authentication? && "site_id == PEER_SITE_ID"
 
-  validates_presence_of :given_name, if: :given_name_required?
-  validates_presence_of :family_name, if: :first_last_names_required?
-  validates_presence_of :username, if: :eol_authentication?
+  validates_length_of :username, :within => 4..32, :if => :eol_authentication?
+  validates_length_of :entered_password, :within => 4..16, :if => :password_validation_required? && "site_id == PEER_SITE_ID"
 
-  validates_length_of :username, within: 4..32, if: :eol_authentication?
-  validates_length_of :entered_password, within: 4..16, if: :password_validation_required?
+  validates_confirmation_of :entered_password, :if => :password_validation_required? && "site_id == PEER_SITE_ID"
 
-  validates_confirmation_of :entered_password, if: :password_validation_required?
+  validates_format_of :email, :with => @email_format_re, :if => "site_id == PEER_SITE_ID"
+  validates_confirmation_of :email, :if => :email_confirmation_required? && "site_id == PEER_SITE_ID"
 
-  validates_format_of :email, with: @email_format_re
-  validates_confirmation_of :email, if: :email_confirmation_required?
-
-  validates_acceptance_of :agreed_with_terms, accept: true
+  validates_acceptance_of :agreed_with_terms, :accept => true, :if => "site_id == PEER_SITE_ID"
 
 # CURATOR CLASS DECLARATIONS - TODO - extract:
 
@@ -95,9 +95,9 @@ class User < ActiveRecord::Base
 
   after_create :join_curator_community_if_curator
 
-  validates_presence_of :curator_verdict_at, if: Proc.new { |obj| !obj.curator_verdict_by.blank? }
-  validates_presence_of :credentials, if: :curator_attributes_required?
-  validates_presence_of :curator_scope, if: :curator_attributes_required?
+  validates_presence_of :curator_verdict_at, :if => Proc.new { |obj| !obj.curator_verdict_by.blank? }
+  validates_presence_of :credentials, :if => :curator_attributes_required?
+  validates_presence_of :curator_scope, :if => :curator_attributes_required?
 
   attr_accessor :curator_request
 

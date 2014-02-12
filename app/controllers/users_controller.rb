@@ -149,6 +149,18 @@ class UsersController < ApplicationController
       @user.clear_entered_password
       send_verification_email
       EOL::GlobalStatistics.increment('users')
+      
+      #log this action for sync.
+      sync_params = params[:user]
+      sync_params = sync_params.reverse_merge(:language => current_language,
+                                              :validation_code => @user.validation_code,
+                                              :remote_ip => request.remote_ip,
+                                              :user_origin_id => @user.user_origin_id,
+                                              :site_id => PEER_SITE_ID,
+                                              :created_at => @user.created_at)
+      
+      SyncPeerLog.log_add_user(@user.id, sync_params)
+      
       redirect_to pending_user_path(@user), status: :moved_permanently
     else
       failed_to_create_user and return
