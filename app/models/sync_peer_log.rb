@@ -5,7 +5,7 @@ class SyncPeerLog < ActiveRecord::Base
   belongs_to :sync_object_action, :foreign_key => 'sync_object_action_id'
 
   def self.log_add_user(user_id, params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id)
+    spl = self.create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -122,7 +122,7 @@ class SyncPeerLog < ActiveRecord::Base
     # end
   # end
   
-  def create_sync_peer_log(user_site_id, user_site_object_id, sync_object_action_id, sync_object_type_id, sync_object_site_id, sync_object_id)
+  def self.create_sync_peer_log(user_site_id, user_site_object_id, sync_object_action_id, sync_object_type_id, sync_object_site_id, sync_object_id)
     spl = SyncPeerLog.new
     spl.user_site_id = user_site_id    
     spl.user_site_object_id = user_site_object_id
@@ -135,7 +135,7 @@ class SyncPeerLog < ActiveRecord::Base
     return nil
   end
   
-  def create_sync_log_action_parameter(peer_log_id, key, value)
+  def self.create_sync_log_action_parameter(peer_log_id, key, value)
     slap = SyncLogActionParameter.new
     slap.peer_log_id = peer_log_id
     slap.parameter = key
@@ -143,7 +143,7 @@ class SyncPeerLog < ActiveRecord::Base
     slap.save
   end
   
-  def create_user(parameters)
+  def self.create_user(parameters)
     User.create(parameters)
     EOL::GlobalStatistics.increment('users')
   end
