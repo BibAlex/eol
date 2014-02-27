@@ -9,7 +9,6 @@ class Administrator::UserController  < AdminController
   require 'csv'
 
   def index
-
     @page_title = I18n.t("web_users")
 
     @user_search_string = params[:user_search_string] || ''
@@ -124,7 +123,6 @@ class Administrator::UserController  < AdminController
   end
 
   def update
-
     @user = User.find(params[:id])
     @message = params[:message]
     if @user.blank?
@@ -159,7 +157,7 @@ class Administrator::UserController  < AdminController
         end
       end
       @user.add_to_index
-      flash[:notice] = I18n.t("the_user_was_updated")
+      flash[:notice] = I18n.t("the_user_was_updatedzzz")
       redirect_back_or_default(url_for(action: 'index'))
     else
       render action: 'edit'
