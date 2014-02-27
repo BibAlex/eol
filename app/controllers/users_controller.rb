@@ -137,7 +137,7 @@ class UsersController < ApplicationController
   # POST /users
   # Extended by EOL::OpenAuth::ExtendUsersController
   def create
-    @user = User.new(params[:user].reverse_merge(language: current_language))
+    @user = User.new(params[:user].reverse_merge(language: current_language, site_id: PEER_SITE_ID))
     failed_to_create_user and return unless @user.valid? && verify_recaptcha
     @user.validation_code = User.generate_key
     while(User.find_by_validation_code(@user.validation_code))
@@ -145,6 +145,7 @@ class UsersController < ApplicationController
     end
     @user.active = false
     @user.remote_ip = request.remote_ip
+    @user.user_origin_id = @user.id if @user.save
     if @user.save
       @user.clear_entered_password
       send_verification_email
