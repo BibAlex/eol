@@ -30,7 +30,15 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.log_update_user(user_id, params)
-    self.handle_user_actions(user_id, params, SyncObjectAction.get_update_action.id)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id)
+    # add log action parameters
+    if spl
+      params.each do |key, value| 
+        unless 'email email_confirmation entered_password entered_password_confirmation'.include? key
+          create_sync_log_action_parameter(spl.id, key, value)
+        end
+      end
+    end   
   end
   
   def process_entry
@@ -146,5 +154,12 @@ class SyncPeerLog < ActiveRecord::Base
   def create_user(parameters)
     User.create(parameters)
     EOL::GlobalStatistics.increment('users')
+  end
+  
+   def update_user(parameters)
+    # find user want to update using user origin id and user origin site id 
+    user = User.find_by_user_origin_id_and_site_id(params[:user_origin_id], params[:site_id])
+    user.update_attributes(params)
+    # handle becoming curator
   end
 end

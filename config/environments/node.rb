@@ -56,7 +56,7 @@ REGISTRY_PUSH_URL = 'push_requests/make_push'
 REGISTRY_PUSH_QUERY_URL = 'push_requests/query'
 REGISTRY_PULL_URL = 'pull_requests/pull'
 REGISTRY_PULL_REPORT = 'pull_requests/report'
-INIT_UUID = 'f93dd61a-9e04-11e3-a5c4-080027d6c7a0'
+INIT_UUID = 'eb0bef8e-9fb5-11e3-9f42-080027d6c7a0'
 SITE_URI = 'http://127.0.0.1:3002'
 
 Eol::Application.configure do

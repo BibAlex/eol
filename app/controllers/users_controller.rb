@@ -71,6 +71,19 @@ class UsersController < ApplicationController
       current_user.log_activity(:updated_user)
       store_location params[:return_to] if params[:return_to]
       provide_feedback
+      
+      #log update user action action for sync.
+     sync_params = params[:user]
+     sync_params = sync_params.reverse_merge(:language => current_language,
+                                             :validation_code => @user.validation_code,
+                                             :remote_ip => request.remote_ip,
+                                             :user_origin_id => @user.user_origin_id,
+                                             :site_id => PEER_SITE_ID,
+                                             :updated_at => @user.updated_at)
+    
+     SyncPeerLog.log_update_user(@user.id, sync_params)
+
+      
       redirect_back_or_default @user
     else
       failed_to_update_user
