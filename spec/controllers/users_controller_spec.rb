@@ -109,6 +109,72 @@ describe UsersController do
 
     it 'should create a new EOL user and send verification email if registration is valid'
     it 'should not create a new user if registration is invalid'
+    
+    context 'syncronization' do
+      it "should save registeration action data for later syncronization" do
+        
+        truncate_table(ActiveRecord::Base.connection, "users", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+        prev_count = EOL::GlobalStatistics.solr_count('User')
+        
+        @user = {:username => 'user_1', 
+                         :given_name => 'user', 
+                         :email => "user1@yahoo.com", 
+                         :email_confirmation => "user1@yahoo.com", 
+                         :entered_password => "HELLO", 
+                         :entered_password_confirmation => "HELLO", 
+                         :agreed_with_terms => 1}
+                        
+        post :create, {:user => @user}
+        
+        # check user
+        created_user = User.first
+        created_user.should_not be_nil
+        created_user.username.should == "#{@user[:username]}"
+        Rails.cache.read(EOL::GlobalStatistics.key_for_type("users")).should == prev_count + 1
+         
+        # check sync_object_type
+        type = SyncObjectType.first
+        type.should_not be_nil
+        type.object_type.should == "User"
+        
+        # check sync_object_actions
+        action = SyncObjectAction.first
+        action.should_not be_nil
+        action.object_action.should == "create"
+        
+        # check peer logs
+        peer_log = SyncPeerLog.first
+        peer_log.should_not be_nil
+        peer_log.sync_object_action_id.should == action.id
+        peer_log.sync_object_type_id.should == type.id
+        peer_log.user_site_id .should == PEER_SITE_ID
+        peer_log.user_site_object_id.should == created_user.id
+        peer_log.sync_object_id.should == created_user.id
+        peer_log.sync_object_site_id.should == PEER_SITE_ID
+        
+        # check log action parameters
+        username_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "username")
+        username_parameter[0][:value].should == "#{@user[:username]}"
+        
+        language_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "language")
+        lang = Language.find_by_source_form("English")
+        language_parameter[0][:value].should == "#{lang.id}"
+        
+        validation_code_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "validation_code")
+        validation_code_parameter[0][:value].should == "#{created_user.validation_code}"
+        
+        agreed_with_terms_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "agreed_with_terms")
+        if created_user.agreed_with_terms
+          agreed_with_terms_parameter[0][:value].should == "1"
+        else
+          agreed_with_terms_parameter[0][:value].should == "0"
+        end
+      end
+    end
   end
 
   describe 'GET show' do
