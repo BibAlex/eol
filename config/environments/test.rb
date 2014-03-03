@@ -25,6 +25,9 @@ Eol::Application.configure do
   # Disable request forgery protection in test environment
   config.action_controller.allow_forgery_protection    = false
 
+  # Don't care if the mailer can't send
+  config.action_mailer.raise_delivery_errors = false
+  
   # Tell Action Mailer not to deliver emails to the real world.
   # The :test delivery method accumulates sent emails in the
   # ActionMailer::Base.deliveries array.
@@ -43,3 +46,14 @@ Eol::Application.configure do
 end
 
 $UNSUBSCRIBE_NOTIFICATIONS_KEY = '1ed25583250bf547e614c0d315bd2671'
+
+# variables used for syncing
+PEER_SITE_ID = 1
+AUTH_CODE = 'a1b7a464-9a1e-11e3-b968-080027137717'
+REGISTRY_URL = 'http://localhost:3000/'
+REGISTRY_PUSH_URL = 'push_requests/make_push'
+REGISTRY_PUSH_QUERY_URL = 'push_requests/query'
+REGISTRY_PULL_URL = 'pull_requests/pull'
+REGISTRY_PULL_REPORT = 'pull_requests/report'
+INIT_UUID = 'f3d2aa1a-9a3b-11e3-ba30-080027137717'
+SITE_URI = 'http://127.0.0.1:3001'

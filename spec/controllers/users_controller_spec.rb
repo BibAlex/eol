@@ -202,6 +202,19 @@ describe UsersController do
       assigns[:user].errors.any?.should be_false
       assigns[:user].curator_level_id.should == CuratorLevel.assistant_curator.id
     end
+    
+    # sync update action
+    describe 'update user synchronization' do
+      before(:each) do
+        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+        session[:user_id] = @user.id
+      end
+      it 'should create sync peer log after updating user' do
+       lambda do
+          put :update, { :id => @user.id, :user => { :id => @user.id, :username => 'myusername', :bio => 'My bio' }}
+         end.should change(SyncPeerLog, :count).by(1)                                                                            
+      end
+    end
   end
 
   describe 'GET curation_privileges' do

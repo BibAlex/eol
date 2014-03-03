@@ -156,10 +156,14 @@ class SyncPeerLog < ActiveRecord::Base
     EOL::GlobalStatistics.increment('users')
   end
   
-   def update_user(parameters)
+   def self.update_user(parameters)
     # find user want to update using user origin id and user origin site id 
-    user = User.find_by_user_origin_id_and_site_id(params[:user_origin_id], params[:site_id])
-    user.update_attributes(params)
+    parameters[:user_identity_ids] = parameters["user_identity_ids"].split(",")  if (!(parameters["user_identity_ids"].nil?))
+    debugger
+    user = User.find_by_user_origin_id_and_site_id(parameters["user_origin_id"], parameters["site_id"])
+    user.update_attributes(parameters)
+    # call log activity
+    user.log_activity(:updated_user)
     # handle becoming curator
   end
 end

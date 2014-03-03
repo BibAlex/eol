@@ -54,6 +54,7 @@ class UsersController < ApplicationController
 
   # PUT /users/:id
   def update
+    
     @user = User.find(params[:id])
     raise EOL::Exceptions::SecurityViolation,
       "User with ID=#{current_user.id} does not have edit access to User with ID=#{@user.id}" unless current_user.can_update?(@user)
@@ -72,16 +73,24 @@ class UsersController < ApplicationController
       store_location params[:return_to] if params[:return_to]
       provide_feedback
       
-      #log update user action action for sync.
-     sync_params = params[:user]
-     sync_params = sync_params.reverse_merge(:language => current_language,
-                                             :validation_code => @user.validation_code,
-                                             :remote_ip => request.remote_ip,
-                                             :user_origin_id => @user.user_origin_id,
-                                             :site_id => PEER_SITE_ID,
-                                             :updated_at => @user.updated_at)
-    
-     SyncPeerLog.log_update_user(@user.id, sync_params)
+       # #log update user action action for sync.
+       sync_params = params[:user]      
+       # user identities
+      if sync_params[:user_identity_ids].count == 1
+        sync_params[:user_identity_ids] = nil
+      else
+        sync_params[:user_identity_ids].reject! { |item| item.empty? }
+     end    
+       sync_params[:user_identity_ids] = sync_params[:user_identity_ids].join(',')  if (!(sync_params[:user_identity_ids].nil?))
+        sync_params = sync_params.reverse_merge(:language => current_language,
+                                                :validation_code => @user.validation_code,
+                                                :remote_ip => request.remote_ip,
+                                                :user_origin_id => @user.user_origin_id,
+                                                :site_id => PEER_SITE_ID,
+                                                :updated_at => @user.updated_at,
+                                                :api_key => @user.api_key)
+      
+        SyncPeerLog.log_update_user(@user.id, sync_params)
 
       
       redirect_back_or_default @user

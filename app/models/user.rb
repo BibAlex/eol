@@ -71,7 +71,7 @@ class User < ActiveRecord::Base
   validates_presence_of :username, :if => :eol_authentication? && "site_id == PEER_SITE_ID"
 
   validates_length_of :username, :within => 4..32, :if => :eol_authentication?
-  validates_length_of :entered_password, :within => 4..16, :if => :password_validation_required? && "site_id == PEER_SITE_ID"
+  validates_length_of :entered_password, :within => 4..16, :if => :password_validation_required?  
 
   validates_confirmation_of :entered_password, :if => :password_validation_required? && "site_id == PEER_SITE_ID"
 
@@ -688,7 +688,7 @@ class User < ActiveRecord::Base
 
   # An eol authentication indicates a user that has no open authentications, i.e. only has eol credentials
   def eol_authentication?
-    open_authentications.blank?
+   open_authentications.blank?
   end
 
   # This returns false unless the user wants an email notification for the given type, then it returns the
@@ -766,6 +766,11 @@ class User < ActiveRecord::Base
 
 private
 
+  
+  def sync_validation?
+    site_id == PEER_SITE_ID  
+  end
+  
   def reload_if_stale
     return false if new_record? or changed? or frozen?
     self.reload
@@ -775,7 +780,7 @@ private
   # i.e. on user#create, or if someone is trying to change it i.e. user#update
   # Don't need password when user authenticates with open authentication e.g. Facebook
   def password_validation_required?
-    eol_authentication? && (hashed_password.blank? || hashed_password.nil? || ! self.entered_password.blank?)
+    eol_authentication? && (hashed_password.blank? || hashed_password.nil? || ! self.entered_password.blank?) && sync_validation?
   end
 
   # Callback before_save and before_update we only encrypt password if someone has entered a valid password
