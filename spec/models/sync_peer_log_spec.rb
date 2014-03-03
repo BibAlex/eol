@@ -66,5 +66,60 @@ describe SyncPeerLog do
       end
      
     end
+    
+    
+     describe "pulling update user action" do
+      before(:all) do
+         truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+         truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+         truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+
+        #create sync_object_action
+        SyncObjectAction.create(:object_action => 'update')
+        #create sync_object_type
+        SyncObjectType.create(:object_type => 'User')
+        #create sync_peer_log
+        @peer_log = SyncPeerLog.new
+        @peer_log.sync_event_id = 5 #pull event
+        @peer_log.user_site_id = 2
+        @peer_log.user_site_object_id = 80
+        @peer_log.action_taken_at_time = Time.now
+        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
+        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('User').id
+        @peer_log.sync_object_id = 80
+        @peer_log.sync_object_site_id = 2
+        @peer_log.save
+        #create sync_action_parameters
+        
+        parameters = ["username", "bio", "remote_ip", "user_origin_id", "site_id"]
+        values = ["myusername", "My bio", "127.0.0.1", "80", "2"]
+        
+        for i in 0..parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = parameters[i]
+          lap.value = values[i]
+          lap.save
+        end
+        #call process entery
+        @peer_log.process_entry
+      end
+      
+      it "should update user" do
+        user = User.first
+        #user must not have a password or an email  
+        user.email.should be_nil
+        user.hashed_password.should be_nil
+        
+        user.username.should == "myusername"
+        user.bio.should == "My bio"       
+      end
+       
+     
+    end
   end
 end

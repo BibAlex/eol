@@ -76,11 +76,13 @@ class UsersController < ApplicationController
        # #log update user action action for sync.
        sync_params = params[:user]      
        # user identities
-      if sync_params[:user_identity_ids].count == 1
-        sync_params[:user_identity_ids] = nil
-      else
-        sync_params[:user_identity_ids].reject! { |item| item.empty? }
-     end    
+       if (!sync_params[:user_identity_ids].nil?)
+          if sync_params[:user_identity_ids].count == 1
+            sync_params[:user_identity_ids] = nil
+          else
+            sync_params[:user_identity_ids].reject! { |item| item.empty? }
+         end
+       end    
        sync_params[:user_identity_ids] = sync_params[:user_identity_ids].join(',')  if (!(sync_params[:user_identity_ids].nil?))
         sync_params = sync_params.reverse_merge(:language => current_language,
                                                 :validation_code => @user.validation_code,

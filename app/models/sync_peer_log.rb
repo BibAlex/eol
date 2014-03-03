@@ -159,7 +159,6 @@ class SyncPeerLog < ActiveRecord::Base
    def self.update_user(parameters)
     # find user want to update using user origin id and user origin site id 
     parameters[:user_identity_ids] = parameters["user_identity_ids"].split(",")  if (!(parameters["user_identity_ids"].nil?))
-    debugger
     user = User.find_by_user_origin_id_and_site_id(parameters["user_origin_id"], parameters["site_id"])
     user.update_attributes(parameters)
     # call log activity
