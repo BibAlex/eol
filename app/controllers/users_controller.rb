@@ -183,7 +183,6 @@ class UsersController < ApplicationController
                                               :created_at => @user.created_at)
       
       SyncPeerLog.log_add_user(@user.id, sync_params)
-      
       redirect_to pending_user_path(@user), status: :moved_permanently
     else
       failed_to_create_user and return

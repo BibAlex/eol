@@ -64,10 +64,10 @@ class SyncPeerLog < ActiveRecord::Base
     
     model_name = SyncObjectType.find_by_id(sync_object_type_id).object_type.downcase
     action_name = SyncObjectAction.find_by_id(sync_object_action_id).object_action.downcase
-    if parameters[:language]
-      parameters[:language] = Language.find_or_create_by_iso_639_1(parameters[:language])
+    if parameters["language"]
+      parameters["language"] = Language.find_or_create_by_iso_639_1(parameters["language"], "iso_639_2" => parameters["language"], "iso_639_3" => parameters["language"], "source_form" => parameters["language"])
     else
-      parameters[:language] = Language.first
+      parameters["language"] = Language.first
     end
     function_name = "#{action_name}_#{model_name}"
     "SyncPeerLog".constantize.send(function_name, parameters)

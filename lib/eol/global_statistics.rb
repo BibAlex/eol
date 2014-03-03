@@ -60,7 +60,9 @@ module EOL
 
     def self.add_to_type(type, amount)
       old_val = Rails.cache.read(EOL::GlobalStatistics.key_for_type(type))
-      return if old_val.nil?  # No need to increment if it's expired or missing.
+      if old_val.nil?
+        old_val = self.find(type)
+      end
       if old_val.to_i != old_val # The value is not a number.  Delete it (and it will get re-set later).
         EOL::GlobalStatistics.clear(type)
         return
