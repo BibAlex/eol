@@ -583,7 +583,9 @@ class User < ActiveRecord::Base
 
   def is_member_of?(community)
     reload_if_stale
-    self.members.map {|m| m.community_id}.include?(community.id)
+    if(!(self.members.blank?))
+      self.members.map {|m| m.community_id}.include?(community.id)
+    end
   end
 
   def member_of(community)

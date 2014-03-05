@@ -124,43 +124,63 @@ class Administrator::UserController  < AdminController
 
   def update
     @user = User.find(params[:id])
-    @message = params[:message]
-    if @user.blank?
-      flash[:error] = I18n.t(:error_updating_user)
+    # ensure that the admin can update the requested user
+    admin = User.find(session[:user_id])
+    if (admin.site_id != @user.site_id )
+      flash[:error] = I18n.t("admin_can_not_update_user")
       render action: 'edit'
-      return
-    end
-
-    past_curator_level_id = @user.curator_level_id
-    Notifier.deliver_user_message(@user.full_name, @user.email, @message).deliver unless @message.blank?
-
-    user_params = params[:user]
-
-    unless user_params[:entered_password].blank? && user_params[:entered_password_confirmation].blank?
-      if user_params[:entered_password].length < 4 || user_params[:entered_password].length > 16
-        @user.errors[:base] << I18n.t(:password_must_be_4to16_characters)
+    else    
+      @message = params[:message]
+      if @user.blank?
+        flash[:error] = I18n.t(:error_updating_user)
         render action: 'edit'
         return
       end
-      @user.password = user_params[:entered_password]
-    end
-
-    if @user.update_attributes(user_params)
-      if params[:curator_denied] || params[:user][:curator_level_id].blank?
-        @user.revoke_curator
-      else
-        if params[:user][:curator_level_id] != past_curator_level_id
-          @user.update_attributes(curator_verdict_by: current_user,
-                                  curator_verdict_at: Time.now,
-                                  curator_approved: 1)
-          @user.join_curator_community_if_curator
+  
+      past_curator_level_id = @user.curator_level_id
+      Notifier.deliver_user_message(@user.full_name, @user.email, @message).deliver unless @message.blank?
+  
+      user_params = params[:user]
+  
+      unless user_params[:entered_password].blank? && user_params[:entered_password_confirmation].blank?
+        if user_params[:entered_password].length < 4 || user_params[:entered_password].length > 16
+          @user.errors[:base] << I18n.t(:password_must_be_4to16_characters)
+          render action: 'edit'
+          return
         end
+        @user.password = user_params[:entered_password]
       end
-      @user.add_to_index
-      flash[:notice] = I18n.t("the_user_was_updatedzzz")
-      redirect_back_or_default(url_for(action: 'index'))
-    else
-      render action: 'edit'
+      if @user.update_attributes(user_params)
+        if params[:curator_denied] || params[:user][:curator_level_id].blank?
+          @user.revoke_curator
+        else
+          if params[:user][:curator_level_id] != past_curator_level_id
+            @user.update_attributes(curator_verdict_by: current_user,
+                                    curator_verdict_at: Time.now,
+                                    curator_approved: 1)
+            @user.join_curator_community_if_curator
+          end
+        end
+        @user.add_to_index
+        
+         #log update user action action for sync.
+           sync_params = params[:user]      
+          
+           sync_params = sync_params.reverse_merge(:language => current_language,
+                                                   :validation_code => @user.validation_code,
+                                                   :remote_ip => request.remote_ip,
+                                                   :user_origin_id => @user.user_origin_id,
+                                                   :site_id => PEER_SITE_ID,
+                                                   :updated_at => @user.updated_at)
+         
+           SyncPeerLog.log_update_user_by_admin(session[:user_id], @user.id, sync_params)
+  
+        
+        flash[:notice] = I18n.t("the_user_was_updatedzzz")
+        redirect_back_or_default(url_for(action: 'index'))
+      else
+        render action: 'edit'
+      end
     end
   end
 

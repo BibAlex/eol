@@ -306,8 +306,8 @@ describe UsersController do
           username_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "username")
           username_parameter[0][:value].should == "newusername"
           
-          language_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "bio")
-          language_parameter[0][:value].should == "My bio"
+          bio_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "bio")
+          bio_parameter[0][:value].should == "My bio"
                                                                                                  
       end
     end

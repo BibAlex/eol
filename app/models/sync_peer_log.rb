@@ -41,6 +41,19 @@ class SyncPeerLog < ActiveRecord::Base
     end   
   end
   
+  # log update user by admin
+  def self.log_update_user_by_admin(admin_id, user_id, params)
+    spl = create_sync_peer_log(PEER_SITE_ID, admin_id, SyncObjectAction.get_update_user_by_admin_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id)
+    # add log action parameters
+    if spl
+      params.each do |key, value| 
+        unless 'email email_confirmation entered_password entered_password_confirmation'.include? key
+          create_sync_log_action_parameter(spl.id, key, value)
+        end
+      end
+    end   
+  end
+  
   def process_entry
     # TODO: first we need to detect conflict.
     # considering that NOW we are dealing with add users, which won't cause conflicts,
@@ -160,9 +173,23 @@ class SyncPeerLog < ActiveRecord::Base
     # find user want to update using user origin id and user origin site id 
     parameters[:user_identity_ids] = parameters["user_identity_ids"].split(",")  if (!(parameters["user_identity_ids"].nil?))
     user = User.find_by_user_origin_id_and_site_id(parameters["user_origin_id"], parameters["site_id"])
-    user.update_attributes(parameters)
-    # call log activity
-    user.log_activity(:updated_user)
+    if (!(user.nil?))
+      user.update_attributes(parameters)
+      # call log activity
+      user.log_activity(:updated_user)
+    end
     # handle becoming curator
   end
+  
+  # update user by admin
+  def self.update_by_admin_user(parameters)
+    # find user want to update using user origin id and user origin site id 
+    user = User.find_by_user_origin_id_and_site_id(parameters["user_origin_id"], parameters["site_id"])
+    if (!(user.nil?))
+      user.update_attributes(parameters)
+      user.add_to_index
+    end
+    # handle becoming curator
+  end
+  
 end

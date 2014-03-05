@@ -9,6 +9,10 @@ class SyncObjectAction < ActiveRecord::Base
     self.find_or_create_by_object_action('update')
   end
   
+  def self.get_update_user_by_admin_action
+    self.find_or_create_by_object_action('update_by_admin')
+  end
+  
   def self.get_activate_action
     self.find_or_create_by_object_action('activate')
   end

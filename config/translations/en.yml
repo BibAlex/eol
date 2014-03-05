@@ -5063,3 +5063,6 @@ en:
     next_label: "Next"
   classification_curation_pending: "Curation pending. This classification may move to another page in the near future."
   excluded_icon_tip: "Rows marked with the exlcuded icon %{excluded_icon} will never be shown on taxon overview pages."
+  
+  # sync update user by admin
+  admin_can_not_update_user: You don't have a privilige to edit this user
