@@ -10,23 +10,18 @@ class SyncPeerLog < ActiveRecord::Base
     if spl
       params.each do |key, value| 
         unless 'email email_confirmation entered_password entered_password_confirmation'.include? key
-          create_sync_log_action_parameter(spl.id, key, value)
+          self.create_sync_log_action_parameter(spl.id, key, value)
         end
       end
     end   
   end
   
-  def self.log_activate_user(user_id)
-    spl = SyncPeerLog.new
-    spl.user_site_id = PEER_SITE_ID    
-    spl.user_site_object_id = user_id
-    spl.action_taken_at_time = Time.now
-    spl.sync_object_action_id = SyncObjectAction.get_activate_action.id
-    spl.sync_object_type_id = SyncObjectType.get_user_type.id
-    spl.sync_object_site_id = PEER_SITE_ID
-    spl.sync_object_id = user_id
-    
-    spl.save
+  def self.log_activate_user(user)
+    spl = self.create_sync_peer_log(PEER_SITE_ID, user.id, SyncObjectAction.get_activate_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user.id)
+    if spl
+      self.create_sync_log_action_parameter(spl.id, :user_origin_id, "#{user.user_origin_id}" )  
+      self.create_sync_log_action_parameter(spl.id, :site_id, "#{user.site_id}")  
+    end
   end
   
   def self.log_update_user(user_id, params)
@@ -196,4 +191,13 @@ class SyncPeerLog < ActiveRecord::Base
     # handle becoming curator
   end
   
+  def self.activate_user(parameters)
+    user = User.where(:site_id => parameters["site_id"], :user_origin_id => parameters["user_origin_id"])
+    if user && user.count > 0
+      user = user[0]
+      user.update_column(:active, true)
+      user.update_column(:validation_code, nil)
+    end
+  end
+
 end
