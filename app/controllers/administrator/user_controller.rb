@@ -129,19 +129,18 @@ class Administrator::UserController  < AdminController
     if (admin.site_id != @user.site_id )
       flash[:error] = I18n.t("admin_can_not_update_user")
       render action: 'edit'
-    else    
+    else
       @message = params[:message]
       if @user.blank?
         flash[:error] = I18n.t(:error_updating_user)
         render action: 'edit'
         return
       end
-  
+
       past_curator_level_id = @user.curator_level_id
       Notifier.deliver_user_message(@user.full_name, @user.email, @message).deliver unless @message.blank?
-  
+      
       user_params = params[:user]
-  
       unless user_params[:entered_password].blank? && user_params[:entered_password_confirmation].blank?
         if user_params[:entered_password].length < 4 || user_params[:entered_password].length > 16
           @user.errors[:base] << I18n.t(:password_must_be_4to16_characters)
@@ -165,13 +164,14 @@ class Administrator::UserController  < AdminController
         
          #log update user action action for sync.
            sync_params = params[:user]      
-          
            sync_params = sync_params.reverse_merge(:language => current_language,
                                                    :validation_code => @user.validation_code,
                                                    :remote_ip => request.remote_ip,
                                                    :user_origin_id => @user.user_origin_id,
                                                    :site_id => PEER_SITE_ID,
-                                                   :updated_at => @user.updated_at)
+                                                   :updated_at => @user.updated_at,
+                                                   :curator_approved => @user.curator_approved,                                                   
+                                                   :curator_level_id => @user.curator_level_id)
          
            SyncPeerLog.log_update_user_by_admin(session[:user_id], @user.id, sync_params)
   

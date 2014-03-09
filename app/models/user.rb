@@ -909,7 +909,7 @@ public
 
   # conditional for before_save
   def curator_level_can_be_instantly_approved?
-    self.wants_to_be_assistant_curator? || already_has_requested_curator_level?
+   site_id == PEER_SITE_ID && (self.wants_to_be_assistant_curator? || already_has_requested_curator_level?)
   end
 
   # NOTE - default level implies that user.grant_curator means that they're supposed to be a full curator.  Makes

@@ -33,6 +33,8 @@ class SyncPeerLog < ActiveRecord::Base
     spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id)
     # add log action parameters
     if spl
+      params.delete("requested_curator_level_id")
+      params.delete("requested_curator_at")
       params.each do |key, value| 
         unless 'email email_confirmation entered_password entered_password_confirmation'.include? key
           create_sync_log_action_parameter(spl.id, key, value)
@@ -46,6 +48,8 @@ class SyncPeerLog < ActiveRecord::Base
     spl = create_sync_peer_log(PEER_SITE_ID, admin_id, SyncObjectAction.get_update_user_by_admin_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id)
     # add log action parameters
     if spl
+      params.delete("requested_curator_level_id")
+      params.delete("requested_curator_at")
       params.each do |key, value| 
         unless 'email email_confirmation entered_password entered_password_confirmation'.include? key
           create_sync_log_action_parameter(spl.id, key, value)
@@ -186,7 +190,7 @@ class SyncPeerLog < ActiveRecord::Base
     # find user want to update using user origin id and user origin site id 
     user = User.find_by_user_origin_id_and_site_id(parameters["user_origin_id"], parameters["site_id"])
     if (!(user.nil?))
-      user.update_attributes(parameters)
+      user.update_attributes(parameters)    
       user.add_to_index
     end
     # handle becoming curator
