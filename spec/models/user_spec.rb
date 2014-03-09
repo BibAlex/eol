@@ -15,13 +15,13 @@ describe User do
   end
 
   before(:all) do
-    I18n.locale = 'en'
-    @password = 'dragonmaster'
-    load_foundation_cache
-    @user = User.gen username: 'KungFuPanda', password: @password
-    @user.should_not be_a_new_record
-    @admin = User.gen(username: 'MisterAdminToYouBuddy')
-    @admin.grant_admin
+    # I18n.locale = 'en'
+    # @password = 'dragonmaster'
+    # load_foundation_cache
+    # @user = User.gen username: 'KungFuPanda', password: @password
+    # @user.should_not be_a_new_record
+    # @admin = User.gen(username: 'MisterAdminToYouBuddy')
+    # @admin.grant_admin
   end
 
   it "should generate a random hexadecimal key" do
@@ -197,7 +197,57 @@ describe User do
     inactive_user.activate
     inactive_user.active?.should be_true
   end
-
+  
+  it "should sync activation action" do
+    truncate_table(ActiveRecord::Base.connection, "users", {})
+    truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+    truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+    truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+    truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+    truncate_table(ActiveRecord::Base.connection, "special_collections", {})
+    
+    SpecialCollection.create(:name => "Focus")
+    SpecialCollection.create(:name => "Watch")
+    
+    #create sync_object_action
+    SyncObjectAction.create(:object_action => 'activate')
+    
+    #create sync_object_type
+    SyncObjectType.create(:object_type => 'User')
+    
+    inactive_user = User.create(:username => "user", :entered_password => "12345", :entered_password_confirmation => "12345", :email => "user@yahoo.com", :email_confirmation => "user@yahoo.com")
+    inactive_user.site_id = PEER_SITE_ID
+    inactive_user.user_origin_id = inactive_user.id
+    inactive_user.save
+    inactive_user.activate
+    
+    # check sync_object_type
+    type = SyncObjectType.first
+    type.should_not be_nil
+    type.object_type.should == "User"
+    
+    # check sync_object_actions
+    action = SyncObjectAction.first
+    action.should_not be_nil
+    action.object_action.should == "activate"
+    
+    #check peer log
+    peer_log = SyncPeerLog.first
+    peer_log.user_site_id.should == PEER_SITE_ID
+    peer_log.user_site_object_id.should == inactive_user.id
+    peer_log.sync_object_action_id.should == SyncObjectAction.get_activate_action.id
+    peer_log.sync_object_type_id.should == SyncObjectType.get_user_type.id
+    peer_log.sync_object_site_id.should == PEER_SITE_ID
+    peer_log.sync_object_id.should == inactive_user.id
+    
+    #check log action parameters
+    site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "site_id")
+    site_id_parameter[0][:value].should == "#{inactive_user[:site_id]}"
+    
+    user_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "user_origin_id")
+    user_origin_id_parameter[0][:value].should == "#{inactive_user[:user_origin_id]}"
+  end
+  
   it 'should create a "watch" collection' do
     inactive_user = User.gen(active: false)
     inactive_user.activate

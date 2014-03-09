@@ -42,7 +42,7 @@ end
 Recaptcha.configure do |config|
   config.public_key  = '6LdCLOcSAAAAAEM8Tm-B8XB63WzHNIT8xaMbMfjZ'
   config.private_key = '6LdCLOcSAAAAAIVPnagKsMmh83V9TgYHPXmE0ic9'
-  config.proxy = 'http://youstina.atef:Iloveg0d@proxy:8002'
+  config.proxy = 'http://youstina.atef:@proxy:8002'
 end
 
 # TODO - Where do these go, now?  :S

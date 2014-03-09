@@ -46,11 +46,11 @@ class User < ActiveRecord::Base
   scope :admins, conditions: ['admin IS NOT NULL']
   scope :curators, conditions: 'curator_level_id is not null'
 
-  before_save :check_credentials
-  before_save :encrypt_password
+  before_save :check_credentials, if: "site_id == PEER_SITE_ID"
+  before_save :encrypt_password, if: "site_id == PEER_SITE_ID"
   before_save :remove_blank_username, unless: :eol_authentication?
   before_save :instantly_approve_curator_level, if: :curator_level_can_be_instantly_approved?
-  after_save :update_watch_collection_name
+  after_save :update_watch_collection_name, if: "site_id == PEER_SITE_ID"
   after_save :clear_cache
 
   after_create :add_agent
@@ -58,7 +58,7 @@ class User < ActiveRecord::Base
   before_destroy :destroy_comments
   # TODO: before_destroy :destroy_data_objects
 
-  after_create :add_email_notification
+  after_create :add_email_notification, if: "site_id == PEER_SITE_ID"
 
   accepts_nested_attributes_for :user_info, :notification, :open_authentications
 
@@ -268,11 +268,15 @@ class User < ActiveRecord::Base
     update_column(:validation_code, nil)
     add_to_index
     build_watch_collection
+    #syncronization
+    SyncPeerLog.log_activate_user(self)
   end
 
   # Checks to see if one already exists (DO NOT use #watch_collection to do this, recursive!), and builds one if not:
   def build_watch_collection
-    c = Collection.count_by_sql("SELECT COUNT(*) FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id) WHERE cu.user_id = #{self.id} AND c.special_collection_id = #{SpecialCollection.watch.id}")
+    c = Collection.count_by_sql("SELECT COUNT(*) FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id) 
+    WHERE cu.user_id = #{self.id} 
+    AND c.special_collection_id = #{SpecialCollection.watch.id}")
     if c == 0
       collections << collection = Collection.create(name: I18n.t(:default_watch_collection_name, username: self.full_name.titleize), special_collection_id: SpecialCollection.watch.id)
       return collection
@@ -605,10 +609,12 @@ class User < ActiveRecord::Base
   # NOTE - This REMOVES the watchlist (using #shift)!
   def published_collections(as_user = nil)
     @published_collections ||= all_collections(as_user).shift && all_collections(as_user).select { |c| c.published? }
+    return [] unless @published_collections
   end
 
   def unpublished_collections(as_user = nil)
     @unpublished_collections ||= all_collections(as_user).select { |c| ! c.published? }
+    return [] unless @unpublished_collections
   end
 
   # #collections is only a list of the collections the user *owns*.  This is a list that includes the collections the
