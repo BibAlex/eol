@@ -53,12 +53,41 @@ class SyncPeerLog < ActiveRecord::Base
     end   
   end
   
+    # log create collection
+  def self.log_create_collection(collection_id, user_id,  params)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_collection_type.id, PEER_SITE_ID, collection_id)
+    # add log action parameters
+    if spl
+      params.each do |key, value| 
+          create_sync_log_action_parameter(spl.id, key, value)
+      end
+    end   
+  end
+  
+    # log update collection
+  def self.log_update_collection(collection_id, user_id,  params)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_collection_type.id, PEER_SITE_ID, collection_id)
+    # add log action parameters
+    if spl
+      params.each do |key, value| 
+          create_sync_log_action_parameter(spl.id, key, value)
+      end
+    end   
+  end
+  
+  
+  
   def process_entry
     # TODO: first we need to detect conflict.
     # considering that NOW we are dealing with add users, which won't cause conflicts,
     # So I am skipping it for now
     
     parameters = {}
+    parameters["user_site_id"] = user_site_id
+    parameters["user_site_object_id"] = user_site_object_id
+    parameters["sync_object_id"] = sync_object_id
+    parameters["sync_object_site_id"] = sync_object_site_id
+    
     sync_log_action_parameter.each do |lap|
       unless lap.param_object_type_id
         parameters[lap.parameter] = lap.value
@@ -81,6 +110,7 @@ class SyncPeerLog < ActiveRecord::Base
     else
       parameters["language"] = Language.first
     end
+    debugger
     function_name = "#{action_name}_#{model_name}"
     "SyncPeerLog".constantize.send(function_name, parameters)
   end
@@ -171,24 +201,34 @@ class SyncPeerLog < ActiveRecord::Base
    def self.update_user(parameters)
     # find user want to update using user origin id and user origin site id 
     parameters[:user_identity_ids] = parameters["user_identity_ids"].split(",")  if (!(parameters["user_identity_ids"].nil?))
+    parameters["site_id"] = parameters["sync_object_site_id"]
+    parameters["user_origin_id"] = parameters["sync_object_id"]
+    parameters.delete("user_site_id")
+    parameters.delete("user_site_object_id")
+    parameters.delete("sync_object_id")
+    parameters.delete("sync_object_site_id")
     user = User.find_by_user_origin_id_and_site_id(parameters["user_origin_id"], parameters["site_id"])
     if (!(user.nil?))
       user.update_attributes(parameters)
       # call log activity
       user.log_activity(:updated_user)
     end
-    # handle becoming curator
   end
   
   # update user by admin
   def self.update_by_admin_user(parameters)
     # find user want to update using user origin id and user origin site id 
+    parameters["site_id"] = parameters["sync_object_site_id"]
+    parameters["user_origin_id"] = parameters["sync_object_id"]
+    parameters.delete("user_site_id")
+    parameters.delete("user_site_object_id")
+    parameters.delete("sync_object_id")
+    parameters.delete("sync_object_site_id")
     user = User.find_by_user_origin_id_and_site_id(parameters["user_origin_id"], parameters["site_id"])
     if (!(user.nil?))
       user.update_attributes(parameters)    
       user.add_to_index
     end
-    # handle becoming curator
   end
   
   def self.activate_user(parameters)
@@ -199,5 +239,52 @@ class SyncPeerLog < ActiveRecord::Base
       user.update_column(:validation_code, nil)
     end
   end
+  
+  # how node site handle create collection action
+  def self.create_collection(parameters)
+    collection_owner = User.find_by_user_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    # remove extra paramters which not needed in creating collection 
+    parameters["site_id"] = parameters["sync_object_site_id"]
+    parameters["collection_origin_id"] = parameters["sync_object_id"]  
+    parameters.delete("language")   
+    parameters.delete("user_site_id")
+    parameters.delete("user_site_object_id")
+    parameters.delete("sync_object_id")
+    parameters.delete("sync_object_site_id")
+    #
+    collection = Collection.new(parameters)
+    collection.save  
+    collection.users = [collection_owner]
+    # log create collection action
+    CollectionActivityLog.create(collection: collection, user: collection_owner, activity: Activity.create)
+  end
+  
+   # how node site handle update collection action
+  def self.update_collection(parameters)
+    collection_owner = User.find_by_user_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    collection = Collection.find_by_collection_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    # remove extra paramters which not needed in creating collection
+    parameters["site_id"] = parameters["sync_object_site_id"]
+    parameters["collection_origin_id"] = parameters["sync_object_id"]      
+    parameters.delete("language")   
+    parameters.delete("user_site_id")
+    parameters.delete("user_site_object_id")
+    parameters.delete("sync_object_id")
+    parameters.delete("sync_object_site_id")
+    #
+    
+    if(!(collection.nil?))
+      name_change = parameters[:name] != collection.name
+      description_change = parameters[:description] != collection.description
+      collection.update_attributes(parameters)    
+      
+      # log create collection action
+      CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
+      CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
+    end
+   end
+  
+  
+  
 
 end

@@ -55,9 +55,21 @@ class CollectionsController < ApplicationController
     if @collection.save
       @collection.users = [current_user]
       log_activity(activity: Activity.create)
-      flash[:notice] = I18n.t(:collection_created_with_count_notice,
+      
+        # set collection origin id and collection site id
+        @collection[:collection_origin_id] = @collection.id
+        @collection[:site_id] =  PEER_SITE_ID
+        @collection.save                    
+                              
+        # create sync peer log for new collection metadata
+        sync_params = params[:collection]        
+                                                                                 
+        SyncPeerLog.log_create_collection(@collection.id, current_user.user_origin_id,sync_params)
+         
+         flash[:notice] = I18n.t(:collection_created_with_count_notice,
                               collection_name: link_to_name(@collection),
-                              count: @collection.collection_items.count)
+                              count: @collection.collection_items.count)                     
+                              
       if params[:source_collection_id] # We got here by creating a new collection FROM an existing collection:
         return create_collection_from_existing
       else
@@ -107,6 +119,12 @@ class CollectionsController < ApplicationController
       redirect_to params.merge!(action: 'show').except(*unnecessary_keys_for_redirect), status: :moved_permanently
       CollectionActivityLog.create({ collection: @collection, user_id: current_user.id, activity: Activity.change_name }) if name_change
       CollectionActivityLog.create({ collection: @collection, user_id: current_user.id, activity: Activity.change_description }) if description_change
+      
+       # create sync peer log for updating collection metadata
+       sync_params = params[:collection]                                                                                 
+        SyncPeerLog.log_update_collection(@collection.id, current_user.user_origin_id,sync_params) 
+               
+                              
     else
       set_edit_vars
       render action: :edit
@@ -606,7 +624,7 @@ private
     end
   end
 
-  def create_collection_from_existing
+  def create_collection_from_existing  
     source = Collection.find(params[:source_collection_id])
     if source.nil?
       @collection.destroy

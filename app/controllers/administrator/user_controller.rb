@@ -164,12 +164,7 @@ class Administrator::UserController  < AdminController
         
           #log update user action action for sync.
             sync_params = params[:user]      
-            sync_params = sync_params.reverse_merge(:language => current_language,
-                                                    :validation_code => @user.validation_code,
-                                                    :remote_ip => request.remote_ip,
-                                                    :user_origin_id => @user.user_origin_id,
-                                                    :site_id => PEER_SITE_ID,
-                                                    :updated_at => @user.updated_at,
+            sync_params = sync_params.reverse_merge(:updated_at => @user.updated_at,
                                                     :curator_approved => @user.curator_approved,                                                   
                                                     :curator_level_id => @user.curator_level_id,
                                                     :curator_verdict_by_id => @user.curator_verdict_by_id,

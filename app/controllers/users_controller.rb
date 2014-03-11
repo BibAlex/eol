@@ -66,33 +66,32 @@ class UsersController < ApplicationController
     end
     user_before_update = @user
     if @user.update_attributes(params[:user])
-      update_current_language(@user.language)
+      update_current_language(@user.language)       
+      
       upload_logo(request.ip, @user) unless params[:user][:logo].blank?
       current_user.log_activity(:updated_user)
       store_location params[:return_to] if params[:return_to]
       provide_feedback
       
-       # #log update user action action for sync.
-       sync_params = params[:user]      
-       # user identities
-       if (!sync_params[:user_identity_ids].nil?)
-          if sync_params[:user_identity_ids].count == 1
-            sync_params[:user_identity_ids] = nil
-          else
-            sync_params[:user_identity_ids].reject! { |item| item.empty? }
-         end
-       end    
-       sync_params[:user_identity_ids] = sync_params[:user_identity_ids].join(',')  if (!(sync_params[:user_identity_ids].nil?))
-       sync_params.delete("curator_level_id") if (!(sync_params["curator_level_id"].nil?))
-        sync_params = sync_params.reverse_merge(:language => current_language,
-                                                :validation_code => @user.validation_code,
-                                                :remote_ip => request.remote_ip,
-                                                :user_origin_id => @user.user_origin_id,
-                                                :site_id => PEER_SITE_ID,
-                                                :updated_at => @user.updated_at,
-                                                :api_key => @user.api_key,
-                                                :curator_level_id => @user.curator_level_id)
-        SyncPeerLog.log_update_user(@user.id, sync_params)
+        # #log update user action action for sync.
+        sync_params = params[:user]      
+        # user identities
+        if (!sync_params[:user_identity_ids].nil?)
+           if sync_params[:user_identity_ids].count == 1
+             sync_params[:user_identity_ids] = nil
+           else
+             sync_params[:user_identity_ids].reject! { |item| item.empty? }
+          end
+        end    
+        # prepare parameters
+        sync_params[:user_identity_ids] = sync_params[:user_identity_ids].join(',')  if (!(sync_params[:user_identity_ids].nil?))
+        
+        sync_params.delete("curator_level_id") if (!(sync_params["curator_level_id"].nil?))
+        
+        sync_params = sync_params.reverse_merge( :updated_at => @user.updated_at,
+                                                 :api_key => @user.api_key,
+                                                 :curator_level_id => @user.curator_level_id)
+         SyncPeerLog.log_update_user(@user.id, sync_params)
 
       
       redirect_back_or_default @user
