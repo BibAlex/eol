@@ -1,7 +1,6 @@
 require 'set'
 require 'uuid'
 require 'erb'
-require 'model_query_helper'
 require 'eol/activity_loggable'
 
 # Represents any kind of object imported from a ContentPartner, eg. an image, article, video, etc.  This is one
@@ -11,7 +10,6 @@ class DataObject < ActiveRecord::Base
   MAXIMUM_RATING = 5.0
   MINIMUM_RATING = 0.5
 
-  include ModelQueryHelper
   include EOL::ActivityLoggable
   include IdentityCache
 
@@ -79,6 +77,8 @@ class DataObject < ActiveRecord::Base
 
   before_validation :default_values
   after_create :clean_values
+
+  scope :images, -> { where(data_type_id: DataType.image.id) }
 
   index_with_solr keywords: [ :object_title, :rights_statement, :rights_holder,
     :location, :bibliographic_citation, :agents_for_solr ], fulltexts: [ :description ]
@@ -310,7 +310,9 @@ class DataObject < ActiveRecord::Base
 
   def rating_from_user(u)
     return nil if u.is_a?(EOL::AnonymousUser)
-    users_data_objects_ratings.where(user_id: u.id).first
+    # more often than not ratings will have been preloaded, so a .detect
+    # is faster than a .where here
+    users_data_objects_ratings.detect{ |udor| udor.user_id == u.id }
   end
 
   def safe_rating

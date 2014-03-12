@@ -1,5 +1,8 @@
-# This is, quite simply, a class to round-robin our asset servers, so that their load is equally distributed (in theory).
+# This is, quite simply, a class to round-robin our asset servers, so that their load is equally distributed (in
+# theory).
+#
 # TODO - do something when there are NO content servers, ie: in development.
+
 class ContentServer
 
   @@cache_url_re = /(\d{4})(\d{2})(\d{2})(\d{2})(\d+)/
@@ -26,7 +29,8 @@ class ContentServer
   end
 
   # only uploading logos
-  def self.upload_content(ip_with_port, path_from_root, port = nil)
+  def self.upload_content(path_from_root, port = nil)
+    ip_with_port = EOL::Server.ip_address.dup
     ip_with_port += ":" + port if port && !ip_with_port.match(/:[0-9]+$/)
     path_from_root = URI.encode(URI.encode(path_from_root))
     parameters = 'function=upload_content&file_path=http://' + ip_with_port + path_from_root

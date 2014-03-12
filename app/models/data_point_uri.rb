@@ -1,5 +1,9 @@
 # encoding: utf-8
 # Gives us a SQL representation of a triple stored in the SparQL Database, so we can do rails-y things with it.
+
+# TODO - it is really unclear how predicate and object work... how do I set them in tests, how do I know if they are
+# URIs, why are there sixteen flavors of each?  ...This needs to be re-engineered.
+
 class DataPointUri < ActiveRecord::Base
 
   include EOL::CuratableAssociation
@@ -52,6 +56,14 @@ class DataPointUri < ActiveRecord::Base
         row[:data_point_instance] ||= DataPointUri.create_from_virtuoso_response(row)
         row[:data_point_instance].update_with_virtuoso_response(row)
       end
+    end
+  end
+
+  def self.initialize_labels_in_language(data_point_uris, language = Language.default)
+    data_point_uris.each do |data_point_uri|
+      # calling value_string now while we have the proper language for loading the proper
+      # translations and common names. This will cache the value for use later, such as in sorting
+      data_point_uri.value_string(language)
     end
   end
 
@@ -478,25 +490,28 @@ class DataPointUri < ActiveRecord::Base
 
   # TODO - this logic is duplicated in the taxa helper; remove it from there. Maybe move to DataValue?
   def value_string(lang = Language.default)
+    return @value_string unless @value_string.blank?
+    @value_string = nil
     if association? && target_taxon_concept
-      common = target_taxon_concept.preferred_common_name_in_language(lang)
-      return target_taxon_concept.title_canonical if common.blank?
-      common
+      if common_name = target_taxon_concept.preferred_common_name_in_language(lang)
+        @value_string = common_name
+      else
+        @value_string = target_taxon_concept.title_canonical
+      end
     else
       val = EOL::Sparql.uri_components(object_uri)[:label].to_s # TODO - see if we need that #to_s; seems redundant.
       if val.is_numeric?
         # float values can be rounded off to 2 decimal places
         if val.is_float?
-          val = val.to_f.round(2)
+          @value_string = val.to_f.round(2)
         else
-          val = val.to_i
+          @value_string = val.to_i
         end
-      else
-        # other values may have links embedded in them (references, citations, etc.)
-        val.add_missing_hyperlinks
       end
-      val
+      # other values may have links embedded in them (references, citations, etc.)
+      @value_string = val.add_missing_hyperlinks
     end
+    return @value_string
   end
 
   # NOTE - Sadly, when using scopes here, it loads each scope for each instance, separately. (WTF?) So I'm not using scopes, I'm

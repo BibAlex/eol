@@ -60,13 +60,14 @@ end
 group :test do
   gem 'webmock', '1.8.11' # Mock calls to remote APIs, like Open Authentication.
   gem 'rspec-html-matchers', '0.4.3' # Adds #with_tag for tests. Requires nokogiri.
+  gem 'simplecov', '~> 0.7.1', require: false
 end
 
 group :assets do
   gem 'turbo-sprockets-rails3', '0.3.4' # This is supposed to minimize the re-building of assets. AFAICT, it isn't working for us.
 end
 
-gem 'rails', '3.2.15'
+gem 'rails', '3.2.17'
 
 gem 'acts_as_list', '0.3.0' # Used for drag-and-drop reordering of KnownUri instances. ...We could be making wider use of this.
 gem 'acts_as_tree_rails3', '0.1.0' # We use this for a few of our tree-like models, such as TocItem and CollectionType.
@@ -83,6 +84,7 @@ gem 'email_spec', '1.4.0' # For testing emails within RSpec.
 gem 'escape' # provides several HTML/URI/shell escaping functions - TODO - I don't think we need this?
 gem 'ezcrypto' # TODO - remove this, I don't think we use it.
 gem 'haml', '4.0.4' # This is how we handle ALL of our HTML, you need to learn this.
+gem 'redis-namespace', '1.2.2' # http://www.rubysec.com/advisories/OSVDB-96425/ TODO - this can be removed once we update redis/resque.
 gem 'ruby-hmac', '0.4.0' # Used ONLY for CyberSource donations. ...but I'm not sure how best to group this gem otherwise.
 gem 'identity_cache', '0.0.4' # Used to cache objects in a robust way.
 gem 'indifferent-variable-hash', '0.1.0' # TODO - remove this, Rails has something like this baked in. I forget what it's called.
@@ -92,10 +94,10 @@ gem 'json', '1.8.1' # For APIs that want to return JSON.
 gem 'macaddr' # For creating UUIDs that are unique to the machine that makes them.
 gem 'mime-types', '1.25' # For handling the many differnt types of files to serve, such as videos.
 gem 'mysql2', '0.3.14' # This is our database. You might want this.
-gem 'newrelic_rpm', '>3.5.3' # For gathering tons of awesome stats about the site
+gem 'newrelic_rpm', '>3.7.2' # For gathering tons of awesome stats about the site
 gem 'oauth', '0.4.7' # Logging in via Facebook and Twitter, older version.
 gem 'oauth2', '0.8.0' # Logging in via Facebook and Twitter
-gem 'paperclip', '3.3.1' # Uploading files, such as icons for users and collections.
+gem 'paperclip', '4.1.1' # Uploading files, such as icons for users and collections.
 gem 'rails_autolink', '1.1.5' # Adding links to user-entered text.
 gem 'rails3-jquery-autocomplete', '1.0.11', :git => "git://github.com/pleary/rails3-jquery-autocomplete.git" # Autocomplete Ajax.
 gem 'recaptcha', '0.3.4', :require => 'recaptcha/rails' # An empathy test to see if you're a human, when creating an account.
@@ -107,5 +109,5 @@ gem 'statsd-ruby', '1.2.1' # For recording various stats around the site.
 gem 'uglifier', '2.3.1' # For smaller JS when assets are compiled
 gem 'unicorn', '4.4.0' # This is our webserver
 gem 'uuid', '2.3.5' # Used when creating data objects
-gem 'will_paginate', '3.0.4' # Used ALL OVER THE SITE for pagination.
+gem 'will_paginate', '~> 3.0' # Used ALL OVER THE SITE for pagination.
 gem 'nunes', '0.3.0'  # This makes it easier to handle statsd
