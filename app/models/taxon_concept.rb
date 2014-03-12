@@ -472,10 +472,11 @@ class TaxonConcept < ActiveRecord::Base
       language  = options[:language] || Language.unknown
       vetted    = options[:vetted] || Vetted.unknown
       relation  = SynonymRelation.find_by_translated(:label, 'common name')
-      name_obj  = Name.create_common_name(name_string)
+      name_obj  = Name.create_common_name(name_string,options[:name_origin_id],options[:site_id])
       raise "Common name not created" unless name_obj
-      Synonym.generate_from_name(name_obj, agent: agent, preferred: preferred, language: language,
+      synonym = Synonym.generate_from_name(name_obj, agent: agent, preferred: preferred, language: language,
                                  entry: entry, relation: relation, vetted: vetted)
+      return_arr = {"synonym" => synonym, "name" => name_obj}
     end
   end
 

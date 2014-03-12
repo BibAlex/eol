@@ -4,8 +4,8 @@ class SyncPeerLog < ActiveRecord::Base
   belongs_to :sync_object_type, :foreign_key => 'sync_object_type_id'
   belongs_to :sync_object_action, :foreign_key => 'sync_object_action_id'
 
-  def self.log_add_user(user_id, params)
-    spl = self.create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id)
+  def self.log_add_user(user, params)
+    spl = self.create_sync_peer_log(user.site_id, user.user_origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_user_type.id, user.site_id, user.user_origin_id)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -17,10 +17,15 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.log_activate_user(user)
-    spl = self.create_sync_peer_log(PEER_SITE_ID, user.id, SyncObjectAction.get_activate_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user.id)
+    spl = self.create_sync_peer_log(user.site_id, user.user_origin_id, SyncObjectAction.get_activate_action.id, SyncObjectType.get_user_type.id, user.site_id, user.user_origin_id)
+  end
+  
+  def self.log_add_common_name(user, name, params)
+    spl = self.create_sync_peer_log(user.site_id, user.user_origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
     if spl
-      self.create_sync_log_action_parameter(spl.id, :user_origin_id, "#{user.user_origin_id}" )  
-      self.create_sync_log_action_parameter(spl.id, :site_id, "#{user.site_id}")  
+      params.each do |key, value| 
+        self.create_sync_log_action_parameter(spl.id, key, value)
+      end
     end
   end
   
@@ -59,6 +64,11 @@ class SyncPeerLog < ActiveRecord::Base
     # So I am skipping it for now
     
     parameters = {}
+    parameters["user_site_id"] = user_site_id
+    parameters["user_site_object_id"] = user_site_object_id
+    parameters["sync_object_site_id"] = sync_object_site_id
+    parameters["sync_object_id"] = sync_object_id
+    
     sync_log_action_parameter.each do |lap|
       unless lap.param_object_type_id
         parameters[lap.parameter] = lap.value
@@ -164,8 +174,21 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.create_user(parameters)
-    User.create(parameters)
-    EOL::GlobalStatistics.increment('users')
+    params = {}
+    params["user_origin_id"] = parameters["sync_object_id"]
+    params["site_id"] = parameters["sync_object_site_id"]
+    
+    parameters.each do |key, value| 
+      unless 'user_site_id user_site_object_id sync_object_site_id sync_object_id'.include? key
+        params[key] = value
+      end
+    end
+    
+    user = User.create(params)
+    if user
+      EOL::GlobalStatistics.increment('users')  
+    end
+    
   end
   
    def self.update_user(parameters)
@@ -192,7 +215,7 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.activate_user(parameters)
-    user = User.where(:site_id => parameters["site_id"], :user_origin_id => parameters["user_origin_id"])
+    user = User.where(:site_id => parameters["sync_object_site_id"], :user_origin_id => parameters["sync_object_id"])
     if user && user.count > 0
       user = user[0]
       user.update_column(:active, true)
@@ -200,4 +223,15 @@ class SyncPeerLog < ActiveRecord::Base
     end
   end
 
+  def self.create_common_name(parameters)
+    taxon_concept = TaxonConcept.where(:site_id => parameters["taxon_concept_site_id"], :origin_id => parameters["taxon_concept_origin_id"])
+    if taxon_concept && taxon_concept.count > 0
+      taxon_concept = taxon_concept[0]      
+      user = User.find_by_user_origin_id_and_site_id(parameters["user_site_object_id"],parameters["user_site_id"])       
+      debugger      
+      taxon_concept.add_common_name_synonym(parameters["string"], agent: user.agent, language: parameters["language"], vetted: Vetted.trusted, site_id: parameters["sync_object_site_id"], name_origin_id: parameters["sync_object_id"])
+      taxon_concept.reindex_in_solr
+      # expire_taxa([taxon_concept.id])
+    end
+  end
 end

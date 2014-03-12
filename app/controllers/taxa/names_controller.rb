@@ -28,7 +28,6 @@ class Taxa::NamesController < TaxaController
     HierarchyEntry.preload_associations((@hierarchy_entries + @hierarchy_entries.collect(&:ancestors)).flatten, :name)
 
     @pending_moves = HierarchyEntryMove.pending.find_all_by_hierarchy_entry_id(@hierarchy_entries)
-
     @assistive_section_header = I18n.t(:assistive_names_classifications_header)
     common_names_count
     respond_to do |format|
@@ -52,11 +51,19 @@ class Taxa::NamesController < TaxaController
     if params[:commit_add_common_name]
       agent = current_user.agent
       language = Language.find(params[:name][:synonym][:language_id])
-      synonym = @taxon_concept.add_common_name_synonym(params[:name][:string],
-                agent: agent, language: language, vetted: Vetted.trusted)
+      arr = @taxon_concept.add_common_name_synonym(params[:name][:string],
+                agent: agent, language: language, vetted: Vetted.trusted, site_id: PEER_SITE_ID, name_origin_id: nil)
+      synonym = arr["synonym"]
+      name = arr["name"]
       unless synonym.errors.blank?
         flash[:error] = I18n.t(:common_name_exists, name_string: params[:name][:string])
       else
+        # syncronization
+        sync_params = {"language" => language,
+                       "taxon_concept_origin_id" => @taxon_concept.origin_id,
+                       "taxon_concept_site_id" => @taxon_concept.site_id,
+                       "string" => params[:name][:string]}
+        SyncPeerLog.log_add_common_name(current_user, name, sync_params)
         @taxon_concept.reindex_in_solr
         log_action(@taxon_concept, synonym, :add_common_name)
         expire_taxa([@taxon_concept.id])

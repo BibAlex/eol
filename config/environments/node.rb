@@ -42,7 +42,7 @@ end
 Recaptcha.configure do |config|
   config.public_key  = '6LdCLOcSAAAAAEM8Tm-B8XB63WzHNIT8xaMbMfjZ'
   config.private_key = '6LdCLOcSAAAAAIVPnagKsMmh83V9TgYHPXmE0ic9'
-  config.proxy = 'http://youstina.atef:@proxy:8002'
+  config.proxy = 'http://youstina.atef:Ing0dwetrust@proxy:8002'
 end
 
 # TODO - Where do these go, now?  :S
@@ -50,13 +50,13 @@ $UNSUBSCRIBE_NOTIFICATIONS_KEY = 'f0de2a0651aa88a090e5679e5e3a7d28'
 
 # variables used for syncing
 PEER_SITE_ID = 2
-AUTH_CODE = 'a1b9daf4-9a1e-11e3-b968-080027137718'
+AUTH_CODE = 'a1b9daf4-9a1e-11e3-b968-080027137717'
 REGISTRY_URL = 'http://localhost:3000/'
 REGISTRY_PUSH_URL = 'push_requests/make_push'
 REGISTRY_PUSH_QUERY_URL = 'push_requests/query'
 REGISTRY_PULL_URL = 'pull_requests/pull'
 REGISTRY_PULL_REPORT = 'pull_requests/report'
-INIT_UUID = 'e148ce0c-a4fd-11e3-a227-080027d6c7a0'
+INIT_UUID = 'f3d2aa1a-9a3b-11e3-ba30-080027137717'
 SITE_URI = 'http://127.0.0.1:3002'
 
 Eol::Application.configure do

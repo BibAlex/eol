@@ -180,11 +180,9 @@ class UsersController < ApplicationController
       sync_params = sync_params.reverse_merge(:language => current_language,
                                               :validation_code => @user.validation_code,
                                               :remote_ip => request.remote_ip,
-                                              :user_origin_id => @user.user_origin_id,
-                                              :site_id => PEER_SITE_ID,
                                               :created_at => @user.created_at)
       
-      SyncPeerLog.log_add_user(@user.id, sync_params)
+      SyncPeerLog.log_add_user(@user, sync_params)
       redirect_to pending_user_path(@user), status: :moved_permanently
     else
       failed_to_create_user and return

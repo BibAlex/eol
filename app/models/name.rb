@@ -71,7 +71,7 @@ class Name < ActiveRecord::Base
   # from ruby code at the moment. If we will need scientific names
   # in the future it migt make sense to overload 'create' method
   # of the model with this logic and speed everything up as well.
-  def self.create_common_name(name_string, given_canonical_form = "")
+  def self.create_common_name(name_string, name_origin_id, name_site_id, given_canonical_form = "")
     name_string = name_string.strip.gsub(/\s+/,' ') if name_string.class == String
     return nil if name_string.blank?
 
@@ -86,7 +86,14 @@ class Name < ActiveRecord::Base
         attributes[:canonical_form_id] = CanonicalForm.find_or_create_by_string(given_canonical_form).id
         attributes[:canonical_verified] = 1
       end
-      return Name.create!(attributes)
+      attributes[:site_id] = name_site_id
+      name = Name.create(attributes)
+      if name_origin_id
+        name.update_column(:origin_id, name_origin_id)
+      else
+        name.update_column(:origin_id, name.id)
+      end
+      return name
     end
   end
 
