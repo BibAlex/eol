@@ -90,6 +90,7 @@ class CollectionsController < ApplicationController
   end
 
   def update
+    debugger
     # TODO - These next two lines shouldn't be handled with a POST, they should be GETs (to #show):
     return redirect_to params.merge!(action: 'show').except(*unnecessary_keys_for_redirect) if params[:commit_sort]
     return redirect_to params.merge!(action: 'show').except(*unnecessary_keys_for_redirect) if params[:commit_view_as]
@@ -103,7 +104,6 @@ class CollectionsController < ApplicationController
     # some of the following methods need the list of items on the page... I think.
     # if not, we should remove this as it is very expensive
     build_collection_items unless params[:commit_annotation]
-    
     # copy is the only update action allowed for non-owners
     return if user_able_to_edit_collection # reads weird but will raise exception and exit if user cannot edit collection
     return annotate if params[:commit_annotation]
@@ -121,8 +121,13 @@ class CollectionsController < ApplicationController
       CollectionActivityLog.create({ collection: @collection, user_id: current_user.id, activity: Activity.change_description }) if description_change
       
        # create sync peer log for updating collection metadata
-       sync_params = params[:collection]                                                                                 
-        SyncPeerLog.log_update_collection(@collection.id, current_user.user_origin_id,sync_params) 
+       sync_params = params[:collection]    
+       sync_params = sync_params.reverse_merge(:logo_cache_url => @collection.logo_cache_url,
+                                               :logo_file_name => @collection.logo_file_name,
+                                               :logo_content_type => @collection.logo_content_type,
+                                               :logo_file_size => @collection.logo_file_size,
+                                               :base_url => "#{$CONTENT_SERVER}content/")                                                                         
+       SyncPeerLog.log_update_collection(@collection.id, current_user.user_origin_id,sync_params) 
                
                               
     else

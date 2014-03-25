@@ -89,8 +89,14 @@ class UsersController < ApplicationController
         
         sync_params = sync_params.reverse_merge( :updated_at => @user.updated_at,
                                                  :api_key => @user.api_key,
-                                                 :curator_level_id => @user.curator_level_id)
-         SyncPeerLog.log_update_user(@user.id, sync_params)
+                                                 :curator_level_id => @user.curator_level_id,
+                                                 :logo_cache_url => @user.logo_cache_url,
+                                                 :logo_file_name => @user.logo_file_name,
+                                                 :logo_content_type => @user.logo_content_type,
+                                                 :logo_file_size => @user.logo_file_size,
+                                                 :base_url => "#{$CONTENT_SERVER}content/")
+        sync_params.delete("logo")
+        SyncPeerLog.log_update_user(@user.id, sync_params)
 
       
       redirect_back_or_default @user
