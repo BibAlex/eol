@@ -56,7 +56,7 @@ end
 
 # TODO - Where do these go, now?  :S
 $UNSUBSCRIBE_NOTIFICATIONS_KEY = 'f0de2a0651aa88a090e5679e5e3a7d28'
-
+$SERVER_PORT = '80'
 # variables used for syncing
 PEER_SITE_ID = 1
 AUTH_CODE = '4371149c-9250-11e3-a9d6-000ffe473aab'
@@ -70,3 +70,4 @@ SITE_URI = 'http://127.0.0.1:3001'
 SITE_PORT = "3001"
 $SERVER_PORT = 80
 $NODE = ''
+

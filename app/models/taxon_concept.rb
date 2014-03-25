@@ -473,15 +473,24 @@ class TaxonConcept < ActiveRecord::Base
       relation  = SynonymRelation.find_by_translated(:label, 'common name')
       name_obj  = Name.create_common_name(name_string,options[:name_origin_id],options[:site_id])
       raise "Common name not created" unless name_obj
-      synonym = Synonym.generate_from_name(name_obj, agent: agent, preferred: preferred, language: language,
-                                 entry: entry, relation: relation, vetted: vetted)
+      if options[:new_flag]
+        synonym = Synonym.generate_from_name(name_obj, agent: agent, preferred: preferred, 
+                                             language: language,
+                                             entry: entry, relation: relation, vetted: vetted,
+                                             site_id: options[:site_id])
+      else
+        #called from pull request
+        synonym = Synonym.generate_from_name(name_obj, agent: agent, preferred: preferred, language: language,
+                                                     entry: entry, relation: relation, vetted: vetted,
+                                                     site_id: options[:synonym_site_id], origin_id: options[:synonym_origin_id])
+      end
       return_arr = {"synonym" => synonym, "name" => name_obj}
     end
   end
 
   def delete_common_name(taxon_concept_name)
     return if taxon_concept_name.blank?
-    language_id = taxon_concept_name.language.id
+#    language_id = taxon_concept_name.language.id
     syn_id = taxon_concept_name.synonym.id
     Synonym.find(syn_id).destroy
   end

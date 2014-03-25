@@ -96,8 +96,10 @@ module EOL
       # if not used:
       options[:curator_verdict_by] ||= FactoryGirl.create(:user)
       options[:curator_verdict_at] ||= 48.hours.ago
-
+      options[:site_id] = PEER_SITE_ID
       curator = User.gen(options)
+      curator.user_origin_id = curator.id
+      curator.save
       curator.grant_curator(curator_level)
 
       cot = ChangeableObjectType.gen_if_not_exists(:ch_object_type => 'taxon_concept')

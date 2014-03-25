@@ -17,5 +17,11 @@ class SyncObjectAction < ActiveRecord::Base
     self.find_or_create_by_object_action('activate')
   end
   
+  def self.get_delete_action
+    self.find_or_create_by_object_action('delete')
+  end
   
+  def self.get_vet_action
+    self.find_or_create_by_object_action('vet')
+  end
 end

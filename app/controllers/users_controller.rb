@@ -75,6 +75,7 @@ class UsersController < ApplicationController
         # #log update user action action for sync.
         sync_params = params[:user] 
         sync_params.delete("logo")   
+         #log update user action action for sync.
         # user identities
         if (!sync_params[:user_identity_ids].nil?)
            if sync_params[:user_identity_ids].count == 1

@@ -38,7 +38,7 @@ Eol::Application.configure do
 
   require "ruby-debug"
 end
-
+$STAGING_CONTENT_SERVER = 'http://localhost/eol_php_code/applications/content_server/'
 Recaptcha.configure do |config|
   config.public_key  = '6LdCLOcSAAAAAEM8Tm-B8XB63WzHNIT8xaMbMfjZ'
   config.private_key = '6LdCLOcSAAAAAIVPnagKsMmh83V9TgYHPXmE0ic9'
@@ -46,9 +46,10 @@ Recaptcha.configure do |config|
 end
 
 
+
 # TODO - Where do these go, now?  :S
 $UNSUBSCRIBE_NOTIFICATIONS_KEY = 'f0de2a0651aa88a090e5679e5e3a7d28'
-
+$SERVER_PORT = '8081'
 # variables used for syncing
 PEER_SITE_ID = 2
 AUTH_CODE = '5371149c-9250-11e3-a9d6-000ffe473aab'
