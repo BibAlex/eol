@@ -217,7 +217,7 @@ describe User do
     
     inactive_user = User.create(:username => "user", :entered_password => "12345", :entered_password_confirmation => "12345", :email => "user@yahoo.com", :email_confirmation => "user@yahoo.com")
     inactive_user.site_id = PEER_SITE_ID
-    inactive_user.user_origin_id = inactive_user.id
+    inactive_user.origin_id = inactive_user.id
     inactive_user.save
     inactive_user.activate
     
@@ -244,8 +244,8 @@ describe User do
     site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "site_id")
     site_id_parameter[0][:value].should == "#{inactive_user[:site_id]}"
     
-    user_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "user_origin_id")
-    user_origin_id_parameter[0][:value].should == "#{inactive_user[:user_origin_id]}"
+    origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "origin_id")
+    origin_id_parameter[0][:value].should == "#{inactive_user[:origin_id]}"
   end
   
   it 'should create a "watch" collection' do

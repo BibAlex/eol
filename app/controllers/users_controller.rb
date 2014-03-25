@@ -72,33 +72,33 @@ class UsersController < ApplicationController
       store_location params[:return_to] if params[:return_to]
       provide_feedback
       
-         #log update user action action for sync.
-        sync_params = params[:user]      
-        # user identities
-        if (!sync_params[:user_identity_ids].nil?)
-           if sync_params[:user_identity_ids].count == 1
-             sync_params[:user_identity_ids] = nil
-           else
-             sync_params[:user_identity_ids].reject! { |item| item.empty? }
-          end
-        end    
-        # prepare parameters
-        sync_params[:user_identity_ids] = sync_params[:user_identity_ids].join(',')  if (!(sync_params[:user_identity_ids].nil?))
-        
-        sync_params.delete("curator_level_id") if (!(sync_params["curator_level_id"].nil?))
-        
-        sync_params = sync_params.reverse_merge( :updated_at => @user.updated_at,
-                                                 :api_key => @user.api_key,
-                                                 :curator_level_id => @user.curator_level_id,
-                                                 :logo_cache_url => @user.logo_cache_url,
-                                                 :logo_file_name => @user.logo_file_name,
-                                                 :logo_content_type => @user.logo_content_type,
-                                                 :logo_file_size => @user.logo_file_size,
-                                                 :base_url => "#{$CONTENT_SERVER}content/")
-        sync_params.delete("logo")
-        SyncPeerLog.log_update_user(@user.id, sync_params)
-
+      #log update user action action for sync.
+      sync_params = params[:user] 
+      sync_params.delete("logo")   
+       #log update user action action for sync.
+      # user identities
+      if (!sync_params[:user_identity_ids].nil?)
+         if sync_params[:user_identity_ids].count == 1
+           sync_params[:user_identity_ids] = nil
+         else
+           sync_params[:user_identity_ids].reject! { |item| item.empty? }
+        end
+      end    
+      # prepare parameters
+      sync_params[:user_identity_ids] = sync_params[:user_identity_ids].join(',')  if (!(sync_params[:user_identity_ids].nil?))
       
+      sync_params.delete("curator_level_id") if (!(sync_params["curator_level_id"].nil?))
+      
+      sync_params = sync_params.reverse_merge( :updated_at => @user.updated_at,
+                                               :api_key => @user.api_key,
+                                               :curator_level_id => @user.curator_level_id,
+                                               :logo_cache_url => @user.logo_cache_url,
+                                               :logo_file_name => @user.logo_file_name,
+                                               :logo_content_type => @user.logo_content_type,
+                                               :logo_file_size => @user.logo_file_size,
+                                               :base_url => "#{$CONTENT_SERVER}content/")
+      sync_params.delete("logo")
+      SyncPeerLog.log_update_user(@user.id, sync_params)
       redirect_back_or_default @user
     else
       failed_to_update_user
@@ -173,7 +173,7 @@ class UsersController < ApplicationController
     end
     @user.active = false
     @user.remote_ip = request.remote_ip
-    @user.user_origin_id = @user.id if @user.save
+    @user.origin_id = @user.id if @user.save
     if @user.save
       @user.clear_entered_password
       send_verification_email

@@ -204,7 +204,6 @@ describe CollectionsController do
                         :type => "image/jpeg",
                         :tempfile => File.new(Rails.root.join("test/fixtures/files/test.jpg")) })
         put :update, {:collection => { :name => 'newname'}}
-
         # # created collection
         # created_collection =  Collection.first
         # created_collection.name.should == 'newcollection'

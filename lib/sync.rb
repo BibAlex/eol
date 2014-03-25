@@ -6,9 +6,9 @@ class Sync
       resp=Net::HTTP.get_response(url)
       open(file_name, 'wb') do |file|
         file.write resp.body
-      end
+      end          
       return true
-    rescue
+    rescue           
       return false
     end
   end

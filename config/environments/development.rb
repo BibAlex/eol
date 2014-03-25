@@ -51,7 +51,7 @@ end
 Recaptcha.configure do |config|
   config.public_key  = '6LdCLOcSAAAAAEM8Tm-B8XB63WzHNIT8xaMbMfjZ'
   config.private_key = '6LdCLOcSAAAAAIVPnagKsMmh83V9TgYHPXmE0ic9'
-#  config.proxy = 'http://youstina.atef:@proxy:8002'
+  #config.proxy = 'http://walaa.elsayed:@proxy:8002'
 end
 
 # TODO - Where do these go, now?  :S
@@ -65,5 +65,9 @@ REGISTRY_PUSH_URL = 'push_requests/make_push'
 REGISTRY_PUSH_QUERY_URL = 'push_requests/query'
 REGISTRY_PULL_URL = 'pull_requests/pull'
 REGISTRY_PULL_REPORT = 'pull_requests/report'
-INIT_UUID = '66d6bcae-93b1-11e3-9841-000ffe473aab'
+INIT_UUID = 'c89adcd0-b28e-11e3-b828-000ffe475813'
 SITE_URI = 'http://127.0.0.1:3001'
+SITE_PORT = "3001"
+$SERVER_PORT = 80
+$NODE = ''
+

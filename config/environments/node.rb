@@ -42,22 +42,27 @@ $STAGING_CONTENT_SERVER = 'http://localhost/eol_php_code/applications/content_se
 Recaptcha.configure do |config|
   config.public_key  = '6LdCLOcSAAAAAEM8Tm-B8XB63WzHNIT8xaMbMfjZ'
   config.private_key = '6LdCLOcSAAAAAIVPnagKsMmh83V9TgYHPXmE0ic9'
-#  config.proxy = 'http://youstina.atef:pass@proxy:8002'
+  #config.proxy = 'http://walaa.elsayed:@proxy:8002'
 end
+
+
 
 # TODO - Where do these go, now?  :S
 $UNSUBSCRIBE_NOTIFICATIONS_KEY = 'f0de2a0651aa88a090e5679e5e3a7d28'
 $SERVER_PORT = '8081'
 # variables used for syncing
 PEER_SITE_ID = 2
-AUTH_CODE = '437b8710-9250-11e3-a9d6-000ffe473aab'
+AUTH_CODE = '5371149c-9250-11e3-a9d6-000ffe473aab'
 REGISTRY_URL = 'http://localhost:3000/'
 REGISTRY_PUSH_URL = 'push_requests/make_push'
 REGISTRY_PUSH_QUERY_URL = 'push_requests/query'
 REGISTRY_PULL_URL = 'pull_requests/pull'
 REGISTRY_PULL_REPORT = 'pull_requests/report'
-INIT_UUID = '66d6bcae-93b1-11e3-9841-000ffe473aab'
+INIT_UUID = 'c89adcd0-b28e-11e3-b828-000ffe475813'
 SITE_URI = 'http://127.0.0.1:3002'
+SITE_PORT = "3002"
+$SERVER_PORT = 8081
+$NODE = '_node'
 
 Eol::Application.configure do
   config.after_initialize do
