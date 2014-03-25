@@ -334,6 +334,7 @@ FactoryGirl.define do
     family_name               { generate(:last_name) }
     agent_id                  { FactoryGirl.create(:agent, :full_name => "#{given_name} #{family_name}").id }
     language                  { Language.english }
+    site_id                   PEER_SITE_ID
     username                  do
       attempt = "#{given_name[0..0]}_#{family_name[0..9]}".gsub(/\s/, '_').downcase
       while(User.find_by_username(attempt)) do
@@ -529,6 +530,7 @@ FactoryGirl.define do
     family_name               { generate(:last_name) }
     agent_id                  { FactoryGirl.create(:agent, :full_name => "#{given_name} #{family_name}").id }
     language                  { Language.english }
+    site_id                   PEER_SITE_ID
     username                  do
       attempt = "#{given_name[0..0]}_#{family_name[0..9]}".gsub(/\s/, '_').downcase
       while(User.find_by_username(attempt)) do
@@ -944,6 +946,7 @@ FactoryGirl.define do
     family_name               { generate(:last_name) }
     agent_id                  { FactoryGirl.create(:agent, :full_name => "#{given_name} #{family_name}").id }
     language                  { Language.english }
+    site_id                   PEER_SITE_ID
     username                  do
       attempt = "#{given_name[0..0]}_#{family_name[0..9]}".gsub(/\s/, '_').downcase
       while(User.find_by_username(attempt)) do
@@ -985,6 +988,7 @@ FactoryGirl.define do
     # The strip at the end handles strings that are only two words; it is useless with three or more.
     italicized          { string.split[0] == string ? "<i>#{string}</i>" : ('<i>' + string.split[0..1].join(' ') + '</i> ' +  string.split[2..-1].join(' ')).strip }
     namebank_id         0
+    site_id             PEER_SITE_ID
   end
 
   factory :news_item do
@@ -1108,6 +1112,7 @@ FactoryGirl.define do
     preferred        1
     published        1
     vetted           { Vetted.trusted || Vetted.gen_if_not_exists(:label => 'Trusted') }
+    site_id          PEER_SITE_ID
   end
 
   factory :taxon_concept do
@@ -1116,6 +1121,7 @@ FactoryGirl.define do
     vetted_id      0
     supercedure_id 0
     split_from     0
+    site_id        PEER_SITE_ID
   end
 
   factory :taxon_data do

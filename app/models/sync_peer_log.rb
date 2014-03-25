@@ -20,8 +20,10 @@ class SyncPeerLog < ActiveRecord::Base
     spl = self.create_sync_peer_log(user.site_id, user.user_origin_id, SyncObjectAction.get_activate_action.id, SyncObjectType.get_user_type.id, user.site_id, user.user_origin_id)
   end
   
+  #log create common name
   def self.log_add_common_name(user, name, params)
     spl = self.create_sync_peer_log(user.site_id, user.user_origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
+    # add log action parameters
     if spl
       params.each do |key, value| 
         self.create_sync_log_action_parameter(spl.id, key, value)
@@ -29,6 +31,39 @@ class SyncPeerLog < ActiveRecord::Base
     end
   end
   
+  #log delete common name
+  def self.log_delete_common_name(user, synonym, params)
+    spl = self.create_sync_peer_log(user.site_id, user.user_origin_id, SyncObjectAction.get_delete_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id)
+    # add log action parameters
+    if spl
+      params.each do |key, value| 
+        self.create_sync_log_action_parameter(spl.id, key, value)
+      end
+    end
+  end
+  
+  #log vet common name
+  def self.log_vet_common_name(user, name, params)
+    spl = self.create_sync_peer_log(user.site_id, user.user_origin_id, SyncObjectAction.get_vet_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
+    # add log action parameters
+    if spl
+      params.each do |key, value| 
+        self.create_sync_log_action_parameter(spl.id, key, value)
+      end
+    end
+  end
+  
+  
+  def self.log_update_common_name(user, name, params)
+    spl = self.create_sync_peer_log(user.site_id, user.user_origin_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
+    # add log action parameters
+    if spl
+      params.each do |key, value| 
+        self.create_sync_log_action_parameter(spl.id, key, value)
+      end
+    end
+  end
+  # log update user
   def self.log_update_user(user_id, params)
     spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id)
     # add log action parameters
@@ -91,7 +126,7 @@ class SyncPeerLog < ActiveRecord::Base
     parameters["user_site_id"] = user_site_id
     parameters["user_site_object_id"] = user_site_object_id
     parameters["sync_object_site_id"] = sync_object_site_id
-    parameters["sync_object_id"] = sync_object_id_site_id
+    parameters["sync_object_id"] = sync_object_id
     
     sync_log_action_parameter.each do |lap|
       unless lap.param_object_type_id
@@ -115,7 +150,6 @@ class SyncPeerLog < ActiveRecord::Base
     else
       parameters["language"] = Language.first
     end
-    debugger
     function_name = "#{action_name}_#{model_name}"
     "SyncPeerLog".constantize.send(function_name, parameters)
   end
@@ -208,7 +242,6 @@ class SyncPeerLog < ActiveRecord::Base
         params[key] = value
       end
     end
-    
     user = User.create(params)
     if user
       EOL::GlobalStatistics.increment('users')  
@@ -309,11 +342,52 @@ class SyncPeerLog < ActiveRecord::Base
     taxon_concept = TaxonConcept.where(:site_id => parameters["taxon_concept_site_id"], :origin_id => parameters["taxon_concept_origin_id"])
     if taxon_concept && taxon_concept.count > 0
       taxon_concept = taxon_concept[0]      
-      user = User.find_by_user_origin_id_and_site_id(parameters["user_site_object_id"],parameters["user_site_id"])       
-      debugger      
-      taxon_concept.add_common_name_synonym(parameters["string"], agent: user.agent, language: parameters["language"], vetted: Vetted.trusted, site_id: parameters["sync_object_site_id"], name_origin_id: parameters["sync_object_id"])
+      user = User.find_by_user_origin_id_and_site_id(parameters["user_site_object_id"],parameters["user_site_id"])
+      taxon_concept.add_common_name_synonym(parameters["string"], agent: user.agent, 
+                                            language: parameters["language"], 
+                                            vetted: Vetted.trusted, 
+                                            site_id: parameters["sync_object_site_id"], 
+                                            name_origin_id: parameters["sync_object_id"],
+                                            synonym_site_id: parameters["synonym_site_id"],
+                                            synonym_origin_id: parameters["synonym_origin_id"])
       taxon_concept.reindex_in_solr
       # expire_taxa([taxon_concept.id])
     end
+  end
+  
+  def self.delete_common_name(parameters)
+    synonym = Synonym.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
+    if synonym && taxon_concept
+      tcn = TaxonConceptName.find_by_synonym_id_and_taxon_concept_id(synonym.id, taxon_concept.id)
+      taxon_concept.delete_common_name(tcn)
+      taxon_concept.reindex_in_solr
+    end
+  end
+  
+  def self.vet_common_name(parameters)
+    language_id = parameters["language"].id
+    name_id = Name.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"]).id
+    user = User.find_by_user_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    vetted = Vetted.find_or_create_by_view_order(parameters["vetted_view_order"])
+    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
+    taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: user)
+    user.log_activity(:vetted_common_name, taxon_concept_id: taxon_concept.id, value: name_id)
+    taxon_concept.reindex_in_solr
+  end
+  
+  def self.update_common_name(parameters)
+    name = Name.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    user = User.find_by_user_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    language = parameters["language"]
+    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
+    taxon_concept.add_common_name_synonym(name.string, 
+                                          agent: user.agent, 
+                                          language: language, 
+                                          preferred: 1, 
+                                          vetted: Vetted.trusted,
+                                          new_flag: true,
+                                          site_id: name.site_id)
+    user.log_activity(:updated_common_names, taxon_concept_id: taxon_concept.id)
   end
 end

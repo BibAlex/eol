@@ -72,7 +72,7 @@ class UsersController < ApplicationController
       store_location params[:return_to] if params[:return_to]
       provide_feedback
       
-        # #log update user action action for sync.
+         #log update user action action for sync.
         sync_params = params[:user]      
         # user identities
         if (!sync_params[:user_identity_ids].nil?)

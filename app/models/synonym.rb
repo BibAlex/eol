@@ -40,13 +40,9 @@ class Synonym < ActiveRecord::Base
     preferred = options[:preferred] || 0
     vetted    = options[:vetted] || Vetted.unknown
     entry     = options[:entry]
+    site_id   = options[:site_id]
     raise("Cannot generate a Synonym without an :entry") unless entry
-    synonym = Synonym.find_by_hierarchy_id_and_hierarchy_entry_id_and_language_id_and_name_id_and_synonym_relation_id(
-              hierarchy.id,
-              entry.id,
-              language.id,
-              name_obj.id,
-              relation.id)
+    synonym = Synonym.find_by_hierarchy_id_and_hierarchy_entry_id_and_language_id_and_name_id_and_synonym_relation_id_and_site_id(hierarchy.id,entry.id,language.id,name_obj.id,relation.id, site_id)
     if synonym and options[:preferred] # They MUST have specified this in order to run this block:
       synonym.preferred = preferred
       synonym.save!
@@ -58,10 +54,16 @@ class Synonym < ActiveRecord::Base
                                synonym_relation_id: relation.id,
                                vetted: vetted,
                                preferred: preferred,
-                               published: 1)
+                               published: 1,
+                               site_id: site_id)
+      if site_id == PEER_SITE_ID
+        synonym.update_column(:origin_id, synonym.id)
+      else
+        synonym.update_column(:origin_id, options[:origin_id])
+      end
       if synonym && synonym.errors.blank?
         AgentsSynonym.create(agent_id: agent.id,
-                             agent_role_id: AgentRole.contributor.id,
+                             agent_role_id: TranslatedAgentRole.find_by_label("Contributor").agent_role_id,
                              synonym_id: synonym.id,
                              view_order: 1)
       end
@@ -94,11 +96,11 @@ private
     if count == 0  # this is the first name in this language for the concept
       self.preferred = 1
     # only reset other names to preferred=0 when this name is preferred and from the EOL curators hierarchy
-    elsif self.preferred? && self.hierarchy_id == Hierarchy.eol_contributors.id
+    elsif self.preferred? && Hierarchy.eol_contributors && self.hierarchy_id == Hierarchy.eol_contributors.id
       Synonym.connection.execute("UPDATE synonyms SET preferred = 0 where hierarchy_entry_id = #{hierarchy_entry_id} and  language_id = #{language_id}")
       TaxonConceptName.connection.execute("UPDATE taxon_concept_names set preferred = 0 where taxon_concept_id = #{tc_id} and  language_id = #{language_id}")
     end
-    self.preferred = 0 if language_id == Language.unknown.id
+    self.preferred = 0 if Language.unknown && language_id == Language.unknown.id
   end
 
   def update_taxon_concept_name
@@ -111,7 +113,11 @@ private
   end
 
   def create_taxon_concept_name
-    vern = (language_id == 0 or language_id == Language.scientific.id) ? false : true
+    if Language.scientific
+      vern = (language_id == 0 or language_id == Language.scientific.id) ? false : true
+    else
+      vern = (language_id == 0 ) ? false : true
+    end
     if tcn = TaxonConceptName.find(:first, conditions: {
       taxon_concept_id: hierarchy_entry.taxon_concept_id,
       name_id: name_id,
