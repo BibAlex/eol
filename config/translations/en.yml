@@ -1175,6 +1175,7 @@ en:
       header_learn_more: Learn more about
       header_questions: Tell me more
       about_link_what_is_eol: What is EOL?
+      about_link_traitbank: What is TraitBank?
       about_link_eol_blog: The EOL Blog
       about_link_discover: Discover
       about_link_statistics: Statistics
@@ -3374,6 +3375,7 @@ en:
   data_search_files_with_count:
     one: "%{count} data download"
     other: "%{count} data downloads"
+  data_search_row_hidden: "A curator has hidden this row of data."
   data_server_unavailable: "Data on EOL is temporarily unavailable. Please check back later. Sorry for any inconvenience."
   data_show_n_more_rows: "Show NNN more..."
   data_subtab_about: "About"
@@ -4327,6 +4329,15 @@ en:
   reset_password_instructions_sent_to_user_notice: "Instructions for resetting the password on your account <em>%{username}</em> have been sent to your email address."
   reset_password_token_expired_error: "Sorry, your password has not been reset. The link provided has expired, please fill out and submit the forgot password form again to receive a new link."
   resource: "Resource"
+  resource_import_frequency:
+    once: "Import once"
+    weekly: "Weekly"
+    monthly: "Monthly"
+    bimonthly: "Bi-monthly"
+    quarterly: "Quarterly"
+    hours_with_count:
+      one: "%{count} hour"
+      other: "%{count} hours"
   resource_hint_dataset_source_url: "(URL of the original source of the dataset, such as a paper or study)"
   resource_hint_dataset_rights: "(applies to the dataset <i>as a whole</i>; not applicable in all jurisdictions)"
   resource_hint_default_rights: "(applies by default to items <i>in</i> the dataset)"

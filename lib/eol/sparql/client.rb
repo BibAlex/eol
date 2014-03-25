@@ -55,6 +55,7 @@ module EOL
           if Rails.configuration.respond_to?('show_sparql_queries') && Rails.configuration.show_sparql_queries
             puts "#{options[:prefix]}\n#{namespaces_prefixes}\n#{query}"
           end
+          puts "======================================================================================================================#{options[:prefix]} #{namespaces_prefixes} #{query}"
           sparql_client.query("#{options[:prefix]} #{namespaces_prefixes} #{query}").each_solution { |s| results << s.to_hash }
         rescue Errno::ECONNREFUSED => e
           ActiveRecord::Base.logger.error "** ERROR: Virtuoso Connection refused: #{e.message}"

@@ -1,4 +1,19 @@
-# This file is copied to spec/ when you run 'rails generate rspec:install'
+# NOTE - This really really really needs to be at the very tippity-top of the file.  Leave it here.
+require 'simplecov'
+SimpleCov.start do
+  add_group "Models", "app/models"
+  add_group "Controllers", "app/controllers"
+  add_group "Libraries", "lib"
+  add_group "Helpers", "app/helpers"
+  add_filter "custom_matchers"
+  # TODO - really, we should be testing these. ...But for now, I'm excluding them because many are one-offs:
+  add_filter "/initializers/"
+  # TODO - really, we should be testing these too, but we want to re-write them. They are ancient:
+  add_filter "/administrator/"
+  add_filter "controllers/admins/"
+  add_filter "spec/"
+end
+
 ENV["RAILS_ENV"] ||= 'test'
 require File.expand_path("../../config/environment", __FILE__)
 require 'rspec/rails'

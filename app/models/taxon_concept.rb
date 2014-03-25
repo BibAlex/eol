@@ -14,11 +14,9 @@
 # See the comments at the top of the Taxon for more information on this.  I include there a basic biological
 # definition of what a Taxon is.
 
-require 'model_query_helper'
 require 'eol/activity_loggable'
 
 class TaxonConcept < ActiveRecord::Base
-  include ModelQueryHelper
   include EOL::ActivityLoggable
 
   belongs_to :vetted
@@ -42,7 +40,8 @@ class TaxonConcept < ActiveRecord::Base
   # TODO: this is just an alias of the above so all collectable entities have this association
   has_many :containing_collections, through: :collection_items, source: :collection
   has_many :published_containing_collections, through: :collection_items, source: :collection, conditions: 'published = 1',
-    select: 'collections.id, collections.name, collections.collection_items_count, special_collection_id, relevance, logo_cache_url', include: :communities
+    select: 'collections.id, collections.name, collections.collection_items_count, special_collection_id, relevance, logo_file_name, logo_cache_url',
+    include: :communities
   has_many :preferred_names, class_name: TaxonConceptName.to_s, conditions: 'taxon_concept_names.vern=0 AND taxon_concept_names.preferred=1'
   has_many :preferred_common_names, class_name: TaxonConceptName.to_s, conditions: 'taxon_concept_names.vern=1 AND taxon_concept_names.preferred=1'
   has_many :denormalized_common_names, class_name: TaxonConceptName.to_s, conditions: 'taxon_concept_names.vern=1'
@@ -472,10 +471,11 @@ class TaxonConcept < ActiveRecord::Base
       language  = options[:language] || Language.unknown
       vetted    = options[:vetted] || Vetted.unknown
       relation  = SynonymRelation.find_by_translated(:label, 'common name')
-      name_obj  = Name.create_common_name(name_string)
+      name_obj  = Name.create_common_name(name_string,options[:name_origin_id],options[:site_id])
       raise "Common name not created" unless name_obj
-      Synonym.generate_from_name(name_obj, agent: agent, preferred: preferred, language: language,
+      synonym = Synonym.generate_from_name(name_obj, agent: agent, preferred: preferred, language: language,
                                  entry: entry, relation: relation, vetted: vetted)
+      return_arr = {"synonym" => synonym, "name" => name_obj}
     end
   end
 

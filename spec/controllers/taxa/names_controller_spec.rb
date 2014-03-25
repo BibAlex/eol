@@ -4,6 +4,7 @@ describe Taxa::NamesController do
 
   before(:all) do
     truncate_all_tables
+    debugger
     load_scenario_with_caching :testy
     @testy = EOL::TestInfo.load('testy')
   end
@@ -50,6 +51,50 @@ describe Taxa::NamesController do
       name = Name.find_by_string("nag").should be_true
       TaxonConceptName.find_by_name_id_and_language_id(Name.find_by_string("nag").id, non_approved_language_id)
       response.should redirect_to(common_names_taxon_names_path(@testy[:taxon_concept].id.to_i))
+    end
+    
+    it 'should prepare data for syncronization' do
+      truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+      truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+      truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+      truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+      
+      post :create, :name => { :synonym => { :language_id => approved_language_id }, :string => "snake" }, 
+                    :commit_add_common_name => "Add name", :taxon_id => @testy[:taxon_concept].id.to_i
+                    
+      response.should be_success
+      
+      name = Name.find_by_string("snake").should be_true
+      
+      # check sync_object_type
+      type = SyncObjectType.first
+      type.should_not be_nil
+      type.object_type.should == "common_name"
+      
+      # check sync_object_actions
+      action = SyncObjectAction.first
+      action.should_not be_nil
+      action.object_action.should == "create"
+      
+      # check peer logs
+      peer_log = SyncPeerLog.first
+      peer_log.should_not be_nil
+      peer_log.sync_object_action_id.should == action.id
+      peer_log.sync_object_type_id.should == type.id
+      peer_log.user_site_id .should == PEER_SITE_ID
+      peer_log.user_site_object_id.should == session[:user_id]
+      peer_log.sync_object_id.should == name.origin_id
+      peer_log.sync_object_site_id.should == name.site_id
+      
+      # check log action parameters
+      taxon_concept_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_origin_id")
+      taxon_concept_origin_id_parameter[0][:value].should ==  @testy[:taxon_concept].origin_id
+      
+      taxon_concept_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_site_id")
+      taxon_concept_site_id_parameter[0][:value].should ==  @testy[:taxon_concept].site_id
+      
+      string_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "string")
+      string_parameter[0][:value].should ==  "snake" 
     end
   end
 

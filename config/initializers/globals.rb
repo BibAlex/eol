@@ -77,7 +77,7 @@ Rails.configuration.optional_reference_uris = { # Be careful changing these...  
 Rails.configuration.data_search_file_rel_path = '/uploads/data_search_files/:id.csv'
 Rails.configuration.data_search_file_full_path = "#{Rails.public_path}#{Rails.configuration.data_search_file_rel_path}"
 
-Rails.configuration.hosted_dataset_path = 'http://localhost/eol_php_code/applications/content_server/datasets/'
+Rails.configuration.hosted_dataset_path = "http://localhost/eol_php_code#{$NODE}/applications/content_server/datasets/"
 
 Rails.configuration.local_services = false
 
@@ -98,7 +98,7 @@ $PRODUCTION_MODE = Rails.env.production? || Rails.env.staging? || Rails.env.sync
 $IMAGE_LIMIT = 200
 
 # THIS IS WHERE ALL THE IMAGES/VIDEOS LIVE:
-$CONTENT_SERVER = 'http://localhost/'
+$CONTENT_SERVER = "http://localhost:#{$SERVER_PORT}/eol_php_code#{$NODE}/applications/content_server/"
 $SINGLE_DOMAIN_CONTENT_SERVER = 'http://localhost/'
 $CONTENT_SERVER_CONTENT_PATH = "content" # if you put leading and trailing slashes here you get double slashes in the URLs, which work fine but aren't right
 $CONTENT_SERVER_RESOURCES_PATH = "/resources/"
@@ -175,7 +175,7 @@ $NEWS_ITEMS_TIMEOUT_HOMEPAGE_WEEKS = 8 # the number of weeks before a news item 
 # WEBSERVICE CONFIGURATION
 $WEB_SERVICE_TIMEOUT_SECONDS = 60 # how many seconds to wait when calling a webservice before timing out and returning nil
 $LOG_WEB_SERVICE_EXECUTION_TIME = false # if set to false, then execution times for web service calls will not be recorded
-$WEB_SERVICE_BASE_URL = '' # web service is used for importing content partners' data
+$WEB_SERVICE_BASE_URL = "http://localhost:#{$SERVER_PORT}/eol_php_code#{$NODE}/applications/content_server/service.php?" # web service is used for importing content partners' data
 
 ### These next few values are declared in the eol:site_configurations table. They are also declared here
 ### beacuse when we switch to SI we will not be able to edit the database and need to be able to tweak the

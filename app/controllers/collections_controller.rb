@@ -54,27 +54,34 @@ class CollectionsController < ApplicationController
     @collection = Collection.new(params[:collection])
     if @collection.save
       @collection.users = [current_user]
-      log_activity(activity: Activity.create)
+      #log_activity(activity: Activity.create)
       
         # set collection origin id and collection site id
-        @collection[:collection_origin_id] = @collection.id
+        @collection[:origin_id] = @collection.id
         @collection[:site_id] =  PEER_SITE_ID
         @collection.save                    
-                              
-        # create sync peer log for new collection metadata
-        sync_params = params[:collection]        
-                                                                                 
-        SyncPeerLog.log_create_collection(@collection.id, current_user.user_origin_id,sync_params)
-         
-         flash[:notice] = I18n.t(:collection_created_with_count_notice,
+        flash[:notice] = I18n.t(:collection_created_with_count_notice,
                               collection_name: link_to_name(@collection),
-                              count: @collection.collection_items.count)                     
-                              
-      if params[:source_collection_id] # We got here by creating a new collection FROM an existing collection:
+                              count: @collection.collection_items.count)   
+                                             
+      if params[:source_collection_id]
+       # We got here by creating a new collection FROM an existing collection:
         return create_collection_from_existing
       else
         auto_collect(@collection)
-        return create_collection_from_item
+        create_collection_from_item
+        
+         # create sync peer log for new collection metadata
+        sync_params = params[:collection]
+        sync_params = sync_params.reverse_merge(:item_origin_id => @item.origin_id,
+                                                :item_site_id => @item.site_id,
+                                                :item_type => params[:item_type],
+                                                :item_name => @item.summary_name)
+                                                                                 
+        SyncPeerLog.log_create_collection(@collection.id, current_user.origin_id,sync_params)
+         
+                          
+         return      
       end
     else
       flash[:error] = I18n.t(:collection_not_created_error, collection_name: @collection.name)
@@ -113,7 +120,7 @@ class CollectionsController < ApplicationController
     name_change = params[:collection][:name] != @collection.name
     description_change = params[:collection][:description] != @collection.description
     if @collection.update_attributes(params[:collection])
-      upload_logo(request.ip, @collection) unless params[:collection][:logo].blank?
+      upload_logo(@collection) unless params[:collection][:logo].blank?
       flash[:notice] = I18n.t(:collection_updated_notice, collection_name: @collection.name) if
         params[:collection] # NOTE - when we sort, we don't *actually* update params...
       redirect_to params.merge!(action: 'show').except(*unnecessary_keys_for_redirect), status: :moved_permanently
@@ -121,8 +128,14 @@ class CollectionsController < ApplicationController
       CollectionActivityLog.create({ collection: @collection, user_id: current_user.id, activity: Activity.change_description }) if description_change
       
        # create sync peer log for updating collection metadata
-       sync_params = params[:collection]                                                                                 
-        SyncPeerLog.log_update_collection(@collection.id, current_user.user_origin_id,sync_params) 
+       sync_params = params[:collection] 
+       sync_params.delete("logo")
+       sync_params = sync_params.reverse_merge(  :logo_cache_url => @collection.logo_cache_url,
+                                                 :logo_file_name => @collection.logo_file_name,
+                                                 :logo_content_type => @collection.logo_content_type,
+                                                 :logo_file_size => @collection.logo_file_size,
+                                                 :base_url => "#{$CONTENT_SERVER}content/")                                                                               
+        SyncPeerLog.log_update_collection(@collection.id, current_user.origin_id,sync_params) 
                
                               
     else
@@ -724,5 +737,6 @@ private
     end
     EOL::Solr::CollectionItemsCoreRebuilder.reindex_collection_items_by_ids(collection_item_ids_to_reindex.uniq)
   end
+  
 
 end
