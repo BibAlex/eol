@@ -39,7 +39,7 @@ describe DataSearchHelper do
         @attribute_known_uri = nil
         @querystring = "foo"
         @taxon_concept = double(TaxonConcept, title_canonical_italicized: "rawr")
-        TaxonData.stub(:is_clade_searchable?).and_return(true)
+        allow(TaxonData).to receive(:is_clade_searchable?) { true }
       end
 
       it 'reminds us it\'s searching in a clade' do
@@ -70,19 +70,17 @@ describe DataSearchHelper do
 
       let(:summary) do
         @taxon_concept = build_stubbed(TaxonConcept)
-        @taxon_concept.stub(:title_canonical_italicized).and_return('bear')
+        allow(@taxon_concept).to receive(:title_canonical_italicized) { 'bear' }
         search_file = build_stubbed(DataSearchFile, q: "queried", taxon_concept: @taxon_concept, from: 245, to: 489, completed_at: 2.seconds.ago, row_count: 10347)
-        search_file.stub(:from_as_data_point).and_return(245) # BAD SMELL.  :|  TODO
-        search_file.stub(:to_as_data_point).and_return(489) # BAD SMELL.  :|  TODO
-        helper.stub(:display_text_for_data_point_uri).with(245).and_return(245) # BAD SMELL.  :|  TODO
-        helper.stub(:display_text_for_data_point_uri).with(489).and_return(489) # BAD SMELL.  :|  TODO
+        allow(search_file).to receive(:from_as_data_point) { 245 } # TODO - BAD SMELL
+        allow(search_file).to receive(:to_as_data_point) { 489 } # TODO - BAD SMELL
+        allow(helper).to receive(:display_text_for_data_point_uri).with(245) { 245 } # - BAD SMELL
+        allow(helper).to receive(:display_text_for_data_point_uri).with(489) { 489 } # - BAD SMELL
         helper.data_search_file_summary(search_file).join(" ") # Just need to check things as a string; don't much care about the array here.
       end
 
-      # TODO - this (and the following) I18n checks really need to change. They were poorly coded.
       it 'labels the query' do
-        expect(summary).to include(I18n.t('helpers.label.data_search.q'))
-        expect(summary).to include("queried")
+        expect(summary).to include(I18n.t('helpers.label.data_search.q_with_val', val: "queried"))
       end
 
       it 'labels the taxon' do
@@ -91,18 +89,15 @@ describe DataSearchHelper do
       end
 
       it 'labels the from' do
-        expect(summary).to include(I18n.t('helpers.label.data_search.min'))
-        expect(summary).to include("245")
+        expect(summary).to include(I18n.t('helpers.label.data_search.min_with_val', val: 245))
       end
 
       it 'labels the to' do
-        expect(summary).to include(I18n.t('helpers.label.data_search.max'))
-        expect(summary).to include("489")
+        expect(summary).to include(I18n.t('helpers.label.data_search.max_with_val', val: 489))
       end
 
       it 'marks it as complete with delimited row count' do
-        expect(summary).to include("Total results:")
-        expect(summary).to include("10,347")
+        expect(summary).to include(I18n.t('helpers.label.data_search.total_results', total: "10,347"))
       end
 
     end
