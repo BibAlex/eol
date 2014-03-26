@@ -122,7 +122,42 @@ class SyncPeerLog < ActiveRecord::Base
   end
 
 
-  
+  def process_entry
+    # TODO: first we need to detect conflict.
+    # considering that NOW we are dealing with add users, which won't cause conflicts,
+    # So I am skipping it for now
+    
+    parameters = {}
+    parameters["user_site_id"] = user_site_id
+    parameters["user_site_object_id"] = user_site_object_id
+    parameters["sync_object_site_id"] = sync_object_site_id
+    parameters["sync_object_id"] = sync_object_id
+    
+    sync_log_action_parameter.each do |lap|
+      unless lap.param_object_type_id
+        parameters[lap.parameter] = lap.value
+      else
+        # find the object and add it to the hash
+        parameters[lap.parameter] = SyncObjectType.find_by_id(lap.param_object_type_id).object_type.constantize.find_by_object_id_and_object_site_id(lap.param_object_id, lap.param_object_site_id)
+      end
+    end
+    
+    if parameters.blank?
+      # this means that the action depends only on user id and user site id
+      parameters[:user_site_id] = user_site_id
+      parameters[:user_site_object_id] = user_site_object_id
+    end
+    
+    model_name = SyncObjectType.find_by_id(sync_object_type_id).object_type.downcase
+    action_name = SyncObjectAction.find_by_id(sync_object_action_id).object_action.downcase
+    if parameters["language"]
+      parameters["language"] = Language.find_or_create_by_iso_639_1(parameters["language"], "iso_639_2" => parameters["language"], "iso_639_3" => parameters["language"], "source_form" => parameters["language"])
+    else
+      parameters["language"] = Language.first
+    end
+    function_name = "#{action_name}_#{model_name}"
+    "SyncPeerLog".constantize.send(function_name, parameters)
+  end
   
   # def process_entry
     # # TODO: first we need to detect conflict.
@@ -235,7 +270,15 @@ class SyncPeerLog < ActiveRecord::Base
     file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
     if (!(user.nil?))
       if download_file?(file_url, user_logo_name, "logo")
+        
         debugger
+        # delete old logo
+        old_logo_name = user.logo_file_name
+        old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
+        if file_type != old_logo_extension
+          File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}users_#{user.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}users_#{user.id}.#{old_logo_extension}"
+        end
+        
         parameters.delete("base_url")
         user.update_attributes(parameters)
         # call log activity
@@ -244,9 +287,8 @@ class SyncPeerLog < ActiveRecord::Base
         upload_file(user)
       else
          # add failed file record
-        failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => user_logo_name, :file_type => file_type,
+        failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => user_logo_name, :file_type => "logo",
                   :object_type => "user" , :object_id => user.id)
-       debugger
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])
@@ -338,6 +380,14 @@ class SyncPeerLog < ActiveRecord::Base
     file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
     if(!(collection.nil?))
       if download_file?(file_url, collection_logo_name, "logo")
+        
+        # delete old logo
+        old_logo_name = collection.logo_file_name
+        old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
+        if file_type != old_logo_extension
+          File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}"
+        end
+        
         parameters.delete("base_url")
         name_change = parameters[:name] != collection.name
         description_change = parameters[:description] != collection.description
@@ -349,7 +399,7 @@ class SyncPeerLog < ActiveRecord::Base
       else
         
        # add failed file record
-        failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => collection_logo_name, :file_type => file_type,
+        failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => collection_logo_name, :file_type => "logo",
                   :object_type => "collection" , :object_id => collection.id)
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
@@ -432,42 +482,7 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   
-  def process_entry
-    # TODO: first we need to detect conflict.
-    # considering that NOW we are dealing with add users, which won't cause conflicts,
-    # So I am skipping it for now
-    
-    parameters = {}
-    parameters["user_site_id"] = user_site_id
-    parameters["user_site_object_id"] = user_site_object_id
-    parameters["sync_object_site_id"] = sync_object_site_id
-    parameters["sync_object_id"] = sync_object_id
-    
-    sync_log_action_parameter.each do |lap|
-      unless lap.param_object_type_id
-        parameters[lap.parameter] = lap.value
-      else
-        # find the object and add it to the hash
-        parameters[lap.parameter] = SyncObjectType.find_by_id(lap.param_object_type_id).object_type.constantize.find_by_object_id_and_object_site_id(lap.param_object_id, lap.param_object_site_id)
-      end
-    end
-    
-    if parameters.blank?
-      # this means that the action depends only on user id and user site id
-      parameters[:user_site_id] = user_site_id
-      parameters[:user_site_object_id] = user_site_object_id
-    end
-    
-    model_name = SyncObjectType.find_by_id(sync_object_type_id).object_type.downcase
-    action_name = SyncObjectAction.find_by_id(sync_object_action_id).object_action.downcase
-    if parameters["language"]
-      parameters["language"] = Language.find_or_create_by_iso_639_1(parameters["language"], "iso_639_2" => parameters["language"], "iso_639_3" => parameters["language"], "source_form" => parameters["language"])
-    else
-      parameters["language"] = Language.first
-    end
-    function_name = "#{action_name}_#{model_name}"
-    "SyncPeerLog".constantize.send(function_name, parameters)
-  end
+  
 
 
 end
