@@ -98,7 +98,7 @@ module EOL
       options[:curator_verdict_at] ||= 48.hours.ago
       options[:site_id] = PEER_SITE_ID
       curator = User.gen(options)
-      curator.user_origin_id = curator.id
+      curator.origin_id = curator.id
       curator.save
       curator.grant_curator(curator_level)
 

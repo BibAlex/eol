@@ -57,3 +57,5 @@ REGISTRY_PULL_URL = 'pull_requests/pull'
 REGISTRY_PULL_REPORT = 'pull_requests/report'
 INIT_UUID = 'f3d2aa1a-9a3b-11e3-ba30-080027137717'
 SITE_URI = 'http://127.0.0.1:3001'
+SITE_PORT = "3001"
+$SERVER_PORT = 80

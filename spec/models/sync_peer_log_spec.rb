@@ -77,7 +77,7 @@ describe SyncPeerLog do
         truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
         truncate_table(ActiveRecord::Base.connection, "users", {})
-        user = User.create(:user_origin_id => 85, :site_id => 2, :username => "name")
+        user = User.create(:origin_id => 85, :site_id => 2, :username => "name")
         #create sync_object_action
         SyncObjectAction.create(:object_action => 'update')
         #create sync_object_type
@@ -94,7 +94,7 @@ describe SyncPeerLog do
         @peer_log.sync_object_site_id = 2
         @peer_log.save
         #create sync_action_parameters
-        parameters = ["username", "bio", "remote_ip", "user_origin_id", "site_id", "logo_cache_url",
+        parameters = ["username", "bio", "remote_ip", "origin_id", "site_id", "logo_cache_url",
                       "logo_file_name", "logo_content_type", "logo_file_size", "base_url"]
         values = ["myusername", "My bio", "127.0.0.2", "85", "2", "201403200876152", "shopcandles006.JPG", "image/jpeg", "322392", "#{$CONTENT_SERVER}content/"]
         for i in 0..parameters.length-1
@@ -119,6 +119,7 @@ describe SyncPeerLog do
 
         user.username.should == "myusername"
         user.bio.should == "My bio"
+        files = Dir.glob("#{Rails.root}/public#{$LOGO_UPLOAD_PATH}users_1.JPG")
       end
 
     end
@@ -254,7 +255,7 @@ describe SyncPeerLog do
         #create user 
         @user = User.gen(active: true)
         @user.update_column(:site_id, 2)
-        @user.update_column(:user_origin_id, @user.id)
+        @user.update_column(:origin_id, @user.id)
         @user.update_column(:curator_level_id, CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id)
         @user.update_column(:curator_approved, 1)
         
@@ -312,7 +313,7 @@ describe SyncPeerLog do
         #create sync_action_parameters
         parameters = ["taxon_concept_site_id", "taxon_concept_origin_id", "user_site_object_id",
                       "user_site_id", "string", "language", "sync_object_site_id", "sync_object_id"]
-        values     = ["#{taxon_concept.site_id}", "#{taxon_concept.origin_id}", "#{@user.user_origin_id}",
+        values     = ["#{taxon_concept.site_id}", "#{taxon_concept.origin_id}", "#{@user.origin_id}",
                       "#{@user.site_id}", "snake", "en", "#{name.site_id}", "#{name.id}"]
         for i in 0..parameters.length-1
           lap = SyncLogActionParameter.new
@@ -346,7 +347,7 @@ describe SyncPeerLog do
         #create user 
         @user = User.gen(active: true)
         @user.update_column(:site_id, 2)
-        @user.update_column(:user_origin_id, @user.id)
+        @user.update_column(:origin_id, @user.id)
         @user.update_column(:curator_level_id, CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id)
         @user.update_column(:curator_approved, 1)
         
@@ -438,7 +439,7 @@ describe SyncPeerLog do
       before :all do
         @user = User.gen(active: true)
         @user.update_column(:site_id, 2)
-        @user.update_column(:user_origin_id, @user.id)
+        @user.update_column(:origin_id, @user.id)
         @user.update_column(:curator_level_id, CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id)
         @user.update_column(:curator_approved, 1)
         
@@ -502,7 +503,7 @@ describe SyncPeerLog do
      before :all do
        @user = User.gen(active: true)
        @user.update_column(:site_id, 2)
-       @user.update_column(:user_origin_id, @user.id)
+       @user.update_column(:origin_id, @user.id)
        @user.update_column(:curator_level_id, CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id)
        @user.update_column(:curator_approved, 1)
        
