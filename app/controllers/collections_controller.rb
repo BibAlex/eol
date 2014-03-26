@@ -97,6 +97,7 @@ class CollectionsController < ApplicationController
   end
 
   def update
+    debugger
     # TODO - These next two lines shouldn't be handled with a POST, they should be GETs (to #show):
     return redirect_to params.merge!(action: 'show').except(*unnecessary_keys_for_redirect) if params[:commit_sort]
     return redirect_to params.merge!(action: 'show').except(*unnecessary_keys_for_redirect) if params[:commit_view_as]
@@ -110,7 +111,6 @@ class CollectionsController < ApplicationController
     # some of the following methods need the list of items on the page... I think.
     # if not, we should remove this as it is very expensive
     build_collection_items unless params[:commit_annotation]
-    
     # copy is the only update action allowed for non-owners
     return if user_able_to_edit_collection # reads weird but will raise exception and exit if user cannot edit collection
     return annotate if params[:commit_annotation]

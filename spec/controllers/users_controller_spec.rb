@@ -279,36 +279,57 @@ describe UsersController do
         
       end
       it 'should save updating user paramters in synchronization tables' do 
-          session[:user_id] = @user.id      
-          put :update, { :id => @user.id, :user => { :id => @user.id, :username => 'newusername', :bio => 'My bio' }}
+        session[:user_id] = @user.id      
+        @file = ActionDispatch::Http::UploadedFile.new({
+            :filename => "test.jpg",
+            :type => "image/jpeg",
+            :tempfile => File.new(Rails.root.join("test/fixtures/files/test.jpg")) })
+            
+        put :update, { :id => @user.id, :user => { :id => @user.id, :username => 'newusername', 
+                       :bio => 'My bio', :logo =>  @file}}
+                  
+        # check sync_object_type
+        type = SyncObjectType.first
+        type.should_not be_nil
+        type.object_type.should == "User"
+        
+        # check sync_object_actions
+        action = SyncObjectAction.first
+        action.should_not be_nil
+        action.object_action.should == "update"
+        
+        # check peer logs
+        peer_log = SyncPeerLog.first
+        peer_log.should_not be_nil
+        peer_log.sync_object_action_id.should == action.id
+        peer_log.sync_object_type_id.should == type.id
+        peer_log.user_site_id .should == PEER_SITE_ID
+        peer_log.user_site_object_id.should == @user.id
+        peer_log.sync_object_id.should == @user.id
+        peer_log.sync_object_site_id.should == PEER_SITE_ID
+        
+        user = User.find_by_id (@user.id)
+        # check log action parameters
+        username_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "username")
+        username_parameter[0][:value].should == "newusername"
+        
+        bio_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "bio")
+        bio_parameter[0][:value].should == "My bio"
+          
+        logo_cache_url_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_cache_url")
+        logo_cache_url_parameter[0][:value].should == "#{user.logo_cache_url}"
+          
+        logo_file_name_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_file_name")
+        logo_file_name_parameter[0][:value].should == "#{user.logo_file_name}"
                     
-          # check sync_object_type
-          type = SyncObjectType.first
-          type.should_not be_nil
-          type.object_type.should == "User"
+        logo_content_type_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_content_type")
+        logo_content_type_parameter[0][:value].should == "#{user.logo_content_type}"
+                    
+        logo_file_size_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_file_size")
+        logo_file_size_parameter[0][:value].should == "#{user.logo_file_size}"
           
-          # check sync_object_actions
-          action = SyncObjectAction.first
-          action.should_not be_nil
-          action.object_action.should == "update"
-          
-          # check peer logs
-          peer_log = SyncPeerLog.first
-          peer_log.should_not be_nil
-          peer_log.sync_object_action_id.should == action.id
-          peer_log.sync_object_type_id.should == type.id
-          peer_log.user_site_id .should == PEER_SITE_ID
-          peer_log.user_site_object_id.should == @user.id
-          peer_log.sync_object_id.should == @user.id
-          peer_log.sync_object_site_id.should == PEER_SITE_ID
-          
-          # check log action parameters
-          username_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "username")
-          username_parameter[0][:value].should == "newusername"
-          
-          bio_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "bio")
-          bio_parameter[0][:value].should == "My bio"
-                                                                                                 
+        base_url_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "base_url")
+        base_url_parameter[0][:value].should == "#{$CONTENT_SERVER}content/"
       end
     end
   end

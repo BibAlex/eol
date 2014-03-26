@@ -77,8 +77,7 @@ describe SyncPeerLog do
         truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
         truncate_table(ActiveRecord::Base.connection, "users", {})
-
-        user = User.create(:origin_id => 85, :site_id => 2, :username => "name")
+        user = User.create(:user_origin_id => 85, :site_id => 2, :username => "name")
         #create sync_object_action
         SyncObjectAction.create(:object_action => 'update')
         #create sync_object_type
@@ -95,10 +94,9 @@ describe SyncPeerLog do
         @peer_log.sync_object_site_id = 2
         @peer_log.save
         #create sync_action_parameters
-
-        parameters = ["username", "bio", "remote_ip", "origin_id", "site_id"]
-        values = ["myusername", "My bio", "127.0.0.2", "85", "2"]
-
+        parameters = ["username", "bio", "remote_ip", "user_origin_id", "site_id", "logo_cache_url",
+                      "logo_file_name", "logo_content_type", "logo_file_size", "base_url"]
+        values = ["myusername", "My bio", "127.0.0.2", "85", "2", "201403200876152", "shopcandles006.JPG", "image/jpeg", "322392", "#{$CONTENT_SERVER}content/"]
         for i in 0..parameters.length-1
           lap = SyncLogActionParameter.new
           lap.peer_log_id = @peer_log.id

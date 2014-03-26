@@ -180,7 +180,7 @@ describe CollectionsController do
       end
     end
     
-      # sync update action
+    # sync update action
     describe 'update collection synchronization' do
       before(:each) do
         truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
@@ -199,8 +199,11 @@ describe CollectionsController do
       
       end
       it 'should save creating collection paramters in synchronization tables' do
-        put :update, {:collection => { :name => 'newname' }}
-
+        @file = ActionDispatch::Http::UploadedFile.new({
+                        :filename => "test.jpg",
+                        :type => "image/jpeg",
+                        :tempfile => File.new(Rails.root.join("test/fixtures/files/test.jpg")) })
+        put :update, {:collection => { :name => 'newname'}}
         # # created collection
         # created_collection =  Collection.first
         # created_collection.name.should == 'newcollection'
@@ -228,11 +231,7 @@ describe CollectionsController do
         # check log action parameters
         collectionname_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "name")
         collectionname_parameter[0][:value].should == "newname"
-
       end
     end
   end
-  
- 
-
 end
