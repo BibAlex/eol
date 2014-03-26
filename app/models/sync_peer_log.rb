@@ -214,6 +214,13 @@ class SyncPeerLog < ActiveRecord::Base
     file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
     if (!(user.nil?))
       if download_file?(file_url, user_logo_name, "logo")
+        # delete old logo
+        old_logo_name = user.logo_file_name
+        old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
+        if file_type != old_logo_extension
+          File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}users_#{user.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}users_#{user.id}.#{old_logo_extension}"
+        end
+        
         parameters.delete("base_url")
         user.update_attributes(parameters)
         # call log activity
@@ -222,7 +229,7 @@ class SyncPeerLog < ActiveRecord::Base
         upload_file(user)
       else
          # add failed file record
-        failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => user_logo_name, :file_type => file_type,
+        failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => user_logo_name, :file_type => "logo",
                   :object_type => "user" , :object_id => user.id)
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
@@ -314,6 +321,14 @@ class SyncPeerLog < ActiveRecord::Base
     file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
     if(!(collection.nil?))
       if download_file?(file_url, collection_logo_name, "logo")
+        
+        # delete old logo
+        old_logo_name = collection.logo_file_name
+        old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
+        if file_type != old_logo_extension
+          File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}"
+        end
+        
         parameters.delete("base_url")
         name_change = parameters[:name] != collection.name
         description_change = parameters[:description] != collection.description
@@ -325,7 +340,7 @@ class SyncPeerLog < ActiveRecord::Base
       else
         
        # add failed file record
-        failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => collection_logo_name, :file_type => file_type,
+        failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => collection_logo_name, :file_type => "logo",
                   :object_type => "collection" , :object_id => collection.id)
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
@@ -405,5 +420,4 @@ class SyncPeerLog < ActiveRecord::Base
                                           site_id: name.site_id)
     user.log_activity(:updated_common_names, taxon_concept_id: taxon_concept.id)
   end
-  
 end

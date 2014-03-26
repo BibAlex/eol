@@ -16,18 +16,27 @@ namespace :sync do
      
      # fetch records from db
      failed_files = FailedFiles.all
-     debugger
      failed_files.each do |record|
-       debugger
         if download_file?(record.file_url, record.output_file_name, record.file_type)
           object = record.object_type.constantize.find(record.object_id)
-          failed_file_parameters =  FailedFileParameters.find_by_failed_file_id(record.id)
+          
+            # delete old logo
+          old_logo_name = object.logo_file_name
+          old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
+          if record.file_type == "logo"
+            if record.output_file_name[record.output_file_name.rindex(".")+1, record.output_file_name.length] != old_logo_extension
+              File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}#{record.object_type.downcase.pluralize}_#{object.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}#{record.object_type.downcase.pluralize}_#{object.id}.#{old_logo_extension}"
+            end
+          end        
+          
+          failed_file_parameters =  FailedFilesParameters.where(:failed_files_id => record.id)
           failed_file_parameters.each do |file_paramters|
             object[file_paramters.parameter] = file_paramters.value
           end
           object.save
-          upload_file(object)
+          upload_file(object)          
         end
+      
       end
       
       puts "Sleeping for 10 seconds"
