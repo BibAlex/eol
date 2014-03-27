@@ -213,6 +213,7 @@ class SyncPeerLog < ActiveRecord::Base
     user_logo_name = "users_#{user.id}.#{file_type}"
     file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
     if (!(user.nil?))
+      
       if download_file?(file_url, user_logo_name, "logo")
         # delete old logo
         old_logo_name = user.logo_file_name
@@ -228,9 +229,10 @@ class SyncPeerLog < ActiveRecord::Base
         # upload user logo
         upload_file(user)
       else
+      debugger
          # add failed file record
         failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => user_logo_name, :file_type => "logo",
-                  :object_type => "user" , :object_id => user.id)
+                  :object_type => "User" , :object_id => user.id)
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])
@@ -341,7 +343,7 @@ class SyncPeerLog < ActiveRecord::Base
         
        # add failed file record
         failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => collection_logo_name, :file_type => "logo",
-                  :object_type => "collection" , :object_id => collection.id)
+                  :object_type => "Collection" , :object_id => collection.id)
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
         FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])

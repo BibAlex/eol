@@ -1,5 +1,6 @@
 # NOTE - This really really really needs to be at the very tippity-top of the file.  Leave it here.
 require 'simplecov'
+require "capybara" 
 SimpleCov.start do
   add_group "Models", "app/models"
   add_group "Controllers", "app/controllers"
@@ -35,6 +36,11 @@ Dir[Rails.root.join("spec/support/**/*.rb")].each {|f| require f}
 
 # quiet down any migrations that run during tests
 ActiveRecord::Migration.verbose = false
+
+Capybara.configure do |config|
+  config.app_host   = 'http://127.0.0.1'
+  config.server_port = 3001
+end
 
 RSpec.configure do |config|
   include TruncateHelpers # ...We want to truncate the tables once here.  # TODO - really? Shouldn't specs handle this as needed?

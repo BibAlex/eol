@@ -16,6 +16,7 @@ namespace :sync do
      
      # fetch records from db
      failed_files = FailedFiles.all
+     debugger
      failed_files.each do |record|
         if download_file?(record.file_url, record.output_file_name, record.file_type)
           object = record.object_type.constantize.find(record.object_id)
@@ -34,7 +35,9 @@ namespace :sync do
             object[file_paramters.parameter] = file_paramters.value
           end
           object.save
-          upload_file(object)          
+          upload_file(object)       
+          #delete this record   
+          FailedFiles.find_by_id(record.id).delete
         end
       
       end

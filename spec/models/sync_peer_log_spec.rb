@@ -119,7 +119,12 @@ describe SyncPeerLog do
 
         user.username.should == "myusername"
         user.bio.should == "My bio"
-        files = Dir.glob("#{Rails.root}/public#{$LOGO_UPLOAD_PATH}users_1.JPG")
+        
+      end
+      
+      it "should download files" do
+        File.exist?("#{Rails.root}/public#{$LOGO_UPLOAD_PATH}users_1.JPG").should be_true
+        File.exist?("#{Rails.root}/public#{$LOGO_UPLOAD_PATH}users_1.JPG.sha1").should be_true
       end
 
     end

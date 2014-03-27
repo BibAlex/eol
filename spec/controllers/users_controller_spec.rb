@@ -284,10 +284,9 @@ describe UsersController do
             :filename => "test.jpg",
             :type => "image/jpeg",
             :tempfile => File.new(Rails.root.join("test/fixtures/files/test.jpg")) })
-            
+        @user.logo_cache_url = nil
         put :update, { :id => @user.id, :user => { :id => @user.id, :username => 'newusername', 
                        :bio => 'My bio', :logo =>  @file}}
-                  
         # check sync_object_type
         type = SyncObjectType.first
         type.should_not be_nil
