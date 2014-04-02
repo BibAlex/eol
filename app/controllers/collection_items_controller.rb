@@ -27,6 +27,15 @@ class CollectionItemsController < ApplicationController
     flash.now[:error] = nil
     @notices = []
     @errors = []
+    
+    # sync params
+    sync_params = {}
+    collections_origin_ids = ""
+    collections_site_ids = ""
+    item = params["collection_item"]["collected_item_type"].constantize.find(params["collection_item"]["collected_item_id"])
+    sync_params["collected_item_type"] = params["collection_item"]["collected_item_type"]
+    sync_params["collected_item_name"] = item.summary_name
+    
     # Sooo... we could get our data in a lot of different ways.
     if session[:submitted_data] # They are coming back from logging in, data is stored:
       store_location(session[:submitted_data][:return_to])
@@ -36,10 +45,27 @@ class CollectionItemsController < ApplicationController
       if params[:collection_id].is_a? Array
         params[:collection_id].each do |collection_id|
           create_collection_item(params[:collection_item].merge(collection_id: collection_id))
-        end
+           # for synchronization
+           col = Collection.find(collection_id)
+           collections_origin_ids += col.origin_id.to_s + ","
+           collections_site_ids += col.site_id.to_s + ","
+        end        
+        # add item to many collections
+        sync_params["collection_origin_ids"] = collections_origin_ids
+        sync_params["collections_site_ids"] = collections_site_ids
+        
       else
         create_collection_item(params[:collection_item].merge(collection_id: params[:collection_id]))
+        # for synchronization
+        col = Collection.find(params[:collection_id])
+        sync_params["collection_origin_id"] = col.origin_id
+        sync_params["collection_site_id"] = col.site_id
       end
+      
+       # call log add item to collection      
+       SyncPeerLog.log_add_item_to_collection(item.origin_id, item.site_id, current_user.origin_id,sync_params)
+
+      
     else # ...or this is just a simple single collect:
       create_collection_item(params[:collection_item])
     end

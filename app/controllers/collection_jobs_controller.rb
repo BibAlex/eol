@@ -9,12 +9,80 @@ class CollectionJobsController < ApplicationController
   def create
     return redirect_to(@collection_job.collection, notice: I18n.t(:error_no_items_selected)) unless
       @collection_job.has_items?
-    create_collection_if_asked
+    
+    create_collection_if_asked  
+    
     unless @collection_job.missing_targets?
       if @collection_job.save
         # TODO - we really want to decide if this is a "big" job and delay it, if so.
         Collection.with_master do
           Collection.uncached { @collection_job.run }
+        end
+        
+        # sync copy collection
+        # prepare sync peer log        
+        sync_params = {}
+        # sync creating new collection from current collection
+        new_collection = nil
+        copied_collections_origin_ids = ""
+        copied_collections_site_ids = ""
+        @collection_job.collections.each do |col|
+          unless col.nil? 
+            if col.name == params[:collection_name]
+              new_collection = col 
+            else            
+              copied_collections_origin_ids += col.origin_id.to_s + ","
+              copied_collections_site_ids += col.site_id.to_s + ","
+            end
+          end
+        end
+        
+        if new_collection
+          new_collection.origin_id = new_collection.id
+          new_collection.site_id = PEER_SITE_ID
+          new_collection.save
+          sync_params["new_collection_origin_id"] = new_collection.origin_id
+          sync_params["new_collection_name"] = new_collection.name
+        end
+        
+        # sync collection job
+        sync_params["command"] = @collection_job.command
+        sync_params["item_count"] = @collection_job.item_count
+        sync_params["all_items"] = @collection_job.all_items
+        #sync_params["finished_at"] = @collection_job.finished_at
+        sync_params["overwrite"] = @collection_job.overwrite
+        
+         # sync collection job collections
+         sync_params["copied_collections_origin_ids"] = copied_collections_origin_ids
+         sync_params["copied_collections_site_ids"] = copied_collections_site_ids
+        
+        # sync collected items 
+        collection_items = nil
+        collection_items_origin_ids = ""
+        collection_items_site_ids = ""
+        collection_items_names = ""
+        collection_items_types = ""
+        if @collection_job.all_items  
+          collection_items = @collection_job.collection.items
+        else
+          collection_items = @collection_job.collection_items
+        end
+        collection_items.each do |collected_item| 
+          item = collected_item.collected_item_type.constantize.find(collected_item.collected_item_id)
+          collection_items_origin_ids += item.origin_id.to_s + "," unless item.origin_id.nil? || item.origin_id.to_s.nil?
+          collection_items_site_ids += item.site_id.to_s + "," unless item.site_id.nil? || item.site_id.to_s.nil?
+          collection_items_names += collected_item.name + "," unless collected_item.nil? || collected_item.name.nil?
+          collection_items_types += collected_item.collected_item_type + "," unless collected_item.nil? || collected_item.collected_item_type.nil?
+        end    
+        sync_params["collection_items_origin_ids"] = collection_items_origin_ids 
+        sync_params["collection_items_site_ids"] = collection_items_site_ids
+        sync_params["collection_items_names"] = collection_items_names
+        sync_params["collection_items_types"] = collection_items_types
+        
+        if @collection_job.command == "copy"
+          SyncPeerLog.log_copy_collection(@collection_job.collection.origin_id, @collection_job.collection.site_id,current_user.origin_id,sync_params)
+        elsif @collection_job.command == "remove"
+          SyncPeerLog.log_remove_items_from_collection(@collection_job.collection.origin_id, @collection_job.collection.site_id,current_user.origin_id,sync_params)
         end
         redirect_to job_should_redirect_to, notice: complete_notice
       else
@@ -72,8 +140,7 @@ class CollectionJobsController < ApplicationController
         params[:collection_job][:collection_ids] << collection.id
       else
         raise "Critical error creating new collection." # this shouldn't happen unless, say, DB is down.
-      end
+      end     
     end
   end
-
 end

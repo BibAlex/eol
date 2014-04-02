@@ -310,6 +310,7 @@ describe UsersController do
         
         user = User.find_by_id (@user.id)
         # check log action parameters
+
         username_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "username")
         username_parameter[0][:value].should == "newusername"
         
@@ -327,7 +328,6 @@ describe UsersController do
                     
         logo_file_size_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_file_size")
         logo_file_size_parameter[0][:value].should == "#{user.logo_file_size}"
-          
         base_url_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "base_url")
         base_url_parameter[0][:value].should == "#{$CONTENT_SERVER}content/"
       end

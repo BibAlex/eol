@@ -42,7 +42,7 @@ RSpec.configure do |config|
   config.include FactoryGirl::Syntax::Methods
 
   config.use_transactional_fixtures = false
-
+   
   # It's a complex project, so, yeah, we have a LOT of helpers:
   config.include(EmailSpec::Helpers)
   config.include(EmailSpec::Matchers)

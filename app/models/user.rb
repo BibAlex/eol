@@ -613,12 +613,10 @@ class User < ActiveRecord::Base
   # NOTE - This REMOVES the watchlist (using #shift)!
   def published_collections(as_user = nil)
     @published_collections ||= all_collections(as_user).shift && all_collections(as_user).select { |c| c.published? }
-    return [] unless @published_collections
   end
 
   def unpublished_collections(as_user = nil)
     @unpublished_collections ||= all_collections(as_user).select { |c| ! c.published? }
-    return [] unless @unpublished_collections
   end
 
   # #collections is only a list of the collections the user *owns*.  This is a list that includes the collections the

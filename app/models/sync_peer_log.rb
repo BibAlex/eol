@@ -77,6 +77,40 @@ class SyncPeerLog < ActiveRecord::Base
     end   
   end
   
+  # log_copy_collection
+  def self.log_copy_collection(collection_id, collection_site_id, user_id,  params)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_copy_action.id, SyncObjectType.get_collection_type.id, collection_site_id, collection_id)
+    # add log action parameters
+    if spl
+      params.each do |key, value| 
+          create_sync_log_action_parameter(spl.id, key, value)
+      end
+    end   
+  end
+  
+  # log add item to collection
+  def self.log_add_item_to_collection(collection_item_id, collection_item_site_id, user_id, params)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_add_item_to_collection_action.id, SyncObjectType.get_collection_type.id, collection_item_site_id, collection_item_id)
+    # add log action parameters
+    if spl
+      params.each do |key, value| 
+          create_sync_log_action_parameter(spl.id, key, value)
+      end
+    end   
+  end
+  
+  # log remove item from collection
+  def self.log_remove_items_from_collection(collection_id, collection_site_id, user_id,  params)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_remove_item_from_collection_action.id, SyncObjectType.get_collection_type.id, collection_site_id, collection_id)
+    # add log action parameters
+    if spl
+      params.each do |key, value| 
+          create_sync_log_action_parameter(spl.id, key, value)
+      end
+    end   
+  end
+  
+  
   #log create common name
   def self.log_add_common_name(user, name, params)
     spl = self.create_sync_peer_log(user.site_id, user.user_origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
@@ -262,46 +296,52 @@ class SyncPeerLog < ActiveRecord::Base
     parameters.delete("user_site_id")
     parameters.delete("user_site_object_id")
     parameters.delete("sync_object_id")
-    parameters.delete("sync_object_site_id")  
-    logo_file_name = parameters["logo_file_name"]
-    file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ]
+    parameters.delete("sync_object_site_id") 
     user = User.find_by_origin_id_and_site_id(parameters["origin_id"], parameters["site_id"])
-    user_logo_name = "users_#{user.id}.#{file_type}"
-    file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
+    logo_file_name = parameters["logo_file_name"]
+    
     if (!(user.nil?))
-      if download_file?(file_url, user_logo_name, "logo")
-        
-        debugger
-        # delete old logo
-        old_logo_name = user.logo_file_name
-        old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
-        if file_type != old_logo_extension
-          File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}users_#{user.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}users_#{user.id}.#{old_logo_extension}"
-        end
-        
-        parameters.delete("base_url")
-        user.update_attributes(parameters)
-        # call log activity
-        user.log_activity(:updated_user) 
-        # upload user logo
-        upload_file(user)
-      else
-         # add failed file record
-        failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => user_logo_name, :file_type => "logo",
-                  :object_type => "user" , :object_id => user.id)
-        FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
-        FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
-        FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])
-
-        
-        #delete redundant parameters 
-         ["base_url", "logo_file_name", "logo_cache_url", "logo_content_type", "logo_file_size"].each { |key| parameters.delete key }
+      if !(logo_file_name.nil?)
+          file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ]
+          user_logo_name = "users_#{user.id}.#{file_type}"
+          file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
+          if download_file?(file_url, user_logo_name, "logo")
+          
+          # delete old logo
+          old_logo_name = user.logo_file_name
+          old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
+          if file_type != old_logo_extension
+            File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}users_#{user.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}users_#{user.id}.#{old_logo_extension}"
+          end
+          
+          parameters.delete("base_url")
           user.update_attributes(parameters)
           # call log activity
-          user.log_activity(:updated_user)
-      end
-       
+          user.log_activity(:updated_user) 
+          # upload user logo
+          upload_file(user)
+        else
+           # add failed file record
+          failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => user_logo_name, :file_type => "logo",
+                    :object_type => "User" , :object_id => user.id)
+          FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
+          FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
+          FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])
+  
+          
+          #delete redundant parameters 
+           ["base_url", "logo_file_name", "logo_cache_url", "logo_content_type", "logo_file_size"].each { |key| parameters.delete key }
+            user.update_attributes(parameters)
+            # call log activity
+            user.log_activity(:updated_user)
+        end
+     else
+         parameters.delete("base_url")
+         user.update_attributes(parameters)
+        # call log activity
+        user.log_activity(:updated_user) 
     end
+   end
   end
   
   # update user by admin
@@ -374,50 +414,151 @@ class SyncPeerLog < ActiveRecord::Base
     parameters.delete("sync_object_id")
     parameters.delete("sync_object_site_id")
     #
-    logo_file_name = parameters["logo_file_name"]
-    file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ]
-    collection_logo_name = "collections_#{collection.id}.#{file_type}"
-    file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
-    if(!(collection.nil?))
-      if download_file?(file_url, collection_logo_name, "logo")
+     logo_file_name = parameters["logo_file_name"]
+    if(!(collection.nil?))      
+      if !(logo_file_name.nil?)
         
-        # delete old logo
-        old_logo_name = collection.logo_file_name
-        old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
-        if file_type != old_logo_extension
-          File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}"
+       
+        file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ] 
+        collection_logo_name = "collections_#{collection.id}.#{file_type}"
+        file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
+        if download_file?(file_url, collection_logo_name, "logo")
+          
+          # delete old logo
+          old_logo_name = collection.logo_file_name
+          old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
+          if file_type != old_logo_extension
+            File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}"
+          end
+          
+          parameters.delete("base_url")
+          name_change = parameters[:name] != collection.name
+          description_change = parameters[:description] != collection.description
+          collection.update_attributes(parameters) 
+          # log create collection action
+          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
+          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
+           upload_file(collection)   
+        else
+          
+         # add failed file record
+          failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => collection_logo_name, :file_type => "logo",
+                    :object_type => "Collection" , :object_id => collection.id)
+          FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
+          FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
+          FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])
+  
+          
+          #delete redundant parameters 
+          ["base_url", "logo_file_name", "logo_cache_url", "logo_content_type", "logo_file_size"].each { |key| parameters.delete key }
+          name_change = parameters[:name] != collection.name
+          description_change = parameters[:description] != collection.description
+          collection.update_attributes(parameters) 
+          # log create collection action
+          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
+          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
         end
-        
-        parameters.delete("base_url")
-        name_change = parameters[:name] != collection.name
-        description_change = parameters[:description] != collection.description
-        collection.update_attributes(parameters) 
-        # log create collection action
-        CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
-        CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
-         upload_file(collection)   
       else
-        
-       # add failed file record
-        failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => collection_logo_name, :file_type => "logo",
-                  :object_type => "collection" , :object_id => collection.id)
-        FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
-        FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
-        FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])
-
-        
-        #delete redundant parameters 
-        ["base_url", "logo_file_name", "logo_cache_url", "logo_content_type", "logo_file_size"].each { |key| parameters.delete key }
-        name_change = parameters[:name] != collection.name
-        description_change = parameters[:description] != collection.description
-        collection.update_attributes(parameters) 
-        # log create collection action
-        CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
-        CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
+          parameters.delete("base_url")
+          name_change = parameters[:name] != collection.name
+          description_change = parameters[:description] != collection.description
+          collection.update_attributes(parameters) 
+          # log create collection action
+          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
+          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
       end
       
     end
    end
+   
+   def self.copy_collection(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    origin_collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+
+                              
+     # create collection job collections
+     copied_collections_origin_ids = parameters["copied_collections_origin_ids"].split(",")
+     copied_collections_site_ids = parameters["copied_collections_site_ids"].split(",")
+     collections = []
+     copied_collections_origin_ids.count.times do |i|
+       collections << Collection.find_by_origin_id_and_site_id(copied_collections_origin_ids[i], copied_collections_site_ids[i])
+     end
+
+     # create new collection if asked
+     if parameters["new_collection_name"] 
+       new_collection = Collection.create(:name => parameters["new_collection_name"], :origin_id => parameters["new_collection_origin_id"],
+                         :site_id => parameters["user_site_id"])
+       new_collection.users = [user] unless user.nil?
+       collections << new_collection
+     end 
+     
+     # create collection job
+     CollectionJob.create!(:command => parameters["command"], :user => user,
+                          :collection => origin_collection, :item_count => parameters["item_count"],
+                          :all_items => parameters["all_items"],
+                          :overwrite => parameters["overwrite"], :collections => collections )
+                          
+     # copy items in copied collection
+     collection_items_origin_ids = parameters["collection_items_origin_ids"].split(",")
+     collection_items_site_ids = parameters["collection_items_site_ids"].split(",")
+     collection_items_names = parameters["collection_items_names"].split(",")
+     collection_items_types = parameters["collection_items_types"].split(",")
+     unless collection_items_origin_ids.nil?
+       collection_items_origin_ids.count.times do |i|
+         item = collection_items_types[i].constantize.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i])
+         collections.each do |col|
+           CollectionItem.create(:name => collection_items_names[i], :collected_item_type => collection_items_types[i],
+                                 :collection_id => col.id, :collected_item_id => item.id)
+         end
+       end
+     end
+   end
+
+ # add item to collection
+  def self.add_item_collection(parameters)
+    # add item to collections
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    item = parameters["collected_item_type"].constantize.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+   # add item to many collections
+    if parameters["collection_origin_ids"]
+      collections_origin_ids = parameters["collection_origin_ids"].split(",")
+      collections_site_ids = parameters["collections_site_ids"].split(",")
+      collections_origin_ids.count.times do |i|
+        col = Collection.find_by_origin_id_and_site_id(collections_origin_ids[i], collections_site_ids[i])
+        col_item = CollectionItem.create(:name => parameters["collected_item_name"], :collected_item_type => parameters["collected_item_type"],
+                                 :collection_id => col.id, :collected_item_id => item.id)
+        CollectionActivityLog.create(collection: col_item.collection, user: user,
+                                   activity: Activity.collect, collection_item: col_item)
+      end
+    end
+    # add item to one collection
+    if parameters["collection_origin_id"]
+      col = Collection.find_by_origin_id_and_site_id(parameters["collection_origin_id"], parameters["collection_site_id"])
+      col_item = CollectionItem.create(:name => parameters["collected_item_name"], :collected_item_type => parameters["collected_item_type"],
+                                 :collection_id => col.id, :collected_item_id => item.id)
+        CollectionActivityLog.create(collection: col_item.collection, user: user,
+                                   activity: Activity.collect, collection_item: col_item)
+    end
+  end
+
+ # remove item from collection
+   def self.remove_item_collection(parameters)
+    # add item to collections
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+
+    # remove items
+     collection_items_origin_ids = parameters["collection_items_origin_ids"].split(",")
+     collection_items_site_ids = parameters["collection_items_site_ids"].split(",")
+     collection_items_names = parameters["collection_items_names"].split(",")
+     collection_items_types = parameters["collection_items_types"].split(",")
+     unless collection_items_origin_ids.nil?
+       collection_items_origin_ids.count.times do |i|
+         item = collection_items_types[i].constantize.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i])
+          CollectionItem.find_by_collection_id_and_collected_item_id(collection.id, item.id).destroy         
+       end
+     end
+  end
    
   
   def self.get_url(base_url, cache_url,file_type)

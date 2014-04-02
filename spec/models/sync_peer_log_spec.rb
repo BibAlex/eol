@@ -638,7 +638,7 @@ describe SyncPeerLog do
           truncate_table(ActiveRecord::Base.connection, "users", {})
           truncate_table(ActiveRecord::Base.connection, "collections", {})
           truncate_table(ActiveRecord::Base.connection, "collection_items", {})
-          
+          Activity.create_enumerated
                     
           @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
           @last_collection_count = EOL::GlobalStatistics.solr_count('Collection')
@@ -694,13 +694,14 @@ describe SyncPeerLog do
           collection_item.collected_item_id.should == "#{@user.id}".to_i
           collection_item.collection_id.should == "#{collection.id}".to_i
 
-         Rails.cache.read(EOL::GlobalStatistics.key_for_type("collections")).should == @last_collection_count + 2
+         Rails.cache.read(EOL::GlobalStatistics.key_for_type("collections")).should == @last_collection_count + 1
           
           
         end
       end
       
       describe "pulling update collection" do
+
         before(:all) do
           truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
           truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
@@ -709,6 +710,7 @@ describe SyncPeerLog do
           truncate_table(ActiveRecord::Base.connection, "users", {})
           truncate_table(ActiveRecord::Base.connection, "collections", {})
           truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          Activity.create_enumerated
 
           @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
           @collection = Collection.create(:origin_id => 30, :site_id => 2, :name => "name")
@@ -748,11 +750,99 @@ describe SyncPeerLog do
           @peer_log.process_entry
         end
 
-        it "should update user" do
+        it "should update collection" do
           # test updating collection
           collection = Collection.first
           collection.name.should == "newname"        
           
+        end
+      end
+      
+       describe "pulling copy collection" do
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "taxon_concepts", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
+          SpecialCollection.create_enumerated
+
+          @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
+          @collection = Collection.create(:origin_id => 30, :site_id => 2, :name => "name")
+          @collection.users = [@user]
+          
+          @second_collection = Collection.create(:origin_id => 29, :site_id => 2, :name => "second_name")
+          @second_collection.users = [@user]
+          @item = Collection.create(:origin_id => 100, :site_id => 2, :name => "item")
+
+          CollectionItem.create(:name => "#{@item.name}", :collected_item_type => "Collection",
+                              :collected_item_id => @item.id, :collection_id => @collection.id)
+                              
+        
+          #create sync_object_action
+          SyncObjectAction.create(:object_action => 'copy')
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'Collection')
+          #create sync_peer_log
+          @peer_log = SyncPeerLog.new
+          @peer_log.sync_event_id = 5 #pull event
+          @peer_log.user_site_id = 2
+          @peer_log.user_site_object_id = @user.origin_id
+          @peer_log.action_taken_at_time = Time.now
+          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('copy').id
+          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
+          @peer_log.sync_object_id = @collection.origin_id
+          @peer_log.sync_object_site_id = 2
+          @peer_log.save
+          #create sync_action_parameters
+
+          parameters = ["new_collection_origin_id", "new_collection_name", "command", 
+                        "item_count", "all_items", "overwrite", "copied_collections_origin_ids",
+                         "copied_collections_site_ids", "collection_items_origin_ids", "collection_items_site_ids",
+                         "collection_items_names", "collection_items_types"]
+          values = ["31", "new_copy", "copy", "1", "1", "0", "29,", "2,", "100,", "2,",
+                    "item,", "Collection,"]
+
+          for i in 0..parameters.length-1
+            lap = SyncLogActionParameter.new
+            lap.peer_log_id = @peer_log.id
+            lap.param_object_type_id = nil
+            lap.param_object_id = nil
+            lap.param_object_site_id = nil
+            lap.parameter = parameters[i]
+            lap.value = values[i]
+            lap.save
+          end
+          #call process entery
+          @peer_log.process_entry
+        end
+
+        it "should copy collection" do
+          # test copying collection
+          new_collection = Collection.find_by_site_id_and_origin_id( 2, 31)
+          new_collection.name.should == "new_copy" 
+          new_collection.users.first.should == @user 
+          
+          # test creating collection items   
+          CollectionItem.find(2).collection_id.should == 2
+          CollectionItem.find(3).collection_id.should == 4  
+          
+          # test creating collection job  
+           collection_job = CollectionJob.first
+          collection_job.command.should == "copy"
+          collection_job.user_id.should == @user.id
+          collection_job.collection_id.should == @collection.id
+          collection_job.all_items.should == true
+          
+           job_collections = collection_job.collections
+           job_collections.count.should == 2
+           job_collections[0].id.should == @second_collection.id
+           job_collections[1].id.should == new_collection.id
         end
       end
     end

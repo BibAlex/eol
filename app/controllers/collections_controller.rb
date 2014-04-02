@@ -96,8 +96,7 @@ class CollectionsController < ApplicationController
     set_edit_vars
   end
 
-  def update
-    debugger
+  def update 
     # TODO - These next two lines shouldn't be handled with a POST, they should be GETs (to #show):
     return redirect_to params.merge!(action: 'show').except(*unnecessary_keys_for_redirect) if params[:commit_sort]
     return redirect_to params.merge!(action: 'show').except(*unnecessary_keys_for_redirect) if params[:commit_view_as]
@@ -113,7 +112,8 @@ class CollectionsController < ApplicationController
     build_collection_items unless params[:commit_annotation]
     # copy is the only update action allowed for non-owners
     return if user_able_to_edit_collection # reads weird but will raise exception and exit if user cannot edit collection
-    return annotate if params[:commit_annotation]
+    return annotate if params[:commit_annotation] 
+    #&& params[:commit_annotation] != ""
     return chosen if params[:scope] # Note that updating the collection params doesn't specify a scope.
     
     # TODO - This is really the only stuff that needs to stay here!
@@ -124,6 +124,7 @@ class CollectionsController < ApplicationController
       flash[:notice] = I18n.t(:collection_updated_notice, collection_name: @collection.name) if
         params[:collection] # NOTE - when we sort, we don't *actually* update params...
       redirect_to params.merge!(action: 'show').except(*unnecessary_keys_for_redirect), status: :moved_permanently
+      
       CollectionActivityLog.create({ collection: @collection, user_id: current_user.id, activity: Activity.change_name }) if name_change
       CollectionActivityLog.create({ collection: @collection, user_id: current_user.id, activity: Activity.change_description }) if description_change
       
@@ -538,6 +539,7 @@ private
   end
 
   def remove_items(options)
+    debugger
     collection_items = options[:items] || collection_items_with_scope(options.merge(allow_all: true))
     bulk_log = params[:scope] == 'all_items'
     count = 0
