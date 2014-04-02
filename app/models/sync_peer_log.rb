@@ -20,8 +20,13 @@ class SyncPeerLog < ActiveRecord::Base
     end   
   end
   
-  def self.log_activate_user(user)
+  def self.log_activate_user(user, params)
     spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_activate_action.id, SyncObjectType.get_user_type.id, user.site_id, user.origin_id)
+    if spl
+      params.each do |key, value| 
+          create_sync_log_action_parameter(spl.id, key, value)
+      end
+    end   
   end
   
  
@@ -113,7 +118,7 @@ class SyncPeerLog < ActiveRecord::Base
   
   #log create common name
   def self.log_add_common_name(user, name, params)
-    spl = self.create_sync_peer_log(user.site_id, user.user_origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -124,7 +129,7 @@ class SyncPeerLog < ActiveRecord::Base
  
   #log delete common name
   def self.log_delete_common_name(user, synonym, params)
-    spl = self.create_sync_peer_log(user.site_id, user.user_origin_id, SyncObjectAction.get_delete_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_delete_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -135,7 +140,7 @@ class SyncPeerLog < ActiveRecord::Base
  
   #log vet common name
   def self.log_vet_common_name(user, name, params)
-    spl = self.create_sync_peer_log(user.site_id, user.user_origin_id, SyncObjectAction.get_vet_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_vet_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -146,7 +151,7 @@ class SyncPeerLog < ActiveRecord::Base
  
  
   def self.log_update_common_name(user, name, params)
-    spl = self.create_sync_peer_log(user.site_id, user.user_origin_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -154,8 +159,7 @@ class SyncPeerLog < ActiveRecord::Base
       end
     end
   end
-
-
+  
   def process_entry
     # TODO: first we need to detect conflict.
     # considering that NOW we are dealing with add users, which won't cause conflicts,
@@ -166,7 +170,7 @@ class SyncPeerLog < ActiveRecord::Base
     parameters["user_site_object_id"] = user_site_object_id
     parameters["sync_object_site_id"] = sync_object_site_id
     parameters["sync_object_id"] = sync_object_id
-    
+      
     sync_log_action_parameter.each do |lap|
       unless lap.param_object_type_id
         parameters[lap.parameter] = lap.value
@@ -193,62 +197,7 @@ class SyncPeerLog < ActiveRecord::Base
     "SyncPeerLog".constantize.send(function_name, parameters)
   end
   
-  # def process_entry
-    # # TODO: first we need to detect conflict.
-    # # considering that NOW we are dealing with add users, which won't cause conflicts,
-    # # So I am skipping it for now
-#     
-    # parameters = {}
-    # sync_log_action_parameter.each do |lap|
-      # unless lap.param_object_type_id
-        # parameters[lap.parameter] = lap.value
-      # else
-        # # find the object and add it to the hash
-        # parameters[lap.parameter] = SyncObjectType.find_by_id(lap.param_object_type_id).object_type.constantize.find_by_object_id_and_object_site_id(lap.param_object_id, lap.param_object_site_id)
-      # end
-    # end
-#     
-    # if parameters.blank?
-      # # this means that the action depends only on user id and user site id
-      # parameters[:user_site_id] = user_site_id
-      # parameters[:user_site_object_id] = user_site_object_id
-    # end
-#     
-    # model_name = SyncObjectType.find_by_id(sync_object_type_id).object_type
-    # action_name = SyncObjectAction.find_by_id(sync_object_action_id).object_action
-    # if parameters[:language]
-      # parameters[:language] = Language.find_or_create_by_iso_639_1(parameters[:language])
-    # else
-      # parameters[:language] = Language.first
-    # end
-    # model_name.constantize.send(action_name, parameters)
-  # end
-  
   private
-  #for any user action such as (registeration, edit profile, ...)
-  # def self.handle_user_actions(user_id, params, sync_object_action_id)
-    # spl = SyncPeerLog.new
-    # spl.user_site_id = PEER_SITE_ID    
-    # spl.user_site_object_id = user_id
-    # spl.action_taken_at_time = Time.now
-    # spl.sync_object_action_id = sync_object_action_id
-    # spl.sync_object_type_id = SyncObjectType.get_user_type.id
-    # spl.sync_object_site_id = PEER_SITE_ID
-    # spl.sync_object_id = user_id
-# 
-    # # add log action parameters
-    # if spl.save
-      # params.each do |key, value| 
-        # unless 'email email_confirmation entered_password entered_password_confirmation'.include? key
-          # slap = SyncLogActionParameter.new
-          # slap.peer_log_id = spl.id
-          # slap.parameter = key
-          # slap.value = value
-          # slap.save
-        # end
-      # end
-    # end
-  # end
   
   def self.create_sync_peer_log(user_site_id, user_site_object_id, sync_object_action_id, sync_object_type_id, sync_object_site_id, sync_object_id)
     spl = SyncPeerLog.new
@@ -277,18 +226,29 @@ class SyncPeerLog < ActiveRecord::Base
     params["site_id"] = parameters["sync_object_site_id"]
     
     parameters.each do |key, value| 
-      unless 'user_site_id user_site_object_id sync_object_site_id sync_object_id'.include? key
+      unless 'user_site_id user_site_object_id sync_object_site_id sync_object_id collection_site_id collection_origin_id'.include? key
         params[key] = value
       end
     end
+
     user = User.create(params)
+    #we may remove this part as it always not yet created
+    #delete old watch list and create another
+    collections = Collection.find_by_sql("SELECT * FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id) 
+      WHERE cu.user_id = #{user.id} 
+      AND c.special_collection_id = #{SpecialCollection.watch.id}") 
+    if collections && collections.count > 0
+      Collections_User.find_by_user_id_and_collection_id(user.id, collection.id).delete
+      collection[0].delete
+    end
+    user.build_watch_collection(parameters["collection_site_id"], parameters["collection_origin_id"])
     if user
       EOL::GlobalStatistics.increment('users')  
     end
     
   end
   
-   def self.update_user(parameters)
+  def self.update_user(parameters)
     # find user want to update using user origin id and user origin site id 
     parameters[:user_identity_ids] = parameters["user_identity_ids"].split(",")  if (!(parameters["user_identity_ids"].nil?))
     parameters["site_id"] = parameters["sync_object_site_id"]
@@ -366,6 +326,10 @@ class SyncPeerLog < ActiveRecord::Base
       user = user[0]
       user.update_column(:active, true)
       user.update_column(:validation_code, nil)
+      user.add_to_index
+      if parameters["collection_site_id"]
+        user.build_watch_collection(parameters["collection_site_id"], parameters["collection_origin_id"])
+      end
     end
   end
   
@@ -573,7 +537,7 @@ class SyncPeerLog < ActiveRecord::Base
     taxon_concept = TaxonConcept.where(:site_id => parameters["taxon_concept_site_id"], :origin_id => parameters["taxon_concept_origin_id"])
     if taxon_concept && taxon_concept.count > 0
       taxon_concept = taxon_concept[0]     
-      user = User.find_by_user_origin_id_and_site_id(parameters["user_site_object_id"],parameters["user_site_id"])
+      user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"],parameters["user_site_id"])
       taxon_concept.add_common_name_synonym(parameters["string"], agent: user.agent,
                                             language: parameters["language"],
                                             vetted: Vetted.trusted,
@@ -598,18 +562,20 @@ class SyncPeerLog < ActiveRecord::Base
  
   def self.vet_common_name(parameters)
     language_id = parameters["language"].id
-    name_id = Name.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"]).id
-    user = User.find_by_user_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    name_id = Name.find_by_string(parameters["string"]).id
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     vetted = Vetted.find_or_create_by_view_order(parameters["vetted_view_order"])
     taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
-    taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: user)
-    user.log_activity(:vetted_common_name, taxon_concept_id: taxon_concept.id, value: name_id)
-    taxon_concept.reindex_in_solr
+    found = taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: user)
+    if found
+      user.log_activity(:vetted_common_name, taxon_concept_id: taxon_concept.id, value: name_id)
+      taxon_concept.reindex_in_solr
+    end
   end
  
   def self.update_common_name(parameters)
-    name = Name.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    user = User.find_by_user_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    name = Name.find_by_string(parameters["string"])
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     language = parameters["language"]
     taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
     taxon_concept.add_common_name_synonym(name.string,
@@ -621,9 +587,4 @@ class SyncPeerLog < ActiveRecord::Base
                                           site_id: name.site_id)
     user.log_activity(:updated_common_names, taxon_concept_id: taxon_concept.id)
   end
-  
-  
-  
-
-
 end

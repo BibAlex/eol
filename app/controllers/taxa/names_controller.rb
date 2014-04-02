@@ -88,7 +88,8 @@ class Taxa::NamesController < TaxaController
         #syncronization
         sync_params = {"language" => language.id,
                        "taxon_concept_origin_id" => @taxon_concept.origin_id,
-                       "taxon_concept_site_id" => @taxon_concept.site_id}
+                       "taxon_concept_site_id" => @taxon_concept.site_id,
+                       "string" => name.string}
         SyncPeerLog.log_update_common_name(current_user, name, sync_params)
       end
       current_user.log_activity(:updated_common_names, taxon_concept_id: @taxon_concept.id)
@@ -152,13 +153,16 @@ class Taxa::NamesController < TaxaController
     vetted = Vetted.find(params[:vetted_id])
     @taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: current_user)
     current_user.log_activity(:vetted_common_name, taxon_concept_id: @taxon_concept.id, value: name_id)
-
+    
     #syncronization
+    name = Name.find_by_id(name_id)
     sync_params={"language" => language_id,
                  "vetted_view_order" => vetted.view_order,
                  "taxon_concept_origin_id" => @taxon_concept.origin_id,
-                 "taxon_concept_site_id" => @taxon_concept.site_id}
-    SyncPeerLog.log_vet_common_name(current_user, Name.find_by_id(name_id), sync_params)
+                 "taxon_concept_site_id" => @taxon_concept.site_id,
+                 "string" => name.string}
+                 
+    SyncPeerLog.log_vet_common_name(current_user, name, sync_params)
     synonym = Synonym.find_by_name_id(name_id);
     if synonym
       case vetted.label

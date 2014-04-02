@@ -472,6 +472,7 @@ class TaxonConcept < ActiveRecord::Base
       vetted    = options[:vetted] || Vetted.unknown
       relation  = SynonymRelation.find_by_translated(:label, 'common name')
       name_obj  = Name.create_common_name(name_string,options[:name_origin_id],options[:site_id])
+      date      = options[:date]
       raise "Common name not created" unless name_obj
       if options[:new_flag]
         synonym = Synonym.generate_from_name(name_obj, agent: agent, preferred: preferred, 
@@ -482,7 +483,8 @@ class TaxonConcept < ActiveRecord::Base
         #called from pull request
         synonym = Synonym.generate_from_name(name_obj, agent: agent, preferred: preferred, language: language,
                                                      entry: entry, relation: relation, vetted: vetted,
-                                                     site_id: options[:synonym_site_id], origin_id: options[:synonym_origin_id])
+                                                     site_id: options[:synonym_site_id], 
+                                                     origin_id: options[:synonym_origin_id])
       end
       return_arr = {"synonym" => synonym, "name" => name_obj}
     end
@@ -497,8 +499,9 @@ class TaxonConcept < ActiveRecord::Base
 
   # This needs to work on both TCNs and Synonyms.  Which, of course, smells like bad design, so.... TODO - review.
   def vet_common_name(options = {})
-    vet_taxon_concept_names(options)
-    vet_synonyms(options)
+    first = vet_taxon_concept_names(options)
+    vet_synonyms(options) if first 
+    return first 
   end
 
   # TODO - this may belong on the TaxonOverview class (in modified form) and the TaxonCommunities class, if we create one...
@@ -1009,10 +1012,16 @@ private
     raise "Missing :name_id" unless options[:name_id]
     raise "Missing :vetted" unless options[:vetted]
     raise "Missing :user" unless options[:user]
-
-    taxon_concept_names_by_lang_id_and_name_id(options[:language_id], options[:name_id]).each do |tcn|
-      tcn.vet(options[:vetted], options[:user])
+    list = taxon_concept_names_by_lang_id_and_name_id(options[:language_id], options[:name_id])
+    if list && list.count > 0
+      list.each do |tcn|
+        tcn.vet(options[:vetted], options[:user])
+      end
+      return true
+    else
+      return false
     end
+    
   end
 
   def taxon_concept_names_by_lang_id_and_name_id(id_for_lang, id_for_name)
