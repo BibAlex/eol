@@ -178,15 +178,22 @@ class UsersController < ApplicationController
       @user.clear_entered_password
       send_verification_email
       EOL::GlobalStatistics.increment('users')
+      collections = Collection.find_by_sql("SELECT * FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id) 
+      WHERE cu.user_id = #{@user.id} 
+      AND c.special_collection_id = #{SpecialCollection.watch.id}")
+      if collections && collections.count > 0
+        collection = collections[0]
+        #log this action for sync.
+        sync_params = params[:user]
+        sync_params = sync_params.reverse_merge(:language => current_language,
+                                                :validation_code => @user.validation_code,
+                                                :remote_ip => request.remote_ip,
+                                                :created_at => @user.created_at,
+                                                :collection_site_id => collection.site_id,
+                                                :collection_origin_id => collection.origin_id )
+        SyncPeerLog.log_add_user(@user, sync_params)
+      end
       
-      #log this action for sync.
-      sync_params = params[:user]
-      sync_params = sync_params.reverse_merge(:language => current_language,
-                                              :validation_code => @user.validation_code,
-                                              :remote_ip => request.remote_ip,
-                                              :created_at => @user.created_at)
-      
-      SyncPeerLog.log_add_user(@user, sync_params)
       redirect_to pending_user_path(@user), status: :moved_permanently
     else
       failed_to_create_user and return

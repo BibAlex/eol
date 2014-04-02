@@ -167,6 +167,16 @@ describe UsersController do
         validation_code_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "validation_code")
         validation_code_parameter[0][:value].should == "#{created_user.validation_code}"
         
+        SpecialCollection.create(:name => "watch")
+        col = Collection.find_by_sql("SELECT * FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id) 
+                WHERE cu.user_id = #{created_user.id} 
+                AND c.special_collection_id = #{SpecialCollection.watch.id}") 
+        if col && col.count > 0
+          collection_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collection_origin_id")
+          collection_origin_id_parameter[0][:value].should == "#{col[0].origin_id}"
+        end 
+        
+          
         agreed_with_terms_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "agreed_with_terms")
         if created_user.agreed_with_terms
           agreed_with_terms_parameter[0][:value].should == "1"

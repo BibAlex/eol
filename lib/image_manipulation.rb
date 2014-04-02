@@ -3,7 +3,6 @@ module ImageManipulation
 
   def upload_logo(obj, port = nil)
     port = request.port.to_s unless port
-    debugger
     if file_path = ContentServer.upload_content($LOGO_UPLOAD_PATH + ImageManipulation.local_file_name(obj), port)
       obj.update_attributes(:logo_cache_url => file_path) # store new url to logo on content server
     end

@@ -42,11 +42,16 @@ class Synonym < ActiveRecord::Base
     entry     = options[:entry]
     site_id   = options[:site_id]
     raise("Cannot generate a Synonym without an :entry") unless entry
-    synonym = Synonym.find_by_hierarchy_id_and_hierarchy_entry_id_and_language_id_and_name_id_and_synonym_relation_id_and_site_id(hierarchy.id,entry.id,language.id,name_obj.id,relation.id, site_id)
-    if synonym and options[:preferred] # They MUST have specified this in order to run this block:
-      synonym.preferred = preferred
-      synonym.save!
+    synonym = Synonym.find_by_hierarchy_id_and_hierarchy_entry_id_and_language_id_and_name_id_and_synonym_relation_id(
+              hierarchy.id,entry.id,language.id,name_obj.id,relation.id)
+    if options[:preferred] # They MUST have specified this in order to run this block:
+      if synonym
+        # set preferred common name
+        synonym.preferred = preferred
+        synonym.save!
+      end
     else
+      # add common name
       synonym = Synonym.create(name_id: name_obj.id,
                                hierarchy_id: hierarchy.id,
                                hierarchy_entry_id: entry.id,
@@ -56,16 +61,16 @@ class Synonym < ActiveRecord::Base
                                preferred: preferred,
                                published: 1,
                                site_id: site_id)
-      if site_id == PEER_SITE_ID
-        synonym.update_column(:origin_id, synonym.id)
-      else
-        synonym.update_column(:origin_id, options[:origin_id])
-      end
       if synonym && synonym.errors.blank?
+        if site_id == PEER_SITE_ID
+          synonym.update_column(:origin_id, synonym.id)
+        else
+          synonym.update_column(:origin_id, options[:origin_id])
+        end
         AgentsSynonym.create(agent_id: agent.id,
-                             agent_role_id: TranslatedAgentRole.find_by_label("Contributor").agent_role_id,
-                             synonym_id: synonym.id,
-                             view_order: 1)
+                                  agent_role_id: TranslatedAgentRole.find_by_label("Contributor").agent_role_id,
+                                  synonym_id: synonym.id,
+                                  view_order: 1)
       end
     end
     synonym

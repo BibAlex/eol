@@ -20,8 +20,13 @@ class SyncPeerLog < ActiveRecord::Base
     end   
   end
   
-  def self.log_activate_user(user)
+  def self.log_activate_user(user, params)
     spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_activate_action.id, SyncObjectType.get_user_type.id, user.site_id, user.origin_id)
+    if spl
+      params.each do |key, value| 
+          create_sync_log_action_parameter(spl.id, key, value)
+      end
+    end   
   end
   
  
@@ -131,7 +136,7 @@ class SyncPeerLog < ActiveRecord::Base
     parameters["user_site_object_id"] = user_site_object_id
     parameters["sync_object_site_id"] = sync_object_site_id
     parameters["sync_object_id"] = sync_object_id
-    
+      
     sync_log_action_parameter.each do |lap|
       unless lap.param_object_type_id
         parameters[lap.parameter] = lap.value
@@ -187,11 +192,22 @@ class SyncPeerLog < ActiveRecord::Base
     params["site_id"] = parameters["sync_object_site_id"]
     
     parameters.each do |key, value| 
-      unless 'user_site_id user_site_object_id sync_object_site_id sync_object_id'.include? key
+      unless 'user_site_id user_site_object_id sync_object_site_id sync_object_id collection_site_id collection_origin_id'.include? key
         params[key] = value
       end
     end
+
     user = User.create(params)
+    #we may remove this part as it always not yet created
+    #delete old watch list and create another
+    collections = Collection.find_by_sql("SELECT * FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id) 
+      WHERE cu.user_id = #{user.id} 
+      AND c.special_collection_id = #{SpecialCollection.watch.id}") 
+    if collections && collections.count > 0
+      Collections_User.find_by_user_id_and_collection_id(user.id, collection.id).delete
+      collection[0].delete
+    end
+    user.build_watch_collection(parameters["collection_site_id"], parameters["collection_origin_id"])
     if user
       EOL::GlobalStatistics.increment('users')  
     end
@@ -229,7 +245,6 @@ class SyncPeerLog < ActiveRecord::Base
         # upload user logo
         upload_file(user)
       else
-      debugger
          # add failed file record
         failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => user_logo_name, :file_type => "logo",
                   :object_type => "User" , :object_id => user.id)
@@ -269,6 +284,10 @@ class SyncPeerLog < ActiveRecord::Base
       user = user[0]
       user.update_column(:active, true)
       user.update_column(:validation_code, nil)
+      user.add_to_index
+      if parameters["collection_site_id"]
+        user.build_watch_collection(parameters["collection_site_id"], parameters["collection_origin_id"])
+      end
     end
   end
   
@@ -399,17 +418,19 @@ class SyncPeerLog < ActiveRecord::Base
  
   def self.vet_common_name(parameters)
     language_id = parameters["language"].id
-    name_id = Name.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"]).id
+    name_id = Name.find_by_string(parameters["string"]).id
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     vetted = Vetted.find_or_create_by_view_order(parameters["vetted_view_order"])
     taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
-    taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: user)
-    user.log_activity(:vetted_common_name, taxon_concept_id: taxon_concept.id, value: name_id)
-    taxon_concept.reindex_in_solr
+    found = taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: user)
+    if found
+      user.log_activity(:vetted_common_name, taxon_concept_id: taxon_concept.id, value: name_id)
+      taxon_concept.reindex_in_solr
+    end
   end
  
   def self.update_common_name(parameters)
-    name = Name.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    name = Name.find_by_string(parameters["string"])
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     language = parameters["language"]
     taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])

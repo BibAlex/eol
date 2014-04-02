@@ -269,18 +269,29 @@ class User < ActiveRecord::Base
     update_column(:active, true)
     update_column(:validation_code, nil)
     add_to_index
-    build_watch_collection
+    collection = build_watch_collection
     #syncronization
-    SyncPeerLog.log_activate_user(self)
+    if collection
+      sync_params = {"collection_origin_id" => collection.origin_id, "collection_site_id" => collection.site_id}
+    else
+      sync_params = {"collection_origin_id" => nil, "collection_site_id" => nil}
+    end
+    
+    SyncPeerLog.log_activate_user(self, sync_params)
   end
 
   # Checks to see if one already exists (DO NOT use #watch_collection to do this, recursive!), and builds one if not:
-  def build_watch_collection
-    c = Collection.count_by_sql("SELECT COUNT(*) FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id) 
-    WHERE cu.user_id = #{self.id} 
-    AND c.special_collection_id = #{SpecialCollection.watch.id}")
+  def build_watch_collection(site_id = PEER_SITE_ID, origin_id = nil)
+    c = Collection.count_by_sql("SELECT COUNT(*) FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id) WHERE cu.user_id = #{self.id} AND c.special_collection_id = #{SpecialCollection.watch.id}")
     if c == 0
-      collections << collection = Collection.create(name: I18n.t(:default_watch_collection_name, username: self.full_name.titleize), special_collection_id: SpecialCollection.watch.id)
+      collection = Collection.create(name: I18n.t(:default_watch_collection_name, username: self.full_name.titleize), special_collection_id: SpecialCollection.watch.id,
+                                     site_id: site_id)
+      if origin_id
+        collection.update_column(:origin_id, origin_id) 
+      else
+        collection.update_column(:origin_id, collection.id) 
+      end
+      collections << collection
       return collection
     end
     return nil # Didn't build one.
@@ -613,12 +624,10 @@ class User < ActiveRecord::Base
   # NOTE - This REMOVES the watchlist (using #shift)!
   def published_collections(as_user = nil)
     @published_collections ||= all_collections(as_user).shift && all_collections(as_user).select { |c| c.published? }
-    return [] unless @published_collections
   end
 
   def unpublished_collections(as_user = nil)
     @unpublished_collections ||= all_collections(as_user).select { |c| ! c.published? }
-    return [] unless @unpublished_collections
   end
 
   # #collections is only a list of the collections the user *owns*.  This is a list that includes the collections the

@@ -11,7 +11,8 @@ describe SyncPeerLog do
         truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
         truncate_table(ActiveRecord::Base.connection, "users", {})
-
+        truncate_table(ActiveRecord::Base.connection, "collections", {})
+        SpecialCollection.create(:name => "watch")
         @prev_count = EOL::GlobalStatistics.solr_count('User')
         #create sync_object_action
         SyncObjectAction.create(:object_action => 'create')
@@ -30,8 +31,8 @@ describe SyncPeerLog do
         @peer_log.save
         #create sync_action_parameters
 
-        parameters = ["language", "validation_code", "remote_ip", "origin_id", "site_id", "username", "agreed_with_terms"]
-        values = ["en", "89accf204c74d07fbdb1c2bad027946818142efb", "127.0.0.1", "80", "2", "user100", "1"]
+        parameters = ["language", "validation_code", "remote_ip", "origin_id", "site_id", "username", "agreed_with_terms", "collection_site_id", "collection_origin_id"]
+        values = ["en", "89accf204c74d07fbdb1c2bad027946818142efb", "127.0.0.1", "80", "2", "user100", "1", "2", "10"]
 
         for i in 0..parameters.length-1
           lap = SyncLogActionParameter.new
@@ -63,11 +64,16 @@ describe SyncPeerLog do
         user.username.should == "user100"
         user.agreed_with_terms == 1
       end
-
-      it "should update global statistics" do
-        Rails.cache.read(EOL::GlobalStatistics.key_for_type("users")).should == @prev_count + 1
+      
+      it "should create watch collection" do
+        user = User.first
+        Collection.all.count.should_not == 0
+        col = Collection.find_by_sql("SELECT * FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id) 
+              WHERE cu.user_id = #{user.id} 
+              AND c.special_collection_id = #{SpecialCollection.watch.id}") 
+        col.should_not be_nil
+        col.count.should == 1
       end
-
     end
 
     describe "pulling update user action" do
@@ -186,7 +192,7 @@ describe SyncPeerLog do
     end
 
     describe "pulling activate user action" do
-      before(:all) do
+      before :each do
         truncate_table(ActiveRecord::Base.connection, "users", {})
         truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
         truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
@@ -250,13 +256,14 @@ describe SyncPeerLog do
     end
     
     describe "pulling 'add common name' action" do
-      before(:all) do
-        truncate_table(ActiveRecord::Base.connection, "users", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        
+      before :each do
+        truncate_all_tables
+#        truncate_table(ActiveRecord::Base.connection, "users", {})
+#        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+#        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+#        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+#        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+#        truncate_table(ActiveRecord::Base.connection, "names", {})
         #create user 
         @user = User.gen(active: true)
         @user.update_column(:site_id, 2)
@@ -264,17 +271,17 @@ describe SyncPeerLog do
         @user.update_column(:curator_level_id, CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id)
         @user.update_column(:curator_approved, 1)
         
-        name = Name.gen()
-        name.update_column(:origin_id, name.id)
+        @name = Name.gen()
+        @name.update_column(:origin_id, @name.id)
         
-        SynonymRelation.create(:id => 1)
-        SynonymRelation.first.should_not be_nil
+        @sr = SynonymRelation.create(:id => 1)
+        @sr.should_not be_nil
         
         tsr = TranslatedSynonymRelation.gen()
         tsr.should_not be_nil
         tsr.update_column(:label, "common name")
         tsr.update_column(:language_id, Language.first.id)
-        tsr.update_column(:synonym_relation_id, SynonymRelation.first.id)
+        tsr.update_column(:synonym_relation_id, @sr.id)
         
         relation  = SynonymRelation.find_by_translated(:label, 'common name')
         relation.should_not be_nil
@@ -291,12 +298,14 @@ describe SyncPeerLog do
         TranslatedVisibility.first.update_column(:language_id, Language.first.id)
         TranslatedVisibility.first.update_column(:visibility_id, Visibility.first.id)
                 
-        hi = Hierarchy.gen()
-        hi.update_column(:label, 'Encyclopedia of Life Contributors')
-
+        @hi = Hierarchy.gen()
+        @hi.update_column(:label, 'Encyclopedia of Life Contributors')
+        
+        @he = HierarchyEntry.gen()
+        
         taxon_concept = TaxonConcept.gen()
         taxon_concept.update_column(:origin_id, taxon_concept.id)
-        TaxonConceptPreferredEntry.create(:taxon_concept_id => taxon_concept.id, :hierarchy_entry_id => HierarchyEntry.gen().id)
+        TaxonConceptPreferredEntry.create(:taxon_concept_id => taxon_concept.id, :hierarchy_entry_id => @he.id)
         #create sync_object_action
         SyncObjectAction.create(:object_action => 'create')
         
@@ -311,15 +320,15 @@ describe SyncPeerLog do
         @peer_log.action_taken_at_time = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('common_name').id
-        @peer_log.sync_object_id = name.id
-        @peer_log.sync_object_site_id = name.site_id
+        @peer_log.sync_object_id = @name.id
+        @peer_log.sync_object_site_id = @name.site_id
         @peer_log.save
         
         #create sync_action_parameters
         parameters = ["taxon_concept_site_id", "taxon_concept_origin_id", "user_site_object_id",
                       "user_site_id", "string", "language", "sync_object_site_id", "sync_object_id"]
         values     = ["#{taxon_concept.site_id}", "#{taxon_concept.origin_id}", "#{@user.origin_id}",
-                      "#{@user.site_id}", "snake", "en", "#{name.site_id}", "#{name.id}"]
+                      "#{@user.site_id}", "#{@name.string}", "en", "#{@name.site_id}", "#{@name.id}"]
         for i in 0..parameters.length-1
           lap = SyncLogActionParameter.new
           lap.peer_log_id = @peer_log.id
@@ -327,27 +336,43 @@ describe SyncPeerLog do
           lap.value = values[i]
           lap.save
         end
-        #call process entery
-        @peer_log.process_entry
+       
       end
       
       it "should add common name" do
-        name = Name.find_by_string("snake")
+        # call process entery to execute "add common name" action
+        @peer_log.process_entry
+        name = Name.find_by_string("#{@name.string}")
         name.should_not be_nil
         synonym = Synonym.find_by_name_id(name.id)
         synonym.should_not be_nil
         tcn = TaxonConceptName.find_by_name_id(name.id)
         tcn.should_not be_nil
       end
+      
+      it "should ignore the already existed common name" do
+        truncate_table(ActiveRecord::Base.connection, "synonyms", {})
+        # make db already have a one
+        synonym = Synonym.create(:name_id => @name.id, :synonym_relation_id => @sr.id, :language_id => Language.first.id,
+                       :hierarchy_entry_id => @he.id, :preferred => 0, :hierarchy_id => @hi.id,
+                       :vetted_id => 1, :site_id => @user.site_id)
+        synonym_before = Synonym.all.count
+        # call process entery to execute "add common name" action
+        @peer_log.process_entry
+        #check that there is no new synonym created
+        Synonym.all.count.should_not == 0
+        Synonym.all.count.should == synonym_before
+      end
     end
     
     describe "pulling 'update common name' action" do
-      before(:all) do
-        truncate_table(ActiveRecord::Base.connection, "users", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+      before :each do
+        truncate_all_tables
+#        truncate_table(ActiveRecord::Base.connection, "users", {})
+#        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+#        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+#        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+#        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
         
         #create user 
         @user = User.gen(active: true)
@@ -386,12 +411,12 @@ describe SyncPeerLog do
         hi = Hierarchy.gen()
         hi.update_column(:label, 'Encyclopedia of Life Contributors')
 
-        taxon_concept = TaxonConcept.gen()
-        taxon_concept.update_column(:origin_id, taxon_concept.id)
-        TaxonConceptPreferredEntry.create(:taxon_concept_id => taxon_concept.id, :hierarchy_entry_id => HierarchyEntry.gen().id)
+        @taxon_concept = TaxonConcept.gen()
+        @taxon_concept.update_column(:origin_id, @taxon_concept.id)
+        TaxonConceptPreferredEntry.create(:taxon_concept_id => @taxon_concept.id, :hierarchy_entry_id => HierarchyEntry.gen().id)
         
         tcn = TaxonConceptName.gen()
-        tcn.update_column(:taxon_concept_id, taxon_concept.id)
+        tcn.update_column(:taxon_concept_id, @taxon_concept.id)
         tcn.update_column(:name_id, @name.id)
         tcn.update_column(:preferred, 0)
         
@@ -422,8 +447,8 @@ describe SyncPeerLog do
         @peer_log.save
         
         #create sync_action_parameters
-        parameters = ["language","taxon_concept_site_id", "taxon_concept_origin_id"]
-        values     = ["#{Language.first.iso_639_1}", "#{taxon_concept.site_id}", "#{taxon_concept.origin_id}"]
+        parameters = ["language","taxon_concept_site_id", "taxon_concept_origin_id","string"]
+        values     = ["#{Language.first.iso_639_1}", "#{@taxon_concept.site_id}", "#{@taxon_concept.origin_id}","#{@name.string}"]
         for i in 0..parameters.length-1
           lap = SyncLogActionParameter.new
           lap.peer_log_id = @peer_log.id
@@ -438,10 +463,18 @@ describe SyncPeerLog do
         @peer_log.process_entry
         s2 = Synonym.find_by_name_id(@name.id).preferred.should_not == s1
       end
+      
+      it "should ignore updates for deleted names" do
+        truncate_table(ActiveRecord::Base.connection, "synonyms", {})
+        #call process entery
+        lambda{@peer_log.process_entry}.should_not raise_exception
+        Synonym.all.count.should == 0
+      end
     end
     
     describe "pull 'delete common name' action" do
-      before :all do
+      before :each do
+        truncate_all_tables
         @user = User.gen(active: true)
         @user.update_column(:site_id, 2)
         @user.update_column(:origin_id, @user.id)
@@ -502,10 +535,17 @@ describe SyncPeerLog do
         TaxonConceptName.find_by_synonym_id_and_taxon_concept_id(@synonym.id, @tc.id).should be_nil
         Synonym.find_by_id(@synonym.id).should be_nil
       end
+      it "should ignore dalete actions for already deleted names" do
+        truncate_table(ActiveRecord::Base.connection, "synonyms", {})
+        #call process entery
+        lambda{@peer_log.process_entry}.should_not raise_exception
+        Synonym.all.count.should == 0
+      end
     end
     
     describe "pull 'vet common name' action" do
-     before :all do
+     before :each do
+       truncate_all_tables
        @user = User.gen(active: true)
        @user.update_column(:site_id, 2)
        @user.update_column(:origin_id, @user.id)
@@ -549,8 +589,8 @@ describe SyncPeerLog do
        @peer_log.save
        
        #create sync_action_parameters
-       parameters = ["vetted_view_order","taxon_concept_site_id", "taxon_concept_origin_id"]
-       values     = ["#{Vetted.first.view_order}","#{@tc.site_id}", "#{@tc.origin_id}"]
+       parameters = ["vetted_view_order","taxon_concept_site_id", "taxon_concept_origin_id", "string"]
+       values     = ["#{Vetted.first.view_order}","#{@tc.site_id}", "#{@tc.origin_id}", "#{@name.string}"]
        for i in 0..parameters.length-1
          lap = SyncLogActionParameter.new
          lap.peer_log_id = @peer_log.id
@@ -566,6 +606,14 @@ describe SyncPeerLog do
        TaxonConceptName.find_by_synonym_id_and_taxon_concept_id(@synonym.id, @tc.id).vetted_id.should == 1
        Synonym.find_by_id(@synonym.id).vetted_id.should == 1
      end
+     it "should ignore vet actions for already deleted names" do
+       truncate_table(ActiveRecord::Base.connection, "synonyms", {})
+       truncate_table(ActiveRecord::Base.connection, "taxon_concept_names", {})
+       #call process entery
+       lambda{@peer_log.process_entry}.should_not raise_exception
+       Synonym.all.count.should == 0
+     end
+     
    end
     
     describe "pulling becoming curator action" do
