@@ -41,16 +41,33 @@ class Synonym < ActiveRecord::Base
     vetted    = options[:vetted] || Vetted.unknown
     entry     = options[:entry]
     site_id   = options[:site_id]
+    date      = options[:date]
+    is_preferred = options[:is_preferred]
     raise("Cannot generate a Synonym without an :entry") unless entry
     synonym = Synonym.find_by_hierarchy_id_and_hierarchy_entry_id_and_language_id_and_name_id_and_synonym_relation_id(
-              hierarchy.id,entry.id,language.id,name_obj.id,relation.id)
+              hierarchy.id, entry.id, language.id, name_obj.id, relation.id)
     if options[:preferred] # They MUST have specified this in order to run this block:
       if synonym
+        if date && synonym.updated_at > date
+          #save current state as it is newer
+          return synonym
+        end
         # set preferred common name
         synonym.preferred = preferred
+        synonym.updated_at = Time.now
+        synonym.updated_at = date if date
         synonym.save!
+        debugger
+        # if it is comming from pull then set it manually 
+        unless is_preferred.nil?
+          synonym = Synonym.find_by_hierarchy_id_and_hierarchy_entry_id_and_language_id_and_name_id_and_synonym_relation_id(
+                        hierarchy.id, entry.id, language.id, name_obj.id, relation.id)
+          synonym.update_column(:preferred, is_preferred)
+          synonym.taxon_concept_name.update_column(:preferred, is_preferred)
+        end
       end
     else
+      date = Time.now unless date
       # add common name
       synonym = Synonym.create(name_id: name_obj.id,
                                hierarchy_id: hierarchy.id,
@@ -60,7 +77,8 @@ class Synonym < ActiveRecord::Base
                                vetted: vetted,
                                preferred: preferred,
                                published: 1,
-                               site_id: site_id)
+                               site_id: site_id,
+                               updated_at: date)
       if synonym && synonym.errors.blank?
         if site_id == PEER_SITE_ID
           synonym.update_column(:origin_id, synonym.id)
@@ -73,6 +91,8 @@ class Synonym < ActiveRecord::Base
                                   view_order: 1)
       end
     end
+    synonym = Synonym.find_by_hierarchy_id_and_hierarchy_entry_id_and_language_id_and_name_id_and_synonym_relation_id(
+                  hierarchy.id, entry.id, language.id, name_obj.id, relation.id)
     synonym
   end
 
@@ -96,6 +116,7 @@ class Synonym < ActiveRecord::Base
 private
 
   def set_preferred
+    debugger
     tc_id = hierarchy_entry.taxon_concept_id
     count = TaxonConceptName.find_all_by_taxon_concept_id_and_language_id(tc_id, language_id).length
     if count == 0  # this is the first name in this language for the concept

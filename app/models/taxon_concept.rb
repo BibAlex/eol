@@ -475,17 +475,18 @@ class TaxonConcept < ActiveRecord::Base
       date      = options[:date]
       raise "Common name not created" unless name_obj
       if options[:new_flag]
-        synonym = Synonym.generate_from_name(name_obj, agent: agent, preferred: preferred, 
-                                             language: language,
-                                             entry: entry, relation: relation, vetted: vetted,
-                                             site_id: options[:site_id])
+        site_id = options[:site_id]
+        origin_id = nil
+        is_preferred = nil
       else
-        #called from pull request
-        synonym = Synonym.generate_from_name(name_obj, agent: agent, preferred: preferred, language: language,
-                                                     entry: entry, relation: relation, vetted: vetted,
-                                                     site_id: options[:synonym_site_id], 
-                                                     origin_id: options[:synonym_origin_id])
+        site_id = options[:synonym_site_id]
+        origin_id = options[:synonym_origin_id]
+        is_preferred = options[:is_preferred]
       end
+      debugger
+      synonym = Synonym.generate_from_name(name_obj, agent: agent, preferred: preferred, language: language,
+                                           entry: entry, relation: relation, vetted: vetted,
+                                           site_id: site_id, origin_id: origin_id, date: date, is_preferred: is_preferred)
       return_arr = {"synonym" => synonym, "name" => name_obj}
     end
   end
@@ -1013,9 +1014,15 @@ private
     raise "Missing :vetted" unless options[:vetted]
     raise "Missing :user" unless options[:user]
     list = taxon_concept_names_by_lang_id_and_name_id(options[:language_id], options[:name_id])
+    debugger
     if list && list.count > 0
       list.each do |tcn|
-        tcn.vet(options[:vetted], options[:user])
+        if !options[:date] || (options[:date] && tcn.updated_at < options[:date])
+          tcn.vet(options[:vetted], options[:user])
+          tcn.update_column(:updated_at, Time.now)
+        else
+          return false
+        end
       end
       return true
     else

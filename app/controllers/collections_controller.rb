@@ -135,8 +135,9 @@ class CollectionsController < ApplicationController
                                                  :logo_file_name => @collection.logo_file_name,
                                                  :logo_content_type => @collection.logo_content_type,
                                                  :logo_file_size => @collection.logo_file_size,
-                                                 :base_url => "#{$CONTENT_SERVER}content/")                                                                               
-        SyncPeerLog.log_update_collection(@collection.id, current_user.origin_id,sync_params) 
+                                                 :base_url => "#{$CONTENT_SERVER}content/",
+                                                 :updated_at => @collection.updated_at)                                                                               
+        SyncPeerLog.log_update_collection(@collection, current_user.origin_id,sync_params) 
                
                               
     else
