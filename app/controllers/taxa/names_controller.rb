@@ -61,12 +61,12 @@ class Taxa::NamesController < TaxaController
       else
         # syncronization
         sync_params = {"language" => language,
-                       "synonym_site_id" => synonym.site_id,
-                       "synonym_origin_id" => synonym.origin_id,
-                       "taxon_concept_origin_id" => @taxon_concept.origin_id,
-                       "taxon_concept_site_id" => @taxon_concept.site_id,
+                       "taxon_concept_site_id" => synonym.site_id,
+                       "taxon_concept_origin_id" => synonym.origin_id,
+                       "name_origin_id" => name.origin_id,
+                       "name_site_id" => name.site_id,
                        "string" => params[:name][:string]}
-        SyncPeerLog.log_add_common_name(current_user, name, sync_params)
+        SyncPeerLog.log_add_common_name(current_user, synonym, sync_params)
         @taxon_concept.reindex_in_solr
         log_action(@taxon_concept, synonym, :add_common_name)
         expire_taxa([@taxon_concept.id])

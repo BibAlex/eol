@@ -250,9 +250,6 @@ describe SyncPeerLog do
           user.validation_code.should be_nil
         end
       end
-
-      it "should create a collection"
-      it "should add user to index"
     end
     
     describe "pulling 'add common name' action" do
@@ -812,7 +809,47 @@ describe SyncPeerLog do
         end
       end
       
-       describe "pulling copy collection" do
+      describe "pulling delete collection" do
+        before :all do
+          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          Activity.create_enumerated
+  
+          @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
+          @collection = Collection.create(:origin_id => 30, :site_id => 2, :name => "name")
+          @collection.update_column(:published, true)
+        
+          #create sync_object_action
+          SyncObjectAction.create(:object_action => 'delete')
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'Collection')
+          #create sync_peer_log
+          @peer_log = SyncPeerLog.new
+          @peer_log.sync_event_id = 5 #pull event
+          @peer_log.user_site_id = 2
+          @peer_log.user_site_object_id = @user.origin_id
+          @peer_log.action_taken_at_time = Time.now
+          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('delete').id
+          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
+          @peer_log.sync_object_id = @collection.origin_id
+          @peer_log.sync_object_site_id = 2
+          @peer_log.save
+  
+          #call process entery
+          @peer_log.process_entry
+        end
+        it "should delete collection" do
+          Collection.first.published.should == false
+        end
+      end
+      
+      
+      describe "pulling copy collection" do
         before(:all) do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
@@ -887,16 +924,16 @@ describe SyncPeerLog do
           CollectionItem.find(3).collection_id.should == 4  
           
           # test creating collection job  
-           collection_job = CollectionJob.first
+          collection_job = CollectionJob.first
           collection_job.command.should == "copy"
           collection_job.user_id.should == @user.id
           collection_job.collection_id.should == @collection.id
           collection_job.all_items.should == true
           
-           job_collections = collection_job.collections
-           job_collections.count.should == 2
-           job_collections[0].id.should == @second_collection.id
-           job_collections[1].id.should == new_collection.id
+          job_collections = collection_job.collections
+          job_collections.count.should == 2
+          job_collections[0].id.should == @second_collection.id
+          job_collections[1].id.should == new_collection.id
         end
       end
     end

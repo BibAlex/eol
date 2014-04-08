@@ -5,6 +5,7 @@ Eol::Application.routes.draw do
   root :to => 'content#index'
 
   # Permanent redirects. Position them before any routes they take precedence over.
+  match '/collections/:id/destroy' => 'collections#destroy', :as => 'destroy_collection'
   match '/podcast' => redirect('http://podcast.eol.org/podcast')
   match '/pages/:taxon_id/curators' => redirect("/pages/%{taxon_id}/community/curators")
   match '/pages/:taxon_id/images' => redirect("/pages/%{taxon_id}/media")
@@ -519,7 +520,7 @@ Eol::Application.routes.draw do
   # Named collection routes:
   # NOTE - Not nesting collection_items under collections: creation is complex, plus edit only used for non-JS users
   match '/collections/:id/:filter' => 'collections#show', :as => 'filtered_collection'
-
+ 
   # Named user routes:
   # NOTE - can't add dynamic segment to a member in rails 2.3 so we have to specify named routes for the following:
   # TODO - can we do this now that we're rails 3?

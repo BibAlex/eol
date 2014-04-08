@@ -48,14 +48,14 @@ class Synonym < ActiveRecord::Base
               hierarchy.id, entry.id, language.id, name_obj.id, relation.id)
     if options[:preferred] # They MUST have specified this in order to run this block:
       if synonym
-        if date && synonym.updated_at > date
+        if date && synonym.last_change &&synonym.last_change > date
           #save current state as it is newer
           return synonym
         end
         # set preferred common name
         synonym.preferred = preferred
-        synonym.updated_at = Time.now
-        synonym.updated_at = date if date
+        synonym.last_change = Time.now
+        synonym.last_change = date if date
         synonym.save!
         debugger
         # if it is comming from pull then set it manually 
@@ -77,8 +77,7 @@ class Synonym < ActiveRecord::Base
                                vetted: vetted,
                                preferred: preferred,
                                published: 1,
-                               site_id: site_id,
-                               updated_at: date)
+                               site_id: site_id)
       if synonym && synonym.errors.blank?
         if site_id == PEER_SITE_ID
           synonym.update_column(:origin_id, synonym.id)

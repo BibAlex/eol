@@ -1017,9 +1017,9 @@ private
     debugger
     if list && list.count > 0
       list.each do |tcn|
-        if !options[:date] || (options[:date] && tcn.updated_at < options[:date])
+        if !options[:date] || !tcn.last_change || (options[:date] && tcn.last_change < options[:date])
           tcn.vet(options[:vetted], options[:user])
-          tcn.update_column(:updated_at, Time.now)
+          tcn.update_column(:last_change, Time.now)
         else
           return false
         end

@@ -158,6 +158,8 @@ class CollectionsController < ApplicationController
         user_collections_url(current_user)
       if @collection.unpublish
         flash[:notice] = I18n.t(:collection_destroyed)
+        #syncronization
+        SyncPeerLog.log_delete_collection(current_user, @collection)
       else
         flash[:error] = I18n.t(:collection_not_destroyed_error)
       end

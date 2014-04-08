@@ -83,6 +83,12 @@ class SyncPeerLog < ActiveRecord::Base
     end   
   end
   
+  
+  # log delete collection
+  def self.log_delete_collection(user, collection)
+      spl = create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_delete_action.id,
+                                 SyncObjectType.get_collection_type.id, collection.site_id, collection.origin_id, Time.now)
+  end
   # log_copy_collection
   def self.log_copy_collection(collection_id, collection_site_id, user_id,  params)
     spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_copy_action.id, SyncObjectType.get_collection_type.id, collection_site_id, collection_id, Time.now)
@@ -118,8 +124,8 @@ class SyncPeerLog < ActiveRecord::Base
   
   
   #log create common name
-  def self.log_add_common_name(user, name, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id, Time.now)
+  def self.log_add_common_name(user, synonym, params)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id, Time.now)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -201,16 +207,60 @@ class SyncPeerLog < ActiveRecord::Base
   
   private
   
-  def self.create_sync_peer_log(user_site_id, user_site_object_id, sync_object_action_id, sync_object_type_id, sync_object_site_id, sync_object_id, time)
+  def self.create_sync_peer_log(user_site_id, user_site_object_id, sync_object_action_id, sync_object_type_id, sync_object_site_id, sync_object_id, parameters)
+    is_local_change = false
+    action = SyncObjectAction.find(sync_object_action_id).object_action unless SyncObjectAction.find(sync_object_action_id).nil?
+    create_action = SyncObjectAction.find_by_object_action('create')
+    add_item_action = SyncObjectAction.find_by_object_action('add_item')
+    create_base_item_action = SyncObjectAction.find_by_object_action('create_base_item_for')
+    copy_item_action = SyncObjectAction.find_by_object_action('copy_item')
+
+    if (action.include?("delete") || action.include?("remove_item"))
+      create_action_query = "sync_object_action_id = NULL"
+      create_action_query = "sync_object_action_id = #{create_action.id}"  unless create_action.nil?
+      add_item_action_query = "sync_object_action_id = NULL"
+      add_item_action_query = "sync_object_action_id = #{add_item_action.id}"  unless add_item_action.nil?
+      create_base_item_action_query = "sync_object_action_id = NULL"
+      create_base_item_action_query = "sync_object_action_id = #{create_base_item_action.id}"  unless create_base_item_action.nil?
+      copy_item_action_query = "sync_object_action_id = NULL"
+      copy_item_action_query = "sync_object_action_id = #{copy_item_action.id}"  unless copy_item_action.nil?
+   
+      sync_peer_log = SyncPeerLog.find(:first, :conditions => "sync_event_id IS NULL
+                                                  and (#{create_action_query} || #{add_item_action_query} || #{create_base_item_action_query} || #{copy_item_action_query}) and sync_object_id = #{sync_object_id} and sync_object_site_id = #{sync_object_site_id}")  
+      unless (sync_peer_log.nil?)
+        sync_peer_log.destroy
+        return
+      end
+     # elsif (action.include?("remove_item"))
+      # items_origin_ids = parameters["collection_items_origin_ids"].split(",")
+      # items_site_ids = parameters["collection_items_site_ids"].split(",")
+      # unless items_origin_ids.nil? || items_origin_ids.count.nil?
+        # items_origin_ids.count.times.each do |i|
+           # add_item_action_query = "sync_object_action_id = NULL"
+           # add_item_action_query = "sync_object_action_id = #{add_item_action.id}"  unless add_item_action.nil?
+           # create_base_item_action_query = "sync_object_action_id = NULL"
+           # create_base_item_action_query = "sync_object_action_id = #{create_base_item_action.id}"  unless create_base_item_action.nil?
+           # copy_item_action_query = "sync_object_action_id = NULL"
+           # copy_item_action_query = "sync_object_action_id = #{copy_item_action.id}"  unless copy_item_action.nil?
+#                    
+          # sync_peer_log = SyncPeerLog.find(:first, :conditions => "sync_event_id IS NULL
+                                                  # and (#{add_item_action_query} || #{create_base_item_action_query} || #{copy_item_action_query}) and sync_object_id = #{items_origin_ids[i]} and sync_object_site_id = #{items_site_ids[i]}")  
+          # unless (sync_peer_log.nil?)
+           # sync_peer_log.destroy
+          # end
+        # end
+      # end
+    end
+  
     spl = SyncPeerLog.new
-    spl.user_site_id = user_site_id    
+    spl.user_site_id = user_site_id   
     spl.user_site_object_id = user_site_object_id
-    spl.action_taken_at_time = time
+    spl.action_taken_at_time = Time.now
     spl.sync_object_action_id = sync_object_action_id
     spl.sync_object_type_id = sync_object_type_id
     spl.sync_object_site_id = sync_object_site_id
     spl.sync_object_id = sync_object_id
-    return spl if spl.save 
+    return spl if spl.save
     return nil
   end
   
@@ -434,48 +484,53 @@ class SyncPeerLog < ActiveRecord::Base
     end  
   end
    
-   def self.copy_collection(parameters)
+  def self.delete_collection(parameters)
+    collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    if collection
+      collection.unpublish
+    end
+  end
+  
+  def self.copy_collection(parameters)
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     origin_collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    # create collection job collections
+    copied_collections_origin_ids = parameters["copied_collections_origin_ids"].split(",")
+    copied_collections_site_ids = parameters["copied_collections_site_ids"].split(",")
+    collections = []
+    copied_collections_origin_ids.count.times do |i|
+      collections << Collection.find_by_origin_id_and_site_id(copied_collections_origin_ids[i], copied_collections_site_ids[i])
+    end
 
-                              
-     # create collection job collections
-     copied_collections_origin_ids = parameters["copied_collections_origin_ids"].split(",")
-     copied_collections_site_ids = parameters["copied_collections_site_ids"].split(",")
-     collections = []
-     copied_collections_origin_ids.count.times do |i|
-       collections << Collection.find_by_origin_id_and_site_id(copied_collections_origin_ids[i], copied_collections_site_ids[i])
-     end
-
-     # create new collection if asked
-     if parameters["new_collection_name"] 
-       new_collection = Collection.create(:name => parameters["new_collection_name"], :origin_id => parameters["new_collection_origin_id"],
-                         :site_id => parameters["user_site_id"])
-       new_collection.users = [user] unless user.nil?
-       collections << new_collection
-     end 
+    # create new collection if asked
+    if parameters["new_collection_name"] 
+      new_collection = Collection.create(:name => parameters["new_collection_name"], :origin_id => parameters["new_collection_origin_id"],
+                        :site_id => parameters["user_site_id"])
+      new_collection.users = [user] unless user.nil?
+      collections << new_collection
+    end 
      
-     # create collection job
-     CollectionJob.create!(:command => parameters["command"], :user => user,
-                          :collection => origin_collection, :item_count => parameters["item_count"],
-                          :all_items => parameters["all_items"],
-                          :overwrite => parameters["overwrite"], :collections => collections )
-                          
-     # copy items in copied collection
-     collection_items_origin_ids = parameters["collection_items_origin_ids"].split(",")
-     collection_items_site_ids = parameters["collection_items_site_ids"].split(",")
-     collection_items_names = parameters["collection_items_names"].split(",")
-     collection_items_types = parameters["collection_items_types"].split(",")
-     unless collection_items_origin_ids.nil?
-       collection_items_origin_ids.count.times do |i|
-         item = collection_items_types[i].constantize.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i])
-         collections.each do |col|
-           CollectionItem.create(:name => collection_items_names[i], :collected_item_type => collection_items_types[i],
-                                 :collection_id => col.id, :collected_item_id => item.id)
-         end
-       end
-     end
-   end
+    # create collection job
+    CollectionJob.create!(:command => parameters["command"], :user => user,
+                         :collection => origin_collection, :item_count => parameters["item_count"],
+                         :all_items => parameters["all_items"],
+                         :overwrite => parameters["overwrite"], :collections => collections )
+                         
+    # copy items in copied collection
+    collection_items_origin_ids = parameters["collection_items_origin_ids"].split(",")
+    collection_items_site_ids = parameters["collection_items_site_ids"].split(",")
+    collection_items_names = parameters["collection_items_names"].split(",")
+    collection_items_types = parameters["collection_items_types"].split(",")
+    unless collection_items_origin_ids.nil?
+      collection_items_origin_ids.count.times do |i|
+        item = collection_items_types[i].constantize.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i])
+        collections.each do |col|
+          CollectionItem.create(:name => collection_items_names[i], :collected_item_type => collection_items_types[i],
+                                :collection_id => col.id, :collected_item_id => item.id)
+        end
+      end
+    end
+  end
 
  # add item to collection
   def self.add_item_collection(parameters)
@@ -533,6 +588,8 @@ class SyncPeerLog < ActiveRecord::Base
   # common names
   
   def self.create_common_name(parameters)
+    
+    
     taxon_concept = TaxonConcept.where(:site_id => parameters["taxon_concept_site_id"], :origin_id => parameters["taxon_concept_origin_id"])
     if taxon_concept && taxon_concept.count > 0
       taxon_concept = taxon_concept[0]     
@@ -540,10 +597,10 @@ class SyncPeerLog < ActiveRecord::Base
       taxon_concept.add_common_name_synonym(parameters["string"], agent: user.agent,
                                             language: parameters["language"],
                                             vetted: Vetted.trusted,
-                                            site_id: parameters["sync_object_site_id"],
-                                            name_origin_id: parameters["sync_object_id"],
-                                            synonym_site_id: parameters["synonym_site_id"],
-                                            synonym_origin_id: parameters["synonym_origin_id"])
+                                            site_id: parameters["name_site_id"],
+                                            name_origin_id: parameters["name_origin_id"],
+                                            synonym_site_id: parameters["sync_object_site_id"],
+                                            synonym_origin_id: parameters["sync_object_id"])
       taxon_concept.reindex_in_solr
       # expire_taxa([taxon_concept.id])
     end
@@ -565,9 +622,8 @@ class SyncPeerLog < ActiveRecord::Base
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     vetted = Vetted.find_or_create_by_view_order(parameters["vetted_view_order"])
     taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
-    debugger
-      found = taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: user,
-                                          date: parameters["action_taken_at_time"])
+    found = taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: user,
+                                        date: parameters["action_taken_at_time"])
     if found
       user.log_activity(:vetted_common_name, taxon_concept_id: taxon_concept.id, value: name_id)
       taxon_concept.reindex_in_solr
