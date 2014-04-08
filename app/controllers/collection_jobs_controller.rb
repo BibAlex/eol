@@ -7,6 +7,17 @@ class CollectionJobsController < ApplicationController
   layout 'choose_collect_target'
 
   def create
+    debugger
+    # for synchronization
+    collection_items = []
+    if @collection_job.all_items      
+        @collection_job.collection.items.each do |col_item|
+          collection_items << col_item
+        end
+    else
+        collection_items = @collection_job.collection_items
+    end
+    
     return redirect_to(@collection_job.collection, notice: I18n.t(:error_no_items_selected)) unless
       @collection_job.has_items?
     
@@ -19,71 +30,95 @@ class CollectionJobsController < ApplicationController
           Collection.uncached { @collection_job.run }
         end
         
-        # sync copy collection
-        # prepare sync peer log        
-        sync_params = {}
-        # sync creating new collection from current collection
+        # sync collection jobs (copy items- delete items- move items)
+        # prepare sync peer log  
+        sync_params = {}       
         new_collection = nil
         copied_collections_origin_ids = ""
         copied_collections_site_ids = ""
+        collection_items_origin_ids = ""
+        collection_items_site_ids = ""
+        collection_items_names = ""
+        collection_items_types = ""
+        all_collections = []
+        
         @collection_job.collections.each do |col|
           unless col.nil? 
+            all_collections << col
             if col.name == params[:collection_name]
-              new_collection = col 
-            else            
+              new_collection = col              
+            else           
               copied_collections_origin_ids += col.origin_id.to_s + ","
-              copied_collections_site_ids += col.site_id.to_s + ","
+              copied_collections_site_ids += col.site_id.to_s + ","                
             end
           end
         end
         
-        if new_collection
+         if new_collection
+          params = {}
           new_collection.origin_id = new_collection.id
           new_collection.site_id = PEER_SITE_ID
           new_collection.save
-          sync_params["new_collection_origin_id"] = new_collection.origin_id
-          sync_params["new_collection_name"] = new_collection.name
+          #sync_params["new_collection_origin_id"] = new_collection.origin_id
+          params["name"] = new_collection.name
+          SyncPeerLog.log_create_collection(new_collection.origin_id, current_user.origin_id,params)
         end
+        
+        
+         copied_collections_origin_ids += new_collection.origin_id.to_s + "," unless new_collection.nil?
+         copied_collections_site_ids += new_collection.site_id.to_s + "," unless new_collection.nil?
+       
+        
+        
+        collection_items.each do |collected_item|        
+           item = collected_item.collected_item_type.constantize.find(collected_item.collected_item_id)
+            collection_items_origin_ids += item.origin_id.to_s + "," unless item.origin_id.nil? || item.origin_id.to_s.nil?
+            collection_items_site_ids += item.site_id.to_s + "," unless item.site_id.nil? || item.site_id.to_s.nil?
+            collection_items_names += collected_item.name + "," unless collected_item.nil? || collected_item.name.nil?
+            collection_items_types += collected_item.collected_item_type + "," unless collected_item.nil? || collected_item.collected_item_type.nil?
+        end 
+        
+       
         
         # sync collection job
         sync_params["command"] = @collection_job.command
         sync_params["item_count"] = @collection_job.item_count
         sync_params["all_items"] = @collection_job.all_items
-        #sync_params["finished_at"] = @collection_job.finished_at
         sync_params["overwrite"] = @collection_job.overwrite
-        
-         # sync collection job collections
-         sync_params["copied_collections_origin_ids"] = copied_collections_origin_ids
-         sync_params["copied_collections_site_ids"] = copied_collections_site_ids
-        
-        # sync collected items 
-        collection_items = nil
-        collection_items_origin_ids = ""
-        collection_items_site_ids = ""
-        collection_items_names = ""
-        collection_items_types = ""
-        if @collection_job.all_items  
-          collection_items = @collection_job.collection.items
-        else
-          collection_items = @collection_job.collection_items
-        end
-        collection_items.each do |collected_item| 
-          item = collected_item.collected_item_type.constantize.find(collected_item.collected_item_id)
-          collection_items_origin_ids += item.origin_id.to_s + "," unless item.origin_id.nil? || item.origin_id.to_s.nil?
-          collection_items_site_ids += item.site_id.to_s + "," unless item.site_id.nil? || item.site_id.to_s.nil?
-          collection_items_names += collected_item.name + "," unless collected_item.nil? || collected_item.name.nil?
-          collection_items_types += collected_item.collected_item_type + "," unless collected_item.nil? || collected_item.collected_item_type.nil?
-        end    
+        sync_params["copied_collections_origin_ids"] = copied_collections_origin_ids
+        sync_params["copied_collections_site_ids"] = copied_collections_site_ids 
         sync_params["collection_items_origin_ids"] = collection_items_origin_ids 
         sync_params["collection_items_site_ids"] = collection_items_site_ids
         sync_params["collection_items_names"] = collection_items_names
-        sync_params["collection_items_types"] = collection_items_types
-        
-        if @collection_job.command == "copy"
-          SyncPeerLog.log_copy_collection(@collection_job.collection.origin_id, @collection_job.collection.site_id,current_user.origin_id,sync_params)
-        elsif @collection_job.command == "remove"
-          SyncPeerLog.log_remove_items_from_collection(@collection_job.collection.origin_id, @collection_job.collection.site_id,current_user.origin_id,sync_params)
+        sync_params["collection_items_types"] = collection_items_types        
+         
+        SyncPeerLog.log_collection_job(@collection_job.collection.origin_id, @collection_job.collection.site_id,current_user.origin_id,sync_params)
+
+        collection_items.each do |collected_item| 
+           item = collected_item.collected_item_type.constantize.find(collected_item.collected_item_id)
+             params = {}             
+               
+                if @collection_job.command == "remove"  
+                  params["item_id"] = item.origin_id   
+                  params["item_site_id"] = item.site_id               
+                   SyncPeerLog.log_remove_collection_item(@collection_job.collection.origin_id, @collection_job.collection.site_id,current_user.origin_id,params)
+                elsif @collection_job.command == "copy"
+                   params["collected_item_name"] = collected_item.name
+                   params["collected_item_type"] = collected_item.collected_item_type          
+                   params["item_id"] = item.origin_id
+                   params["item_site_id"] = item.site_id
+                   all_collections.each do |col|                                         
+                     # params["collection_origin_id"] = col.origin_id
+                     # params["collection_site_id"] = col.site_id
+                     # col_item = CollectionItem.find(:first, :conditions => "collection_id = #{col.id} and collected_item_id = #{item.id}  and origin_id = #{collected_item.origin_id}")
+                     # col_item["origin_id"] = col_item.id
+                     # col_item["site_id"] = PEER_SITE_ID
+                     # col_item.save                       
+                      SyncPeerLog.log_add_item_to_collection(col.origin_id, col.site_id, current_user.origin_id,params)
+                   end
+                end
         end
+        
         redirect_to job_should_redirect_to, notice: complete_notice
       else
         redirect_to @collection_job.collection # TODO - errors are lost because we redirect rather than render...  fix.
