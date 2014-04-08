@@ -30,11 +30,13 @@ class CollectionItemsController < ApplicationController
     
     # sync params
     sync_params = {}
-    collections_origin_ids = ""
-    collections_site_ids = ""
     item = params["collection_item"]["collected_item_type"].constantize.find(params["collection_item"]["collected_item_id"])
     sync_params["collected_item_type"] = params["collection_item"]["collected_item_type"]
     sync_params["collected_item_name"] = item.summary_name
+    sync_params["item_id"] = item.origin_id
+    sync_params["item_site_id"] = item.site_id
+    sync_params["add_item"] = true
+    
     
     # Sooo... we could get our data in a lot of different ways.
     if session[:submitted_data] # They are coming back from logging in, data is stored:
@@ -45,27 +47,20 @@ class CollectionItemsController < ApplicationController
       if params[:collection_id].is_a? Array
         params[:collection_id].each do |collection_id|
           create_collection_item(params[:collection_item].merge(collection_id: collection_id))
-           # for synchronization
-           col = Collection.find(collection_id)
-           collections_origin_ids += col.origin_id.to_s + ","
-           collections_site_ids += col.site_id.to_s + ","
+         
+            # for synchronization
+            col = Collection.find(collection_id)           
+           SyncPeerLog.log_add_item_to_collection(col.origin_id, col.site_id, current_user.origin_id,sync_params)
         end        
-        # add item to many collections
-        sync_params["collection_origin_ids"] = collections_origin_ids
-        sync_params["collections_site_ids"] = collections_site_ids
         
       else
         create_collection_item(params[:collection_item].merge(collection_id: params[:collection_id]))
         # for synchronization
         col = Collection.find(params[:collection_id])
-        sync_params["collection_origin_id"] = col.origin_id
-        sync_params["collection_site_id"] = col.site_id
+        SyncPeerLog.log_add_item_to_collection(col.origin_id, col.site_id, current_user.origin_id,sync_params)
       end
       
-       # call log add item to collection      
-       SyncPeerLog.log_add_item_to_collection(item.origin_id, item.site_id, current_user.origin_id,sync_params)
-
-      
+    
     else # ...or this is just a simple single collect:
       create_collection_item(params[:collection_item])
     end
@@ -179,6 +174,9 @@ private
       @notices << I18n.t(:item_not_added_to_itself_notice,
                                collection_name: @collection_item.collection.name)
     elsif @collection_item.save
+      @collection_item[:origin_id] =  @collection_item.id
+      @collection_item[:site_id] =  PEER_SITE_ID
+      @collection_item.save
       CollectionActivityLog.create(collection: @collection_item.collection, user: current_user,
                                    activity: Activity.collect, collection_item: @collection_item)
       @collection_item.collection.updated_at = Time.now.to_s

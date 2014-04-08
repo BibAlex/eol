@@ -9,7 +9,7 @@ class SyncPeerLog < ActiveRecord::Base
   belongs_to :sync_object_action, :foreign_key => 'sync_object_action_id'
 
   def self.log_add_user(user, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_user_type.id, user.site_id, user.origin_id)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_user_type.id, user.site_id, user.origin_id, params)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -21,7 +21,7 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.log_activate_user(user, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_activate_action.id, SyncObjectType.get_user_type.id, user.site_id, user.origin_id)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_activate_action.id, SyncObjectType.get_user_type.id, user.site_id, user.origin_id, params)
     if spl
       params.each do |key, value| 
           create_sync_log_action_parameter(spl.id, key, value)
@@ -32,7 +32,7 @@ class SyncPeerLog < ActiveRecord::Base
  
   # log update user
   def self.log_update_user(user_id, params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id, params)
     # add log action parameters
     if spl
       params.delete("requested_curator_level_id")
@@ -47,7 +47,7 @@ class SyncPeerLog < ActiveRecord::Base
   
   # log update user by admin
   def self.log_update_user_by_admin(admin_id, user_id, params)
-    spl = create_sync_peer_log(PEER_SITE_ID, admin_id, SyncObjectAction.get_update_user_by_admin_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id)
+    spl = create_sync_peer_log(PEER_SITE_ID, admin_id, SyncObjectAction.get_update_user_by_admin_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id, params)
     # add log action parameters
     if spl
       params.delete("requested_curator_level_id")
@@ -62,7 +62,7 @@ class SyncPeerLog < ActiveRecord::Base
   
     # log create collection
   def self.log_create_collection(collection_id, user_id,  params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_collection_type.id, PEER_SITE_ID, collection_id)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_collection_type.id, PEER_SITE_ID, collection_id, params)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -71,9 +71,10 @@ class SyncPeerLog < ActiveRecord::Base
     end   
   end
   
+     
     # log update collection
   def self.log_update_collection(collection_id, user_id,  params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_collection_type.id, PEER_SITE_ID, collection_id)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_collection_type.id, PEER_SITE_ID, collection_id, params)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -82,9 +83,10 @@ class SyncPeerLog < ActiveRecord::Base
     end   
   end
   
+  
   # log_copy_collection
-  def self.log_copy_collection(collection_id, collection_site_id, user_id,  params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_copy_action.id, SyncObjectType.get_collection_type.id, collection_site_id, collection_id)
+  def self.log_collection_job(collection_id, collection_site_id, user_id,  params)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_create_job_action.id, SyncObjectType.get_collection_type.id, collection_site_id, collection_id, params)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -92,10 +94,11 @@ class SyncPeerLog < ActiveRecord::Base
       end
     end   
   end
+    
   
   # log add item to collection
   def self.log_add_item_to_collection(collection_item_id, collection_item_site_id, user_id, params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_add_item_to_collection_action.id, SyncObjectType.get_collection_type.id, collection_item_site_id, collection_item_id)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_add_item_to_collection_action.id, SyncObjectType.get_collection_type.id, collection_item_site_id, collection_item_id, params)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -104,9 +107,11 @@ class SyncPeerLog < ActiveRecord::Base
     end   
   end
   
-  # log remove item from collection
-  def self.log_remove_items_from_collection(collection_id, collection_site_id, user_id,  params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_remove_item_from_collection_action.id, SyncObjectType.get_collection_type.id, collection_site_id, collection_id)
+  
+  
+   # log copy item to collection
+  def self.log_remove_collection_item(collection_item_id, collection_item_site_id, user_id, params)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_remove_collection_item_action.id, SyncObjectType.get_collection_type.id, collection_item_site_id, collection_item_id, params)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -114,11 +119,12 @@ class SyncPeerLog < ActiveRecord::Base
       end
     end   
   end
+  
   
   
   #log create common name
   def self.log_add_common_name(user, name, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id, params)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -129,7 +135,7 @@ class SyncPeerLog < ActiveRecord::Base
  
   #log delete common name
   def self.log_delete_common_name(user, synonym, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_delete_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_delete_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id, params)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -140,7 +146,7 @@ class SyncPeerLog < ActiveRecord::Base
  
   #log vet common name
   def self.log_vet_common_name(user, name, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_vet_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_vet_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id, params)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -151,7 +157,7 @@ class SyncPeerLog < ActiveRecord::Base
  
  
   def self.log_update_common_name(user, name, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id, params)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -199,7 +205,22 @@ class SyncPeerLog < ActiveRecord::Base
   
   private
   
-  def self.create_sync_peer_log(user_site_id, user_site_object_id, sync_object_action_id, sync_object_type_id, sync_object_site_id, sync_object_id)
+  
+  
+  def self.create_sync_peer_log(user_site_id, user_site_object_id, sync_object_action_id, sync_object_type_id, sync_object_site_id, sync_object_id, parameters)
+    debugger
+    action = SyncObjectAction.find(sync_object_action_id).object_action unless SyncObjectAction.find(sync_object_action_id).nil?
+    
+    if (action.include?("delete") || action.include?("remove_item"))      
+     
+     sync_peer_log = SyncPeerLog.find(:first, :conditions => "sync_event_id IS NULL 
+                                                   and sync_object_id = #{sync_object_id} and sync_object_site_id = #{sync_object_site_id}")   
+      unless (sync_peer_log.nil?)
+        sync_peer_log.destroy
+        return
+      end     
+     end
+    
     spl = SyncPeerLog.new
     spl.user_site_id = user_site_id    
     spl.user_site_object_id = user_site_object_id
@@ -338,32 +359,22 @@ class SyncPeerLog < ActiveRecord::Base
     collection_owner = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     # remove extra parameters which not needed in creating collection 
     parameters["site_id"] = parameters["sync_object_site_id"]
-    parameters["origin_id"] = parameters["sync_object_id"]
-    item = parameters["item_type"].constantize.find_by_site_id_and_origin_id(parameters["item_site_id"], parameters["item_origin_id"]) 
-    item_parameters = {"name" => parameters["item_name"], "collected_item_type" => parameters["item_type"] } 
-    item_parameters["collected_item_id"] =  item.id unless item.nil?
-       
+    parameters["origin_id"] = parameters["sync_object_id"]    
+    base = parameters["base"]  
     ["language", "user_site_id", "user_site_object_id", "user_site_object_id", 
       "sync_object_id", "sync_object_site_id", "item_origin_id", "item_site_id",
-      "item_type", "item_name"].each { |key| parameters.delete key }
+      "item_type", "item_name", "base"].each { |key| parameters.delete key }
    
     #
     collection = Collection.new(parameters)
     collection.save  
-    collection.users = [collection_owner] unless collection_owner.nil?
-     
-           
-    # create collection item
-    item_parameters["collection_id"] = collection.id unless collection.nil?
-    collection_item = CollectionItem.create(item_parameters)
-    EOL::GlobalStatistics.increment('collections')
-
- #log create collection action
-    CollectionActivityLog.create(collection: collection, user: collection_owner, activity: Activity.create)
-    CollectionActivityLog.create(collection: collection, user_id: collection_owner.id,
-                             activity: Activity.collect, collection_item: collection_item)    
+    collection.users = [collection_owner] unless collection_owner.nil?           
     
+    CollectionActivityLog.create(collection: collection, user: collection_owner, activity: Activity.create) if base
+   
   end
+  
+  
   
    # how node site handle update collection action
   def self.update_collection(parameters)
@@ -435,7 +446,9 @@ class SyncPeerLog < ActiveRecord::Base
     end
    end
    
-   def self.copy_collection(parameters)
+   # create collection job
+   def self.create_job_collection(parameters)
+     debugger
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     origin_collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
 
@@ -444,84 +457,69 @@ class SyncPeerLog < ActiveRecord::Base
      copied_collections_origin_ids = parameters["copied_collections_origin_ids"].split(",")
      copied_collections_site_ids = parameters["copied_collections_site_ids"].split(",")
      collections = []
+     collection_items = []
      copied_collections_origin_ids.count.times do |i|
        collections << Collection.find_by_origin_id_and_site_id(copied_collections_origin_ids[i], copied_collections_site_ids[i])
      end
-
-     # create new collection if asked
-     if parameters["new_collection_name"] 
-       new_collection = Collection.create(:name => parameters["new_collection_name"], :origin_id => parameters["new_collection_origin_id"],
-                         :site_id => parameters["user_site_id"])
-       new_collection.users = [user] unless user.nil?
-       collections << new_collection
-     end 
      
-     # create collection job
-     CollectionJob.create!(:command => parameters["command"], :user => user,
-                          :collection => origin_collection, :item_count => parameters["item_count"],
-                          :all_items => parameters["all_items"],
-                          :overwrite => parameters["overwrite"], :collections => collections )
-                          
-     # copy items in copied collection
-     collection_items_origin_ids = parameters["collection_items_origin_ids"].split(",")
-     collection_items_site_ids = parameters["collection_items_site_ids"].split(",")
-     collection_items_names = parameters["collection_items_names"].split(",")
-     collection_items_types = parameters["collection_items_types"].split(",")
-     unless collection_items_origin_ids.nil?
-       collection_items_origin_ids.count.times do |i|
-         item = collection_items_types[i].constantize.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i])
-         collections.each do |col|
-           CollectionItem.create(:name => collection_items_names[i], :collected_item_type => collection_items_types[i],
-                                 :collection_id => col.id, :collected_item_id => item.id)
+     unless origin_collection.nil?
+     # remove items
+       collection_items_origin_ids = parameters["collection_items_origin_ids"].split(",")
+       collection_items_site_ids = parameters["collection_items_site_ids"].split(",")
+       collection_items_names = parameters["collection_items_names"].split(",")
+       collection_items_types = parameters["collection_items_types"].split(",")
+       collection_items = []
+       unless collection_items_origin_ids.nil?
+         collection_items_origin_ids.count.times do |i|
+           item = collection_items_types[i].constantize.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i])
+           collected_item = CollectionItem.find(:first, :conditions => "collection_id = #{origin_collection.id} and collected_item_id = #{item.id}")
+           #collected_item = CollectionItem.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i] )
+           collection_items << collected_item.id unless collected_item.nil?
          end
-       end
-     end
+       end  
+     end    
+     
+     # create collection job                    
+     unless (collection_items.blank? and  parameters["command"] == "remove" )                
+       CollectionJob.create!(:command => parameters["command"], :user => user,
+                            :collection => origin_collection, :item_count => parameters["item_count"],
+                            :all_items => parameters["all_items"],
+                            :overwrite => parameters["overwrite"],
+                            :collection_item_ids =>  collection_items,
+                            :collections => collections )
+                          
+    end 
    end
-
+   
+   
+  
  # add item to collection
-  def self.add_item_collection(parameters)
-    # add item to collections
+  def self.add_item_collection(parameters)   
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    item = parameters["collected_item_type"].constantize.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-   # add item to many collections
-    if parameters["collection_origin_ids"]
-      collections_origin_ids = parameters["collection_origin_ids"].split(",")
-      collections_site_ids = parameters["collections_site_ids"].split(",")
-      collections_origin_ids.count.times do |i|
-        col = Collection.find_by_origin_id_and_site_id(collections_origin_ids[i], collections_site_ids[i])
-        col_item = CollectionItem.create(:name => parameters["collected_item_name"], :collected_item_type => parameters["collected_item_type"],
-                                 :collection_id => col.id, :collected_item_id => item.id)
-        CollectionActivityLog.create(collection: col_item.collection, user: user,
-                                   activity: Activity.collect, collection_item: col_item)
-      end
-    end
-    # add item to one collection
-    if parameters["collection_origin_id"]
-      col = Collection.find_by_origin_id_and_site_id(parameters["collection_origin_id"], parameters["collection_site_id"])
+    item = parameters["collected_item_type"].constantize.find_by_origin_id_and_site_id(parameters["item_id"], parameters["item_site_id"])
+    col = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+
+      # add item to one collection
       col_item = CollectionItem.create(:name => parameters["collected_item_name"], :collected_item_type => parameters["collected_item_type"],
-                                 :collection_id => col.id, :collected_item_id => item.id)
-        CollectionActivityLog.create(collection: col_item.collection, user: user,
+                                 :collection_id => col.id, :collected_item_id => item.id  )
+        if parameters["base_item"]
+          EOL::GlobalStatistics.increment('collections')
+          CollectionActivityLog.create(collection: col, user_id: user.id,
+                             activity: Activity.collect, collection_item: col_item)
+        elsif parameters["add_item"]
+          CollectionActivityLog.create(collection: col_item.collection, user: user,
                                    activity: Activity.collect, collection_item: col_item)
-    end
+        end        
   end
-
- # remove item from collection
-   def self.remove_item_collection(parameters)
-    # add item to collections
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-
-    # remove items
-     collection_items_origin_ids = parameters["collection_items_origin_ids"].split(",")
-     collection_items_site_ids = parameters["collection_items_site_ids"].split(",")
-     collection_items_names = parameters["collection_items_names"].split(",")
-     collection_items_types = parameters["collection_items_types"].split(",")
-     unless collection_items_origin_ids.nil?
-       collection_items_origin_ids.count.times do |i|
-         item = collection_items_types[i].constantize.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i])
-          CollectionItem.find_by_collection_id_and_collected_item_id(collection.id, item.id).destroy         
-       end
-     end
+  
+   # remove item from collection
+  def self.remove_item_collection(parameters)
+    col = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    item = parameters["collected_item_type"].constantize.find_by_origin_id_and_site_id(parameters["item_id"], parameters["item_site_id"])
+    col_item = CollectionItem.find(:first, :conditions => "collection_id = #{col.id} and collected_item_id = #{item.id}")
+    unless col_item.nil?
+        col_item.destroy           
+    end  
   end
    
   

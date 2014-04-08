@@ -72,15 +72,23 @@ class CollectionsController < ApplicationController
         create_collection_from_item
         
          # create sync peer log for new collection metadata
-        sync_params = params[:collection]
-        sync_params = sync_params.reverse_merge(:item_origin_id => @item.origin_id,
-                                                :item_site_id => @item.site_id,
-                                                :item_type => params[:item_type],
-                                                :item_name => @item.summary_name)
-                                                                                 
+        sync_params = params[:collection] 
+        sync_params = sync_params.reverse_merge(:base => true)       
         SyncPeerLog.log_create_collection(@collection.id, current_user.origin_id,sync_params)
-         
-                          
+        
+        # log create collection item
+        sync_params = {}
+        sync_params = sync_params.reverse_merge(:collected_item_type => params[:item_type],
+                                                :collected_item_name => @item.summary_name,                                                
+                                                :item_id => @item.origin_id,
+                                                :item_site_id => @item.site_id,
+                                                :base_item => true)   
+        # collected_item = CollectionItem.find_by_collection_id_and_collected_item_id( @collection.id, @item.id)
+        # collected_item[:origin_id]  = collected_item.id 
+        # collected_item[:site_id] =  PEER_SITE_ID
+        # collected_item.save                                                                    
+        SyncPeerLog.log_add_item_to_collection(@collection.origin_id, @collection.site_id, current_user.origin_id,sync_params)
+                      
          return      
       end
     else
@@ -539,7 +547,6 @@ private
   end
 
   def remove_items(options)
-    debugger
     collection_items = options[:items] || collection_items_with_scope(options.merge(allow_all: true))
     bulk_log = params[:scope] == 'all_items'
     count = 0

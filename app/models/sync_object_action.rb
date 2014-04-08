@@ -24,17 +24,17 @@ class SyncObjectAction < ActiveRecord::Base
   def self.get_vet_action
     self.find_or_create_by_object_action('vet')
   end
-   def self.get_copy_action
-    self.find_or_create_by_object_action('copy')
-  end
   
-   def self.get_add_item_to_collection_action
+  def self.get_add_item_to_collection_action
     self.find_or_create_by_object_action('add_item')
   end
   
-     def self.get_remove_item_from_collection_action
+  def self.get_remove_collection_item_action
     self.find_or_create_by_object_action('remove_item')
+  end 
+    
+  def self.get_create_job_action
+    self.find_or_create_by_object_action('create_job')
   end
-  
-  
+ 
 end
