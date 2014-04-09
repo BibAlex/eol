@@ -9,7 +9,7 @@ class SyncPeerLog < ActiveRecord::Base
   belongs_to :sync_object_action, :foreign_key => 'sync_object_action_id'
 
   def self.log_add_user(user, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_user_type.id, user.site_id, user.origin_id, params)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_user_type.id, user.site_id, user.origin_id, params, Time.now)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -21,7 +21,7 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.log_activate_user(user, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_activate_action.id, SyncObjectType.get_user_type.id, user.site_id, user.origin_id, params)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_activate_action.id, SyncObjectType.get_user_type.id, user.site_id, user.origin_id, params, Time.now)
     if spl
       params.each do |key, value| 
           create_sync_log_action_parameter(spl.id, key, value)
@@ -32,7 +32,7 @@ class SyncPeerLog < ActiveRecord::Base
  
   # log update user
   def self.log_update_user(user_id, params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id, params)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id, params, Time.now)
     # add log action parameters
     if spl
       params.delete("requested_curator_level_id")
@@ -47,7 +47,7 @@ class SyncPeerLog < ActiveRecord::Base
   
   # log update user by admin
   def self.log_update_user_by_admin(admin_id, user_id, params)
-    spl = create_sync_peer_log(PEER_SITE_ID, admin_id, SyncObjectAction.get_update_user_by_admin_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id, params)
+    spl = create_sync_peer_log(PEER_SITE_ID, admin_id, SyncObjectAction.get_update_user_by_admin_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id, params, Time.now)
     # add log action parameters
     if spl
       params.delete("requested_curator_level_id")
@@ -62,7 +62,7 @@ class SyncPeerLog < ActiveRecord::Base
   
     # log create collection
   def self.log_create_collection(collection_id, user_id,  params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_collection_type.id, PEER_SITE_ID, collection_id, params)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_collection_type.id, PEER_SITE_ID, collection_id, params, Time.now)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -73,8 +73,9 @@ class SyncPeerLog < ActiveRecord::Base
   
      
     # log update collection
-  def self.log_update_collection(collection_id, user_id,  params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_collection_type.id, PEER_SITE_ID, collection_id, params)
+  def self.log_update_collection(collection, user_id,  params)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id,
+                               SyncObjectType.get_collection_type.id, collection.site_id, collection.origin_id, params, Time.now)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -84,9 +85,14 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   
+  # log delete collection
+  def self.log_delete_collection(user, collection)
+      spl = create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_delete_action.id,
+                                 SyncObjectType.get_collection_type.id, collection.site_id, collection.origin_id, Time.now)
+  end
   # log_copy_collection
   def self.log_collection_job(collection_id, collection_site_id, user_id,  params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_create_job_action.id, SyncObjectType.get_collection_type.id, collection_site_id, collection_id, params)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_create_job_action.id, SyncObjectType.get_collection_type.id, collection_site_id, collection_id, params, Time.now)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -98,7 +104,7 @@ class SyncPeerLog < ActiveRecord::Base
   
   # log add item to collection
   def self.log_add_item_to_collection(collection_item_id, collection_item_site_id, user_id, params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_add_item_to_collection_action.id, SyncObjectType.get_collection_type.id, collection_item_site_id, collection_item_id, params)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_add_item_to_collection_action.id, SyncObjectType.get_collection_type.id, collection_item_site_id, collection_item_id, params, Time.now)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -107,11 +113,9 @@ class SyncPeerLog < ActiveRecord::Base
     end   
   end
   
-  
-  
    # log copy item to collection
   def self.log_remove_collection_item(collection_item_id, collection_item_site_id, user_id, params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_remove_collection_item_action.id, SyncObjectType.get_collection_type.id, collection_item_site_id, collection_item_id, params)
+    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_remove_collection_item_action.id, SyncObjectType.get_collection_type.id, collection_item_site_id, collection_item_id, params, Time.now)
     # add log action parameters
     if spl
       params.each do |key, value| 
@@ -123,8 +127,8 @@ class SyncPeerLog < ActiveRecord::Base
   
   
   #log create common name
-  def self.log_add_common_name(user, name, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id, params)
+  def self.log_add_common_name(user, synonym, params)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id, params, Time.now)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -135,7 +139,7 @@ class SyncPeerLog < ActiveRecord::Base
  
   #log delete common name
   def self.log_delete_common_name(user, synonym, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_delete_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id, params)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_delete_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id, params, Time.now)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -146,7 +150,7 @@ class SyncPeerLog < ActiveRecord::Base
  
   #log vet common name
   def self.log_vet_common_name(user, name, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_vet_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id, params)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_vet_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id, params, Time.now)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -157,7 +161,7 @@ class SyncPeerLog < ActiveRecord::Base
  
  
   def self.log_update_common_name(user, name, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id, params)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id, params, Time.now)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -176,6 +180,7 @@ class SyncPeerLog < ActiveRecord::Base
     parameters["user_site_object_id"] = user_site_object_id
     parameters["sync_object_site_id"] = sync_object_site_id
     parameters["sync_object_id"] = sync_object_id
+    parameters["action_taken_at_time"] = action_taken_at_time
       
     sync_log_action_parameter.each do |lap|
       unless lap.param_object_type_id
@@ -205,8 +210,6 @@ class SyncPeerLog < ActiveRecord::Base
   
   private
   
-  
-  
   def self.create_sync_peer_log(user_site_id, user_site_object_id, sync_object_action_id, sync_object_type_id, sync_object_site_id, sync_object_id, parameters)
     action = SyncObjectAction.find(sync_object_action_id).object_action unless SyncObjectAction.find(sync_object_action_id).nil?
     
@@ -229,17 +232,17 @@ class SyncPeerLog < ActiveRecord::Base
           return
         end
       end     
-     end
-     
+     end     
+
     spl = SyncPeerLog.new
-    spl.user_site_id = user_site_id    
+    spl.user_site_id = user_site_id   
     spl.user_site_object_id = user_site_object_id
     spl.action_taken_at_time = Time.now
     spl.sync_object_action_id = sync_object_action_id
     spl.sync_object_type_id = sync_object_type_id
     spl.sync_object_site_id = sync_object_site_id
     spl.sync_object_id = sync_object_id
-    return spl if spl.save 
+    return spl if spl.save
     return nil
   end
   
@@ -257,7 +260,7 @@ class SyncPeerLog < ActiveRecord::Base
     params["site_id"] = parameters["sync_object_site_id"]
     
     parameters.each do |key, value| 
-      unless 'user_site_id user_site_object_id sync_object_site_id sync_object_id collection_site_id collection_origin_id'.include? key
+      unless 'user_site_id user_site_object_id sync_object_site_id sync_object_id collection_site_id collection_origin_id action_taken_at_time'.include? key
         params[key] = value
       end
     end
@@ -288,6 +291,8 @@ class SyncPeerLog < ActiveRecord::Base
     parameters.delete("user_site_object_id")
     parameters.delete("sync_object_id")
     parameters.delete("sync_object_site_id") 
+    parameters.delete("action_taken_at_time") 
+    
     user = User.find_by_origin_id_and_site_id(parameters["origin_id"], parameters["site_id"])
     logo_file_name = parameters["logo_file_name"]
     
@@ -344,6 +349,8 @@ class SyncPeerLog < ActiveRecord::Base
     parameters.delete("user_site_object_id")
     parameters.delete("sync_object_id")
     parameters.delete("sync_object_site_id")
+    parameters.delete("action_taken_at_time")
+    
     user = User.find_by_origin_id_and_site_id(parameters["origin_id"], parameters["site_id"])
     if (!(user.nil?))
       user.update_attributes(parameters)    
@@ -373,9 +380,7 @@ class SyncPeerLog < ActiveRecord::Base
     base = parameters["base"]  
     ["language", "user_site_id", "user_site_object_id", "user_site_object_id", 
       "sync_object_id", "sync_object_site_id", "item_origin_id", "item_site_id",
-      "item_type", "item_name", "base"].each { |key| parameters.delete key }
-   
-    #
+      "item_type", "item_name", "base", "action_taken_at_time"].each { |key| parameters.delete key }
     collection = Collection.new(parameters)
     collection.save  
     collection.users = [collection_owner] unless collection_owner.nil?           
@@ -390,52 +395,54 @@ class SyncPeerLog < ActiveRecord::Base
   def self.update_collection(parameters)
     collection_owner = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    # remove extra parameters which not needed in creating collection
-    parameters["site_id"] = parameters["sync_object_site_id"]
-    parameters["origin_id"] = parameters["sync_object_id"]      
-    parameters.delete("language")   
-    parameters.delete("user_site_id")
-    parameters.delete("user_site_object_id")
-    parameters.delete("sync_object_id")
-    parameters.delete("sync_object_site_id")
-    #
-     logo_file_name = parameters["logo_file_name"]
-    if(!(collection.nil?))      
-      if !(logo_file_name.nil?)
+    debugger
+    if collection.updated_at < parameters["updated_at"]
+      parameters["site_id"] = parameters["sync_object_site_id"]
+      parameters["origin_id"] = parameters["sync_object_id"]   
         
-       
-        file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ] 
-        collection_logo_name = "collections_#{collection.id}.#{file_type}"
-        file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
-        if download_file?(file_url, collection_logo_name, "logo")
-          
-          # delete old logo
-          old_logo_name = collection.logo_file_name
-          old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
-          if file_type != old_logo_extension
-            File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}"
+      logo_file_name = parameters["logo_file_name"]
+      
+      # remove extra parameters which not needed in creating collection
+      ["language", "user_site_id", "user_site_object_id", "sync_object_id", "sync_object_site_id", "updated_at", "action_taken_at_time"].each { |key| parameters.delete key }
+      
+      if(!(collection.nil?))      
+        if !(logo_file_name.nil?)
+          file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ] 
+          collection_logo_name = "collections_#{collection.id}.#{file_type}"
+          file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
+          if download_file?(file_url, collection_logo_name, "logo")
+            # delete old logo
+            old_logo_name = collection.logo_file_name
+            old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
+            if file_type != old_logo_extension
+              File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}"
+            end
+            parameters.delete("base_url")
+            name_change = parameters[:name] != collection.name
+            description_change = parameters[:description] != collection.description
+            collection.update_attributes(parameters) 
+            # log create collection action
+            CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
+            CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
+            upload_file(collection)   
+          else
+            # add failed file record
+            failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => collection_logo_name, :file_type => "logo",
+                      :object_type => "Collection" , :object_id => collection.id)
+            FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
+            FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
+            FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])
+            # delete redundant parameters 
+            ["base_url", "logo_file_name", "logo_cache_url", "logo_content_type", "logo_file_size"].each { |key| parameters.delete key }
+            name_change = parameters[:name] != collection.name
+            description_change = parameters[:description] != collection.description
+            collection.update_attributes(parameters) 
+            # log create collection action
+            CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
+            CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
           end
-          
-          parameters.delete("base_url")
-          name_change = parameters[:name] != collection.name
-          description_change = parameters[:description] != collection.description
-          collection.update_attributes(parameters) 
-          # log create collection action
-          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
-          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
-           upload_file(collection)   
         else
-          
-         # add failed file record
-          failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => collection_logo_name, :file_type => "logo",
-                    :object_type => "Collection" , :object_id => collection.id)
-          FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
-          FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
-          FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])
-  
-          
-          #delete redundant parameters 
-          ["base_url", "logo_file_name", "logo_cache_url", "logo_content_type", "logo_file_size"].each { |key| parameters.delete key }
+          parameters.delete("base_url")
           name_change = parameters[:name] != collection.name
           description_change = parameters[:description] != collection.description
           collection.update_attributes(parameters) 
@@ -443,25 +450,23 @@ class SyncPeerLog < ActiveRecord::Base
           CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
           CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
         end
-      else
-          parameters.delete("base_url")
-          name_change = parameters[:name] != collection.name
-          description_change = parameters[:description] != collection.description
-          collection.update_attributes(parameters) 
-          # log create collection action
-          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
-          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
       end
-      
-    end
-   end
+    end  
+  end
    
-   # create collection job
-   def self.create_job_collection(parameters)
+  def self.delete_collection(parameters)
+    collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    if collection
+      collection.unpublish
+    end
+  end
+  
+  # create collection job
+  def self.create_job_collection(parameters)
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     origin_collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
 
-                              
+                             
      # create collection job collections
      copied_collections_origin_ids = parameters["copied_collections_origin_ids"].split(",")
      copied_collections_site_ids = parameters["copied_collections_site_ids"].split(",")
@@ -470,7 +475,7 @@ class SyncPeerLog < ActiveRecord::Base
      copied_collections_origin_ids.count.times do |i|
        collections << Collection.find_by_origin_id_and_site_id(copied_collections_origin_ids[i], copied_collections_site_ids[i])
      end
-     
+    
      unless origin_collection.nil?
      # remove items
        collection_items_origin_ids = parameters["collection_items_origin_ids"].split(",")
@@ -485,23 +490,20 @@ class SyncPeerLog < ActiveRecord::Base
            #collected_item = CollectionItem.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i] )
            collection_items << collected_item.id unless collected_item.nil?
          end
-       end  
-     end    
-     
-     # create collection job                    
-     unless (collection_items.blank? and  parameters["command"] == "remove" )                
+       end 
+     end   
+    
+     # create collection job                   
+     unless (collection_items.blank? and  parameters["command"] == "remove" )               
        CollectionJob.create!(:command => parameters["command"], :user => user,
                             :collection => origin_collection, :item_count => parameters["item_count"],
                             :all_items => parameters["all_items"],
                             :overwrite => parameters["overwrite"],
                             :collection_item_ids =>  collection_items,
                             :collections => collections )
-                          
-    end 
-   end
-   
-   
-  
+                         
+    end
+  end
  # add item to collection
   def self.add_item_collection(parameters) 
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
@@ -541,6 +543,8 @@ class SyncPeerLog < ActiveRecord::Base
   # common names
   
   def self.create_common_name(parameters)
+    
+    
     taxon_concept = TaxonConcept.where(:site_id => parameters["taxon_concept_site_id"], :origin_id => parameters["taxon_concept_origin_id"])
     if taxon_concept && taxon_concept.count > 0
       taxon_concept = taxon_concept[0]     
@@ -548,10 +552,10 @@ class SyncPeerLog < ActiveRecord::Base
       taxon_concept.add_common_name_synonym(parameters["string"], agent: user.agent,
                                             language: parameters["language"],
                                             vetted: Vetted.trusted,
-                                            site_id: parameters["sync_object_site_id"],
-                                            name_origin_id: parameters["sync_object_id"],
-                                            synonym_site_id: parameters["synonym_site_id"],
-                                            synonym_origin_id: parameters["synonym_origin_id"])
+                                            site_id: parameters["name_site_id"],
+                                            name_origin_id: parameters["name_origin_id"],
+                                            synonym_site_id: parameters["sync_object_site_id"],
+                                            synonym_origin_id: parameters["sync_object_id"])
       taxon_concept.reindex_in_solr
       # expire_taxa([taxon_concept.id])
     end
@@ -573,7 +577,8 @@ class SyncPeerLog < ActiveRecord::Base
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     vetted = Vetted.find_or_create_by_view_order(parameters["vetted_view_order"])
     taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
-    found = taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: user)
+    found = taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: user,
+                                        date: parameters["action_taken_at_time"])
     if found
       user.log_activity(:vetted_common_name, taxon_concept_id: taxon_concept.id, value: name_id)
       taxon_concept.reindex_in_solr
@@ -590,8 +595,9 @@ class SyncPeerLog < ActiveRecord::Base
                                           language: language,
                                           preferred: 1,
                                           vetted: Vetted.trusted,
-                                          new_flag: true,
-                                          site_id: name.site_id)
+                                          site_id: name.site_id,
+                                          date: parameters["action_taken_at_time"],
+                                          is_preferred: parameters["is_preferred"])
     user.log_activity(:updated_common_names, taxon_concept_id: taxon_concept.id)
   end
 end

@@ -143,8 +143,9 @@ class CollectionsController < ApplicationController
                                                  :logo_file_name => @collection.logo_file_name,
                                                  :logo_content_type => @collection.logo_content_type,
                                                  :logo_file_size => @collection.logo_file_size,
-                                                 :base_url => "#{$CONTENT_SERVER}content/")                                                                               
-        SyncPeerLog.log_update_collection(@collection.id, current_user.origin_id,sync_params) 
+                                                 :base_url => "#{$CONTENT_SERVER}content/",
+                                                 :updated_at => @collection.updated_at)                                                                               
+        SyncPeerLog.log_update_collection(@collection, current_user.origin_id,sync_params) 
                
                               
     else
@@ -165,6 +166,8 @@ class CollectionsController < ApplicationController
         user_collections_url(current_user)
       if @collection.unpublish
         flash[:notice] = I18n.t(:collection_destroyed)
+        #syncronization
+        SyncPeerLog.log_delete_collection(current_user, @collection)
       else
         flash[:error] = I18n.t(:collection_not_destroyed_error)
       end

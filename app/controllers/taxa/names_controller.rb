@@ -53,7 +53,7 @@ class Taxa::NamesController < TaxaController
       language = Language.find(params[:name][:synonym][:language_id])
       arr = @taxon_concept.add_common_name_synonym(params[:name][:string],
                 agent: agent, language: language, vetted: Vetted.trusted, site_id: PEER_SITE_ID, 
-                name_origin_id: nil, new_flag: true, site_id: PEER_SITE_ID)
+                name_origin_id: nil, new_flag: true, site_id: PEER_SITE_ID, date: nil, is_preferred: nil)
       synonym = arr["synonym"]
       name = arr["name"]
       unless synonym.errors.blank?
@@ -61,12 +61,12 @@ class Taxa::NamesController < TaxaController
       else
         # syncronization
         sync_params = {"language" => language,
-                       "synonym_site_id" => synonym.site_id,
-                       "synonym_origin_id" => synonym.origin_id,
-                       "taxon_concept_origin_id" => @taxon_concept.origin_id,
-                       "taxon_concept_site_id" => @taxon_concept.site_id,
+                       "taxon_concept_site_id" => synonym.site_id,
+                       "taxon_concept_origin_id" => synonym.origin_id,
+                       "name_origin_id" => name.origin_id,
+                       "name_site_id" => name.site_id,
                        "string" => params[:name][:string]}
-        SyncPeerLog.log_add_common_name(current_user, name, sync_params)
+        SyncPeerLog.log_add_common_name(current_user, synonym, sync_params)
         @taxon_concept.reindex_in_solr
         log_action(@taxon_concept, synonym, :add_common_name)
         expire_taxa([@taxon_concept.id])
@@ -82,14 +82,16 @@ class Taxa::NamesController < TaxaController
       if params[:preferred_name_id]
         name = Name.find(params[:preferred_name_id])
         language = Language.find(params[:language_id])
-        @taxon_concept.add_common_name_synonym(name.string, agent: current_user.agent, language: language,
+        arr = @taxon_concept.add_common_name_synonym(name.string, agent: current_user.agent, language: language,
           preferred: 1, vetted: Vetted.trusted, new_flag: true, site_id: PEER_SITE_ID)
+        synonym = arr["synonym"]
         expire_taxa([@taxon_concept.id])
         #syncronization
         sync_params = {"language" => language.id,
                        "taxon_concept_origin_id" => @taxon_concept.origin_id,
                        "taxon_concept_site_id" => @taxon_concept.site_id,
-                       "string" => name.string}
+                       "string" => name.string,
+                       "is_preferred" => synonym.preferred}
         SyncPeerLog.log_update_common_name(current_user, name, sync_params)
       end
       current_user.log_activity(:updated_common_names, taxon_concept_id: @taxon_concept.id)
@@ -160,7 +162,8 @@ class Taxa::NamesController < TaxaController
                  "vetted_view_order" => vetted.view_order,
                  "taxon_concept_origin_id" => @taxon_concept.origin_id,
                  "taxon_concept_site_id" => @taxon_concept.site_id,
-                 "string" => name.string}
+                 "string" => name.string,
+                 "action_taken_at_time" => Time.now}
                  
     SyncPeerLog.log_vet_common_name(current_user, name, sync_params)
     synonym = Synonym.find_by_name_id(name_id);
