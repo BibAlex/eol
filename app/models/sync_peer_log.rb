@@ -208,10 +208,9 @@ class SyncPeerLog < ActiveRecord::Base
   
   
   def self.create_sync_peer_log(user_site_id, user_site_object_id, sync_object_action_id, sync_object_type_id, sync_object_site_id, sync_object_id, parameters)
-    debugger
     action = SyncObjectAction.find(sync_object_action_id).object_action unless SyncObjectAction.find(sync_object_action_id).nil?
     
-    if (action.include?("delete") || action.include?("remove_item"))      
+    if (action.include?("delete") )      
      
      sync_peer_log = SyncPeerLog.find(:first, :conditions => "sync_event_id IS NULL 
                                                    and sync_object_id = #{sync_object_id} and sync_object_site_id = #{sync_object_site_id}")   
@@ -219,8 +218,19 @@ class SyncPeerLog < ActiveRecord::Base
         sync_peer_log.destroy
         return
       end     
-     end
     
+    elsif (action.include?("remove_item"))
+     #result = SyncPeerLog.find_by_sql "SELECT p.peer_log_id as id FROM sync_peer_logs l, sync_log_action_parameters p WHERE p.peer_log_id = l.id and l.sync_object_id = #{sync_object_id} and p.parameter = 'item_id' and p.value = #{parameters["item_id"]}"
+      result = SyncPeerLog.find_by_sql "SELECT p1.peer_log_id as id FROM sync_peer_logs l, sync_log_action_parameters p1, sync_log_action_parameters p2 WHERE p1.peer_log_id = l.id and p2.peer_log_id = l.id and l.sync_object_id = #{sync_object_id} and p1.parameter = 'item_id' and p1.value = #{parameters["item_id"]} and p2.parameter = 'collected_item_type' and p2.value = '#{parameters["collected_item_type"]}'"
+      unless (result.blank?)
+        sync_peer_log = SyncPeerLog.find(result[0].id)
+        unless sync_peer_log.nil?
+          sync_peer_log.destroy 
+          return
+        end
+      end     
+     end
+     
     spl = SyncPeerLog.new
     spl.user_site_id = user_site_id    
     spl.user_site_object_id = user_site_object_id
@@ -448,7 +458,6 @@ class SyncPeerLog < ActiveRecord::Base
    
    # create collection job
    def self.create_job_collection(parameters)
-     debugger
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     origin_collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
 
@@ -494,7 +503,7 @@ class SyncPeerLog < ActiveRecord::Base
    
   
  # add item to collection
-  def self.add_item_collection(parameters)   
+  def self.add_item_collection(parameters) 
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     item = parameters["collected_item_type"].constantize.find_by_origin_id_and_site_id(parameters["item_id"], parameters["item_site_id"])
     col = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])

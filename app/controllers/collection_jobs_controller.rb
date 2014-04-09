@@ -7,7 +7,6 @@ class CollectionJobsController < ApplicationController
   layout 'choose_collect_target'
 
   def create
-    debugger
     # for synchronization
     collection_items = []
     if @collection_job.all_items      
@@ -100,20 +99,15 @@ class CollectionJobsController < ApplicationController
                
                 if @collection_job.command == "remove"  
                   params["item_id"] = item.origin_id   
-                  params["item_site_id"] = item.site_id               
+                  params["item_site_id"] = item.site_id 
+                  params["collected_item_type"] = collected_item.collected_item_type              
                    SyncPeerLog.log_remove_collection_item(@collection_job.collection.origin_id, @collection_job.collection.site_id,current_user.origin_id,params)
                 elsif @collection_job.command == "copy"
                    params["collected_item_name"] = collected_item.name
                    params["collected_item_type"] = collected_item.collected_item_type          
                    params["item_id"] = item.origin_id
                    params["item_site_id"] = item.site_id
-                   all_collections.each do |col|                                         
-                     # params["collection_origin_id"] = col.origin_id
-                     # params["collection_site_id"] = col.site_id
-                     # col_item = CollectionItem.find(:first, :conditions => "collection_id = #{col.id} and collected_item_id = #{item.id}  and origin_id = #{collected_item.origin_id}")
-                     # col_item["origin_id"] = col_item.id
-                     # col_item["site_id"] = PEER_SITE_ID
-                     # col_item.save                       
+                   all_collections.each do |col|                              
                       SyncPeerLog.log_add_item_to_collection(col.origin_id, col.site_id, current_user.origin_id,params)
                    end
                 end
