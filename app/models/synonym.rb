@@ -57,7 +57,6 @@ class Synonym < ActiveRecord::Base
         synonym.last_change = Time.now
         synonym.last_change = date if date
         synonym.save!
-        debugger
         # if it is comming from pull then set it manually 
         unless is_preferred.nil?
           synonym = Synonym.find_by_hierarchy_id_and_hierarchy_entry_id_and_language_id_and_name_id_and_synonym_relation_id(
@@ -115,7 +114,6 @@ class Synonym < ActiveRecord::Base
 private
 
   def set_preferred
-    debugger
     tc_id = hierarchy_entry.taxon_concept_id
     count = TaxonConceptName.find_all_by_taxon_concept_id_and_language_id(tc_id, language_id).length
     if count == 0  # this is the first name in this language for the concept
