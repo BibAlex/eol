@@ -210,7 +210,7 @@ class SyncPeerLog < ActiveRecord::Base
   
   private
   
-  def self.create_sync_peer_log(user_site_id, user_site_object_id, sync_object_action_id, sync_object_type_id, sync_object_site_id, sync_object_id, parameters)
+  def self.create_sync_peer_log(user_site_id, user_site_object_id, sync_object_action_id, sync_object_type_id, sync_object_site_id, sync_object_id, parameters, time)
     action = SyncObjectAction.find(sync_object_action_id).object_action unless SyncObjectAction.find(sync_object_action_id).nil?
     
     if (action.include?("delete") )      
@@ -237,7 +237,7 @@ class SyncPeerLog < ActiveRecord::Base
     spl = SyncPeerLog.new
     spl.user_site_id = user_site_id   
     spl.user_site_object_id = user_site_object_id
-    spl.action_taken_at_time = Time.now
+    spl.action_taken_at_time = time
     spl.sync_object_action_id = sync_object_action_id
     spl.sync_object_type_id = sync_object_type_id
     spl.sync_object_site_id = sync_object_site_id
