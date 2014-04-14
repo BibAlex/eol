@@ -7,7 +7,6 @@ class CollectionJobsController < ApplicationController
   layout 'choose_collect_target'
 
   def create
-    debugger
     # for synchronization
     collection_items = []
     if @collection_job.all_items      
