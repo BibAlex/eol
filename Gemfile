@@ -58,7 +58,7 @@ group :development do
 end
 
 group :test do
-  gem 'webmock', '1.8.11' # Mock calls to remote APIs, like Open Authentication.
+  gem 'webmock', '1.8.11', require: false # Mock calls to remote APIs, like Open Authentication.
   gem 'rspec-html-matchers', '0.4.3' # Adds #with_tag for tests. Requires nokogiri.
   gem 'simplecov', '~> 0.7.1', require: false
 end
@@ -67,7 +67,11 @@ group :assets do
   gem 'turbo-sprockets-rails3', '0.3.4' # This is supposed to minimize the re-building of assets. AFAICT, it isn't working for us.
 end
 
+# IMPORTANT NOTE - any time you update Rails, you really need to double-check our monkey-patches in lib/select_with_preload_include
+# (in addition to the usual tests).
 gem 'rails', '3.2.17'
+# NOTE - WHEN YOU UPDATE RAILS, remove the following line. We don't care about the version, per se, this is just to avoid CVE-2014-2538:
+gem 'rack-ssl', '1.3.3'
 
 gem 'acts_as_list', '0.3.0' # Used for drag-and-drop reordering of KnownUri instances. ...We could be making wider use of this.
 gem 'acts_as_tree_rails3', '0.1.0' # We use this for a few of our tree-like models, such as TocItem and CollectionType.
@@ -75,6 +79,8 @@ gem 'biodiversity', '3.1.2' # "used for generation of scientific names with rank
 gem 'cityhash', '0.8.1' # Used by identity_cache to speed up the creation of hash keys.
 gem 'ckeditor', '3.7.3' # We use this in many places, such as creating data objects, to allow rich text editing.
 gem 'coffee-rails', '3.2.2' # TODO - do we actually use this? If so, it helps make simplified JS, for Ajax responses.
+# IMPORTANT NOTE - any time you update CPK, you really need to double-check our monkey-patches in lib/select_with_preload_include
+# (in addition to the usual tests).
 gem 'composite_primary_keys', '5.0.13' # We have lots of tables with CPK, so we need this.
 gem 'counter_culture', '0.1.19' # Used for cached counts of associations, better than rails default.
 gem 'dalli', '2.6.4' # Memcached handler. This is what handles ALL of our caching, so learn this.

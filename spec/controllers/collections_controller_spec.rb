@@ -90,7 +90,8 @@ describe CollectionsController do
 
   # sync collections actions
   describe "collections actions synchronization" do
-  # sync craete action
+  # sync craete action 
+  # creating collection of users
     describe 'create collection synchronization' do
       before(:each) do
         # prepare database for testing
@@ -148,8 +149,13 @@ describe CollectionsController do
         action = SyncObjectAction.first
         action.should_not be_nil
         action.object_action.should == "create"
+        
+        # check sync_object_action for adding new item
+        add_item_action = SyncObjectAction.find(2)
+        add_item_action.should_not be_nil
+        add_item_action.object_action.should == "add_item"
 
-        # check peer logs
+        # check peer log for creating new collection
         peer_log = SyncPeerLog.first
         peer_log.should_not be_nil
         peer_log.sync_object_action_id.should == action.id
@@ -157,24 +163,34 @@ describe CollectionsController do
         peer_log.user_site_id .should == PEER_SITE_ID
         peer_log.user_site_object_id.should == @user.id
         peer_log.sync_object_id.should == created_collection.id
-        peer_log.sync_object_site_id.should == PEER_SITE_ID
+        peer_log.sync_object_site_id.should == created_collection.site_id
 
         # check log action parameters
         collectionname_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "name")
         collectionname_parameter[0][:value].should == "newcollection"
+        
+         # check peer log for adding item to collection
+        second_peer_log = SyncPeerLog.find(2)
+        second_peer_log.should_not be_nil
+        second_peer_log.sync_object_action_id.should == add_item_action.id
+        second_peer_log.sync_object_type_id.should == type.id
+        second_peer_log.user_site_id .should == PEER_SITE_ID
+        second_peer_log.user_site_object_id.should == @user.id
+        second_peer_log.sync_object_id.should == created_collection.id
+        second_peer_log.sync_object_site_id.should == created_collection.site_id
 
-        itemoriginid_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "item_origin_id")
-        itemoriginid_parameter[0][:value].should == "#{@user.origin_id}"
-
-        itemsiteid_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "item_site_id")
-        itemsiteid_parameter[0][:value].should == "#{@user.site_id}"
-
-        itemtype_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "item_type")
-        itemtype_parameter[0][:value].should == 'User'
-
-        itemname_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "item_name")
-        itemname_parameter[0][:value].should == "#{@user.username}"
-
+        # check log action parameters
+        collection_origin_ids_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "item_id")
+        collection_origin_ids_parameter[0][:value].should == "#{@user.origin_id}"
+        collection_site_ids_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "item_site_id")
+        collection_site_ids_parameter[0][:value].should == "#{@user.site_id}"
+    
+    
+        collected_item_type_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "collected_item_type")
+        collected_item_type_parameter[0][:value].should == "User"
+        collected_item_name_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "collected_item_name")
+        collected_item_name_parameter[0][:value].should == "#{@user.summary_name}"
+    
       end
     end
     
