@@ -88,7 +88,7 @@ class SyncPeerLog < ActiveRecord::Base
   # log delete collection
   def self.log_delete_collection(user, collection)
       spl = create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_delete_action.id,
-                                 SyncObjectType.get_collection_type.id, collection.site_id, collection.origin_id, Time.now)
+                                 SyncObjectType.get_collection_type.id, collection.site_id, collection.origin_id,{} ,Time.now)
   end
   # log_copy_collection
   def self.log_collection_job(collection_id, collection_site_id, user_id,  params)
@@ -215,10 +215,12 @@ class SyncPeerLog < ActiveRecord::Base
     
     if (action.include?("delete") )      
      
-     sync_peer_log = SyncPeerLog.find(:first, :conditions => "sync_event_id IS NULL 
+     sync_peer_logs = SyncPeerLog.find(:all, :conditions => "sync_event_id IS NULL 
                                                    and sync_object_id = #{sync_object_id} and sync_object_site_id = #{sync_object_site_id}")   
-      unless (sync_peer_log.nil?)
-        sync_peer_log.destroy
+      unless (sync_peer_logs.blank?)
+        sync_peer_logs.each do |sync_peer_log|
+          sync_peer_log.destroy
+        end
         return
       end     
     
@@ -541,8 +543,7 @@ class SyncPeerLog < ActiveRecord::Base
   # common names
   
   def self.create_common_name(parameters)
-    
-    
+   
     taxon_concept = TaxonConcept.where(:site_id => parameters["taxon_concept_site_id"], :origin_id => parameters["taxon_concept_origin_id"])
     if taxon_concept && taxon_concept.count > 0
       taxon_concept = taxon_concept[0]     
