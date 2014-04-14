@@ -92,7 +92,7 @@ class Taxa::NamesController < TaxaController
                        "taxon_concept_site_id" => @taxon_concept.site_id,
                        "string" => name.string,
                        "is_preferred" => synonym.preferred}
-        SyncPeerLog.log_update_common_name(current_user, name, sync_params)
+        SyncPeerLog.log_update_common_name(current_user, synonym, sync_params)
       end
       current_user.log_activity(:updated_common_names, taxon_concept_id: @taxon_concept.id)
     end
@@ -164,9 +164,9 @@ class Taxa::NamesController < TaxaController
                  "taxon_concept_site_id" => @taxon_concept.site_id,
                  "string" => name.string,
                  "action_taken_at_time" => Time.now}
-                 
-    SyncPeerLog.log_vet_common_name(current_user, name, sync_params)
-    synonym = Synonym.find_by_name_id(name_id);
+    synonym = Synonym.find_by_name_id(name_id)         
+    SyncPeerLog.log_vet_common_name(current_user, synonym, sync_params)
+    
     if synonym
       case vetted.label
       when "Trusted"

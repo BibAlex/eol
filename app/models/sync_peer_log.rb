@@ -149,8 +149,8 @@ class SyncPeerLog < ActiveRecord::Base
   end
  
   #log vet common name
-  def self.log_vet_common_name(user, name, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_vet_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id, params, Time.now)
+  def self.log_vet_common_name(user, synonym, params)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_vet_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id, params, Time.now)
     # add log action parameters
     if spl
       params.each do |key, value|
@@ -160,8 +160,8 @@ class SyncPeerLog < ActiveRecord::Base
   end
  
  
-  def self.log_update_common_name(user, name, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_common_name_type.id, name.site_id, name.origin_id, params, Time.now)
+  def self.log_update_common_name(user, synonym, params)
+    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id, params, Time.now)
     # add log action parameters
     if spl
       params.each do |key, value|
