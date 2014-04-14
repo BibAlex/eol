@@ -483,7 +483,6 @@ class TaxonConcept < ActiveRecord::Base
         origin_id = options[:synonym_origin_id]
         is_preferred = options[:is_preferred]
       end
-      debugger
       synonym = Synonym.generate_from_name(name_obj, agent: agent, preferred: preferred, language: language,
                                            entry: entry, relation: relation, vetted: vetted,
                                            site_id: site_id, origin_id: origin_id, date: date, is_preferred: is_preferred)
@@ -1014,7 +1013,6 @@ private
     raise "Missing :vetted" unless options[:vetted]
     raise "Missing :user" unless options[:user]
     list = taxon_concept_names_by_lang_id_and_name_id(options[:language_id], options[:name_id])
-    debugger
     if list && list.count > 0
       list.each do |tcn|
         if !options[:date] || !tcn.last_change || (options[:date] && tcn.last_change < options[:date])

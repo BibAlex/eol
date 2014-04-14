@@ -223,8 +223,7 @@ class SyncPeerLog < ActiveRecord::Base
       end     
     
     elsif (action.include?("remove_item"))
-     #result = SyncPeerLog.find_by_sql "SELECT p.peer_log_id as id FROM sync_peer_logs l, sync_log_action_parameters p WHERE p.peer_log_id = l.id and l.sync_object_id = #{sync_object_id} and p.parameter = 'item_id' and p.value = #{parameters["item_id"]}"
-      result = SyncPeerLog.find_by_sql "SELECT p1.peer_log_id as id FROM sync_peer_logs l, sync_log_action_parameters p1, sync_log_action_parameters p2 WHERE p1.peer_log_id = l.id and p2.peer_log_id = l.id and l.sync_object_id = #{sync_object_id} and p1.parameter = 'item_id' and p1.value = #{parameters["item_id"]} and p2.parameter = 'collected_item_type' and p2.value = '#{parameters["collected_item_type"]}'"
+      result = SyncPeerLog.find_by_sql "SELECT p1.peer_log_id as id FROM sync_peer_logs l, sync_log_action_parameters p1, sync_log_action_parameters p2 WHERE l.sync_event_id IS NULL and p1.peer_log_id = l.id and p2.peer_log_id = l.id and l.sync_object_id = #{sync_object_id} and p1.parameter = 'item_id' and p1.value = #{parameters["item_id"]} and p2.parameter = 'collected_item_type' and p2.value = '#{parameters["collected_item_type"]}'"
       unless (result.blank?)
         sync_peer_log = SyncPeerLog.find(result[0].id)
         unless sync_peer_log.nil?
@@ -395,7 +394,6 @@ class SyncPeerLog < ActiveRecord::Base
   def self.update_collection(parameters)
     collection_owner = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    debugger
     if collection.updated_at < parameters["updated_at"]
       parameters["site_id"] = parameters["sync_object_site_id"]
       parameters["origin_id"] = parameters["sync_object_id"]   

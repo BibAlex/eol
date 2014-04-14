@@ -36,6 +36,17 @@ class CommentsController < ApplicationController
         $STATSD.increment 'comments'
       end
       auto_collect(@comment.parent)
+      
+      # # sync create comment
+      # # add synchronization id
+      # @comment[:origin_id] = @comment.id
+      # @comment[:site_id] = PEER_SITE_ID
+      # sync_params = params[:comment]
+      # sync_params = sync_params.reverse_merge(:from_curator => @comment.from_curator,
+                                              # :visible_at => @comment.visible_at,
+                                              # :hidden => @comment.hidden )
+      # SyncPeerLog.log_create_comment(@user.origin_id, @comment.origin_id, sync_params)
+
     else
       flash[:error] = I18n.t(:comment_not_added_error)
       flash[:error] << " #{@comment.errors.full_messages.join('; ')}." if @comment.errors.any?
