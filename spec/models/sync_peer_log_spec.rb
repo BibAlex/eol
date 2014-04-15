@@ -454,7 +454,7 @@ describe SyncPeerLog do
           lap.save
         end
       end
-      it "should update preferred column in common name" do
+      it "should update preferred column in synonym" do
         s1 = Synonym.find_by_name_id(@name.id).preferred
         #call process entery
         @peer_log.process_entry

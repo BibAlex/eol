@@ -61,8 +61,8 @@ class Taxa::NamesController < TaxaController
       else
         # syncronization
         sync_params = {"language" => language,
-                       "taxon_concept_site_id" => synonym.site_id,
-                       "taxon_concept_origin_id" => synonym.origin_id,
+                       "taxon_concept_site_id" => @taxon_concept.site_id,
+                       "taxon_concept_origin_id" => @taxon_concept.origin_id,
                        "name_origin_id" => name.origin_id,
                        "name_site_id" => name.site_id,
                        "string" => params[:name][:string]}
