@@ -542,8 +542,6 @@ class SyncPeerLog < ActiveRecord::Base
   # common names
   
   def self.create_common_name(parameters)
-    
-    
     taxon_concept = TaxonConcept.where(:site_id => parameters["taxon_concept_site_id"], :origin_id => parameters["taxon_concept_origin_id"])
     if taxon_concept && taxon_concept.count > 0
       taxon_concept = taxon_concept[0]     
