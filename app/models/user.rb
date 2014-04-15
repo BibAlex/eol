@@ -276,8 +276,9 @@ class User < ActiveRecord::Base
     else
       sync_params = {"collection_origin_id" => nil, "collection_site_id" => nil}
     end
-    
-    SyncPeerLog.log_activate_user(self, sync_params)
+    options = {"user" => self, "object" =>  self, "action_id" => SyncObjectAction.get_activate_action.id,
+                    "type_id" =>  SyncObjectType.get_user_type.id, "params" => sync_params}
+    SyncPeerLog.log_action(options)
   end
 
   # Checks to see if one already exists (DO NOT use #watch_collection to do this, recursive!), and builds one if not:
