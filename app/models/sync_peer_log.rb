@@ -65,7 +65,15 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   private
-  def self.create_sync_peer_log(user_site_id, user_site_object_id, sync_object_action_id, sync_object_type_id, sync_object_site_id, sync_object_id, parameters,time)
+  def self.create_sync_peer_log(options)
+    user_site_id = options["user_site_id"]
+    user_site_object_id = options["user_origin_id"]
+    sync_object_action_id = options["action_id"]
+    sync_object_type_id = options["type_id"]
+    sync_object_site_id = options["object_site_id"]
+    sync_object_id = options["object_origin_id"]
+    parameters = options["params"]
+    time = options["time"]
     action = SyncObjectAction.find(sync_object_action_id).object_action unless SyncObjectAction.find(sync_object_action_id).nil?
     
     if (action.include?("delete") )      
