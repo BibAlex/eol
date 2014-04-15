@@ -258,7 +258,7 @@ describe CollectionsController do
         collectionname_parameter[0][:value].should == "newname"
         
         updated_at_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "updated_at")
-        updated_at_parameter[0][:value].should == "#{created_collection.updated_at}"
+        updated_at_parameter[0][:value].should == created_collection.updated_at.utc.to_s(:db)
         # # test sync upload logo
         # logo_file_name_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_file_name")
         # logo_file_name_parameter[0][:value].should == created_collection.logo_file_name
@@ -276,14 +276,6 @@ describe CollectionsController do
        # logo_cache_url_parameter[0][:value].should == created_collection.logo_cache_url
       
       end
-    end
-    
-    describe "syncronization of deleting a collection" do
-      @collection = Collection.create(:name => "collection")
-      @collection.update_column(:origin_id, @collection.id)
-      @collection.update_column(:site_id, PEER_SITE_ID)
-      post :update, :id => @collection.id
-#      post :destroy, :id => @collection.id
     end
   end
 end

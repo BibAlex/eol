@@ -11,7 +11,13 @@ describe Administrator::UserController do
         truncate_table(ActiveRecord::Base.connection, "users", {})
 
         @user = User.gen(:username => 'users_controller_spec')
+        @user[:origin_id] = @user.id
+        @user[:site_id] = PEER_SITE_ID
+        @user.save
         @admin = User.gen(:username => "admin", :password => "admin")
+        @admin[:origin_id] = @admin.id
+        @admin[:site_id] = PEER_SITE_ID
+        @admin.save
         @admin.grant_admin 
         session[:user_id] = @admin.id
     end
@@ -60,7 +66,13 @@ describe Administrator::UserController do
         @user = User.gen(:username => 'users_controller_spec', :requested_curator_level_id => 2, 
                                                      :credentials => "Faculty, staff, or graduate student status in a relevant university or college department",
                                                      :curator_scope => "Rodents of Borneo")
+        @user[:origin_id] = @user.id
+        @user[:site_id] = PEER_SITE_ID
+        @user.save
         @admin = User.gen(:username => "admin", :password => "admin")
+        @admin[:origin_id] = @admin.id
+        @admin[:site_id] = PEER_SITE_ID
+        @admin.save
         @admin.grant_admin 
         session[:user_id] = @admin.id
     end
@@ -99,11 +111,7 @@ describe Administrator::UserController do
           
           curator_approved_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "curator_approved")
           curator_approved_parameter[0][:value].should == "1"
-          
-
-              
-                                                                                                 
+                                                                                             
       end
   end
-  
 end
