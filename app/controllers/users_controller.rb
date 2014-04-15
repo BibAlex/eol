@@ -74,7 +74,6 @@ class UsersController < ApplicationController
       
       #log update user action action for sync.
       sync_params = params[:user] 
-      sync_params.delete("logo")   
        #log update user action action for sync.
       # user identities
       if (!sync_params[:user_identity_ids].nil?)
@@ -97,8 +96,10 @@ class UsersController < ApplicationController
                                                :logo_content_type => @user.logo_content_type,
                                                :logo_file_size => @user.logo_file_size,
                                                :base_url => "#{$CONTENT_SERVER}content/")
-      sync_params.delete("logo")
-      SyncPeerLog.log_update_user(@user.id, sync_params)
+      ["email", "email_confirmation", "entered_password", "entered_password_confirmation", "requested_curator_level_id", "requested_curator_at", "logo"].each { |key| sync_params.delete key }
+      options = {"user" => @user, "object" =>  @user, "action_id" => SyncObjectAction.get_update_action.id,
+                    "type_id" =>  SyncObjectType.get_user_type.id, "params" => sync_params}
+      SyncPeerLog.log_action(options)
       redirect_back_or_default @user
     else
       failed_to_update_user
@@ -191,7 +192,10 @@ class UsersController < ApplicationController
                                                 :created_at => @user.created_at,
                                                 :collection_site_id => collection.site_id,
                                                 :collection_origin_id => collection.origin_id )
-        SyncPeerLog.log_add_user(@user, sync_params)
+        ["email", "email_confirmation", "entered_password", "entered_password_confirmation"].each { |key| sync_params.delete key }
+        options = {"user" => @user, "object" =>  @user, "action_id" => SyncObjectAction.get_create_action.id,
+                    "type_id" =>  SyncObjectType.get_user_type.id, "params" => sync_params}
+        SyncPeerLog.log_action(options)
       end
       
       redirect_to pending_user_path(@user), status: :moved_permanently

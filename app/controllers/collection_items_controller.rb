@@ -47,17 +47,20 @@ class CollectionItemsController < ApplicationController
       if params[:collection_id].is_a? Array
         params[:collection_id].each do |collection_id|
           create_collection_item(params[:collection_item].merge(collection_id: collection_id))
-         
-            # for synchronization
-            col = Collection.find(collection_id)           
-           SyncPeerLog.log_add_item_to_collection(col.origin_id, col.site_id, current_user.origin_id,sync_params)
+          # for synchronization
+          col = Collection.find(collection_id)
+         options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.get_add_item_to_collection_action.id,
+                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}           
+          SyncPeerLog.log_action(options)
         end        
         
       else
         create_collection_item(params[:collection_item].merge(collection_id: params[:collection_id]))
         # for synchronization
         col = Collection.find(params[:collection_id])
-        SyncPeerLog.log_add_item_to_collection(col.origin_id, col.site_id, current_user.origin_id,sync_params)
+        options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.get_add_item_to_collection_action.id,
+                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params} 
+        SyncPeerLog.log_action(options)
       end
       
     

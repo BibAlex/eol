@@ -8,173 +8,29 @@ class SyncPeerLog < ActiveRecord::Base
   belongs_to :sync_object_type, :foreign_key => 'sync_object_type_id'
   belongs_to :sync_object_action, :foreign_key => 'sync_object_action_id'
 
-  def self.log_add_user(user, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_user_type.id, user.site_id, user.origin_id, params, Time.now)
-    # add log action parameters
+  def self.log_action(options)
+    user = options["user"]
+    object = options["object"]
+    action_id = options["action_id"]
+    type_id = options["type_id"]
+    params = options["params"]
+    spl = self.create_sync_peer_log("user_site_id" => user.site_id, 
+                                    "user_origin_id" => user.origin_id, 
+                                    "action_id" => action_id, 
+                                    "type_id" => type_id, 
+                                    "object_site_id" => object.site_id, 
+                                    "object_origin_id" => object.origin_id, 
+                                    "params" => params, 
+                                    "time" => Time.now)
     if spl
-      params.each do |key, value| 
-        unless 'email email_confirmation entered_password entered_password_confirmation'.include? key
+      params.each do |key, value|
           self.create_sync_log_action_parameter(spl.id, key, value)
-        end
       end
     end   
   end
   
-  def self.log_activate_user(user, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_activate_action.id, SyncObjectType.get_user_type.id, user.site_id, user.origin_id, params, Time.now)
-    if spl
-      params.each do |key, value| 
-          create_sync_log_action_parameter(spl.id, key, value)
-      end
-    end   
-  end
-  
- 
-  # log update user
-  def self.log_update_user(user_id, params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id, params, Time.now)
-    # add log action parameters
-    if spl
-      params.delete("requested_curator_level_id")
-      params.delete("requested_curator_at")
-      params.each do |key, value| 
-        unless 'email email_confirmation entered_password entered_password_confirmation'.include? key
-          create_sync_log_action_parameter(spl.id, key, value)
-        end
-      end
-    end   
-  end
-  
-  # log update user by admin
-  def self.log_update_user_by_admin(admin_id, user_id, params)
-    spl = create_sync_peer_log(PEER_SITE_ID, admin_id, SyncObjectAction.get_update_user_by_admin_action.id, SyncObjectType.get_user_type.id, PEER_SITE_ID, user_id, params, Time.now)
-    # add log action parameters
-    if spl
-      params.delete("requested_curator_level_id")
-      params.delete("requested_curator_at")
-      params.each do |key, value| 
-        unless 'email email_confirmation entered_password entered_password_confirmation'.include? key
-          create_sync_log_action_parameter(spl.id, key, value)
-        end
-      end
-    end   
-  end
-  
-    # log create collection
-  def self.log_create_collection(collection_id, user_id,  params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_collection_type.id, PEER_SITE_ID, collection_id, params, Time.now)
-    # add log action parameters
-    if spl
-      params.each do |key, value| 
-          create_sync_log_action_parameter(spl.id, key, value)
-      end
-    end   
-  end
-  
-     
-    # log update collection
-  def self.log_update_collection(collection, user_id,  params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_update_action.id,
-                               SyncObjectType.get_collection_type.id, collection.site_id, collection.origin_id, params, Time.now)
-    # add log action parameters
-    if spl
-      params.each do |key, value| 
-          create_sync_log_action_parameter(spl.id, key, value)
-      end
-    end   
-  end
-  
-  
-  # log delete collection
-  def self.log_delete_collection(user, collection)
-      spl = create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_delete_action.id,
-                                 SyncObjectType.get_collection_type.id, collection.site_id, collection.origin_id, Time.now)
-  end
-  # log_copy_collection
-  def self.log_collection_job(collection_id, collection_site_id, user_id,  params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_create_job_action.id, SyncObjectType.get_collection_type.id, collection_site_id, collection_id, params, Time.now)
-    # add log action parameters
-    if spl
-      params.each do |key, value| 
-          create_sync_log_action_parameter(spl.id, key, value)
-      end
-    end   
-  end
-    
-  
-  # log add item to collection
-  def self.log_add_item_to_collection(collection_item_id, collection_item_site_id, user_id, params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_add_item_to_collection_action.id, SyncObjectType.get_collection_type.id, collection_item_site_id, collection_item_id, params, Time.now)
-    # add log action parameters
-    if spl
-      params.each do |key, value| 
-          create_sync_log_action_parameter(spl.id, key, value)
-      end
-    end   
-  end
-  
-   # log copy item to collection
-  def self.log_remove_collection_item(collection_item_id, collection_item_site_id, user_id, params)
-    spl = create_sync_peer_log(PEER_SITE_ID, user_id, SyncObjectAction.get_remove_collection_item_action.id, SyncObjectType.get_collection_type.id, collection_item_site_id, collection_item_id, params, Time.now)
-    # add log action parameters
-    if spl
-      params.each do |key, value| 
-          create_sync_log_action_parameter(spl.id, key, value)
-      end
-    end   
-  end
-  
-  
-  
-  #log create common name
-  def self.log_add_common_name(user, synonym, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_create_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id, params, Time.now)
-    # add log action parameters
-    if spl
-      params.each do |key, value|
-        self.create_sync_log_action_parameter(spl.id, key, value)
-      end
-    end
-  end
- 
-  #log delete common name
-  def self.log_delete_common_name(user, synonym, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_delete_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id, params, Time.now)
-    # add log action parameters
-    if spl
-      params.each do |key, value|
-        self.create_sync_log_action_parameter(spl.id, key, value)
-      end
-    end
-  end
- 
-  #log vet common name
-  def self.log_vet_common_name(user, synonym, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_vet_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id, params, Time.now)
-    # add log action parameters
-    if spl
-      params.each do |key, value|
-        self.create_sync_log_action_parameter(spl.id, key, value)
-      end
-    end
-  end
- 
- 
-  def self.log_update_common_name(user, synonym, params)
-    spl = self.create_sync_peer_log(user.site_id, user.origin_id, SyncObjectAction.get_update_action.id, SyncObjectType.get_common_name_type.id, synonym.site_id, synonym.origin_id, params, Time.now)
-    # add log action parameters
-    if spl
-      params.each do |key, value|
-        self.create_sync_log_action_parameter(spl.id, key, value)
-      end
-    end
-  end
   
   def process_entry
-    # TODO: first we need to detect conflict.
-    # considering that NOW we are dealing with add users, which won't cause conflicts,
-    # So I am skipping it for now
-    
     parameters = {}
     parameters["user_site_id"] = user_site_id
     parameters["user_site_object_id"] = user_site_object_id
@@ -209,22 +65,22 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   private
-  
   def self.create_sync_peer_log(user_site_id, user_site_object_id, sync_object_action_id, sync_object_type_id, sync_object_site_id, sync_object_id, parameters,time)
     action = SyncObjectAction.find(sync_object_action_id).object_action unless SyncObjectAction.find(sync_object_action_id).nil?
     
     if (action.include?("delete") )      
      
-     sync_peer_log = SyncPeerLog.find(:first, :conditions => "sync_event_id IS NULL 
+     sync_peer_logs = SyncPeerLog.find(:all, :conditions => "sync_event_id IS NULL 
                                                    and sync_object_id = #{sync_object_id} and sync_object_site_id = #{sync_object_site_id}")   
-      unless (sync_peer_log.nil?)
-        sync_peer_log.destroy
+      unless (sync_peer_logs.blank?)
+        sync_peer_logs.each do |sync_peer_log|
+          sync_peer_log.destroy
+        end
         return
       end     
     
     elsif (action.include?("remove_item"))
-     #result = SyncPeerLog.find_by_sql "SELECT p.peer_log_id as id FROM sync_peer_logs l, sync_log_action_parameters p WHERE p.peer_log_id = l.id and l.sync_object_id = #{sync_object_id} and p.parameter = 'item_id' and p.value = #{parameters["item_id"]}"
-      result = SyncPeerLog.find_by_sql "SELECT p1.peer_log_id as id FROM sync_peer_logs l, sync_log_action_parameters p1, sync_log_action_parameters p2 WHERE p1.peer_log_id = l.id and p2.peer_log_id = l.id and l.sync_object_id = #{sync_object_id} and p1.parameter = 'item_id' and p1.value = #{parameters["item_id"]} and p2.parameter = 'collected_item_type' and p2.value = '#{parameters["collected_item_type"]}'"
+      result = SyncPeerLog.find_by_sql "SELECT p1.peer_log_id as id FROM sync_peer_logs l, sync_log_action_parameters p1, sync_log_action_parameters p2 WHERE l.sync_event_id IS NULL and p1.peer_log_id = l.id and p2.peer_log_id = l.id and l.sync_object_id = #{sync_object_id} and p1.parameter = 'item_id' and p1.value = #{parameters["item_id"]} and p2.parameter = 'collected_item_type' and p2.value = '#{parameters["collected_item_type"]}'"
       unless (result.blank?)
         sync_peer_log = SyncPeerLog.find(result[0].id)
         unless sync_peer_log.nil?

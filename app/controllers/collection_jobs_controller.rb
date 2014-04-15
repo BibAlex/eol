@@ -60,7 +60,9 @@ class CollectionJobsController < ApplicationController
           new_collection.save
           #sync_params["new_collection_origin_id"] = new_collection.origin_id
           params["name"] = new_collection.name
-          SyncPeerLog.log_create_collection(new_collection.origin_id, current_user.origin_id,params)
+          options = {"user" => current_user, "object" =>  new_collection, "action_id" => SyncObjectAction.get_create_action.id,
+                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params} 
+          SyncPeerLog.log_action(options)
         end
         
         
@@ -90,27 +92,33 @@ class CollectionJobsController < ApplicationController
         sync_params["collection_items_site_ids"] = collection_items_site_ids
         sync_params["collection_items_names"] = collection_items_names
         sync_params["collection_items_types"] = collection_items_types        
-         
-        SyncPeerLog.log_collection_job(@collection_job.collection.origin_id, @collection_job.collection.site_id,current_user.origin_id,sync_params)
+        
+        options = {"user" => current_user, "object" =>  @collection_job.collection, "action_id" => SyncObjectAction.get_create_job_action.id,
+                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params} 
+        SyncPeerLog.log_action(options)
 
         collection_items.each do |collected_item| 
-           item = collected_item.collected_item_type.constantize.find(collected_item.collected_item_id)
-             params = {}             
+          item = collected_item.collected_item_type.constantize.find(collected_item.collected_item_id)
+          params = {}             
                
-                if @collection_job.command == "remove"  
-                  params["item_id"] = item.origin_id   
-                  params["item_site_id"] = item.site_id 
-                  params["collected_item_type"] = collected_item.collected_item_type              
-                   SyncPeerLog.log_remove_collection_item(@collection_job.collection.origin_id, @collection_job.collection.site_id,current_user.origin_id,params)
-                elsif @collection_job.command == "copy"
-                   params["collected_item_name"] = collected_item.name
-                   params["collected_item_type"] = collected_item.collected_item_type          
-                   params["item_id"] = item.origin_id
-                   params["item_site_id"] = item.site_id
-                   all_collections.each do |col|                              
-                      SyncPeerLog.log_add_item_to_collection(col.origin_id, col.site_id, current_user.origin_id,params)
-                   end
-                end
+          if @collection_job.command == "remove"  
+            params["item_id"] = item.origin_id   
+            params["item_site_id"] = item.site_id 
+            params["collected_item_type"] = collected_item.collected_item_type
+            options = {"user" => current_user, "object" =>  @collection_job.collection, "action_id" => SyncObjectAction.get_remove_collection_item_action.id,
+              "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}              
+             SyncPeerLog.log_action(options)
+          elsif @collection_job.command == "copy"
+             params["collected_item_name"] = collected_item.name
+             params["collected_item_type"] = collected_item.collected_item_type          
+             params["item_id"] = item.origin_id
+             params["item_site_id"] = item.site_id
+             all_collections.each do |col|
+               options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.get_add_item_to_collection_action.id,
+              "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}                              
+                SyncPeerLog.log_action(options)
+             end
+          end
         end
         
         redirect_to job_should_redirect_to, notice: complete_notice

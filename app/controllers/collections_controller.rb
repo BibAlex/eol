@@ -73,8 +73,10 @@ class CollectionsController < ApplicationController
         
          # create sync peer log for new collection metadata
         sync_params = params[:collection] 
-        sync_params = sync_params.reverse_merge(:base => true)       
-        SyncPeerLog.log_create_collection(@collection.id, current_user.origin_id,sync_params)
+        sync_params = sync_params.reverse_merge(:base => true)
+        options = {"user" => current_user, "object" =>  @collection, "action_id" => SyncObjectAction.get_create_action.id,
+                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}       
+        SyncPeerLog.log_action(options)
         
         # log create collection item
         sync_params = {}
@@ -82,12 +84,10 @@ class CollectionsController < ApplicationController
                                                 :collected_item_name => @item.summary_name,                                                
                                                 :item_id => @item.origin_id,
                                                 :item_site_id => @item.site_id,
-                                                :base_item => true)   
-        # collected_item = CollectionItem.find_by_collection_id_and_collected_item_id( @collection.id, @item.id)
-        # collected_item[:origin_id]  = collected_item.id 
-        # collected_item[:site_id] =  PEER_SITE_ID
-        # collected_item.save                                                                    
-        SyncPeerLog.log_add_item_to_collection(@collection.origin_id, @collection.site_id, current_user.origin_id,sync_params)
+                                                :base_item => true) 
+        options = {"user" => current_user, "object" =>  @collection, "action_id" => SyncObjectAction.get_add_item_to_collection_action.id,
+                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}                                                                    
+        SyncPeerLog.log_action(options)
                       
          return      
       end
@@ -145,7 +145,9 @@ class CollectionsController < ApplicationController
                                                  :logo_file_size => @collection.logo_file_size,
                                                  :base_url => "#{$CONTENT_SERVER}content/",
                                                  :updated_at => @collection.updated_at)                                                                               
-        SyncPeerLog.log_update_collection(@collection, current_user.origin_id,sync_params) 
+        options = {"user" => current_user, "object" =>  @collection, "action_id" => SyncObjectAction.get_update_action.id,
+              "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}
+        SyncPeerLog.log_action(options) 
                
                               
     else
@@ -167,7 +169,9 @@ class CollectionsController < ApplicationController
       if @collection.unpublish
         flash[:notice] = I18n.t(:collection_destroyed)
         #syncronization
-        SyncPeerLog.log_delete_collection(current_user, @collection)
+        options = {"user" => current_user, "object" =>  @collection, "action_id" => SyncObjectAction.get_delete_action.id,
+              "type_id" =>  SyncObjectType.get_collection_type.id, "params" => {}}
+        SyncPeerLog.log_action(options)
       else
         flash[:error] = I18n.t(:collection_not_destroyed_error)
       end
