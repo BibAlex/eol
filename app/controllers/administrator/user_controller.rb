@@ -169,8 +169,10 @@ class Administrator::UserController  < AdminController
                                                     :curator_level_id => @user.curator_level_id,
                                                     :curator_verdict_by_id => @user.curator_verdict_by_id,
                                                     :curator_verdict_at => @user.curator_verdict_at)
-          
-            SyncPeerLog.log_update_user_by_admin(session[:user_id], @user.id, sync_params)
+           ["email", "email_confirmation", "entered_password", "entered_password_confirmation", "requested_curator_level_id", "requested_curator_at"].each { |key| sync_params.delete key }
+            options = {"user" => admin, "object" =>  @user, "action_id" => SyncObjectAction.get_update_user_by_admin_action.id,
+                    "type_id" =>  SyncObjectType.get_user_type.id, "params" => sync_params}
+            SyncPeerLog.log_action(options)
    
         
         flash[:notice] = I18n.t("the_user_was_updatedzzz")

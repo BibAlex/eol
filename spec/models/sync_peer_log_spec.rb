@@ -4,7 +4,7 @@ describe SyncPeerLog do
 
   describe "process pull" do
     describe "pulling create user action" do
-      before(:all) do
+      before(:each) do
         truncate_table(ActiveRecord::Base.connection, "users", {})
         truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
         truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
@@ -454,7 +454,7 @@ describe SyncPeerLog do
           lap.save
         end
       end
-      it "should update preferred column in common name" do
+      it "should update preferred column in synonym" do
         s1 = Synonym.find_by_name_id(@name.id).preferred
         #call process entery
         @peer_log.process_entry
@@ -820,8 +820,8 @@ describe SyncPeerLog do
           @peer_log.save
           #create sync_action_parameters
 
-          parameters = ["name"]
-          values = ["newname"]
+          parameters = ["name", "updated_at"]
+          values = ["newname", Time.now+2]
 
           for i in 0..parameters.length-1
             lap = SyncLogActionParameter.new
