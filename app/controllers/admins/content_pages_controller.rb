@@ -20,10 +20,20 @@ class Admins::ContentPagesController < AdminsController
 
   # POST /admin/content_pages
   def create
+    debugger
     @content_page = ContentPage.new(params[:content_page])
     @translated_content_page = @content_page.translations.build(params[:translated_content_page])
     @content_page.last_update_user_id = current_user.id unless @content_page.blank?
     if @content_page.save
+      # @content_page.update_column(:origin_id, @content_page.id)
+      # @content_page.update_column(:site_id, PEER_SITE_ID)
+      sync_params = params[:content_page]
+      sync_params = sync_params.merge(params[:translated_content_page])
+      sync_params[:language] = params[:translated_content_page][:language_id]
+      sync_params.delete("language_id")
+      options = {"user" => current_user, "object" =>  @content_page, "action_id" => SyncObjectAction.get_create_action.id,
+                    "type_id" =>  SyncObjectType.get_content_page_type.id, "params" => sync_params}
+      SyncPeerLog.log_action(options)
       flash[:notice] = I18n.t(:admin_content_page_create_successful_notice,
                               page_name: @content_page.page_name,
                               anchor: @content_page.page_name.gsub(' ', '_').downcase)

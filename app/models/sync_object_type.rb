@@ -11,5 +11,8 @@ class SyncObjectType < ActiveRecord::Base
    def self.get_collection_type
     self.find_or_create_by_object_type('Collection')
   end
-     
+  
+  def self.get_content_page_type
+    self.find_or_create_by_object_type('content_page')
+  end
 end

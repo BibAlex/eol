@@ -461,4 +461,30 @@ class SyncPeerLog < ActiveRecord::Base
                                           is_preferred: parameters["is_preferred"])
     user.log_activity(:updated_common_names, taxon_concept_id: taxon_concept.id)
   end
+  
+  def self.create_content_page(parameters)
+    params = {}
+    params["parent_content_page_id"] = parameters["parent_content_page_id"]
+    params["page_name"] = parameters["page_name"]
+    params["active"] = parameters["active"]
+    content_page = ContentPage.new(params)
+    content_page.save
+    content_page.update_column(:origin_id, parameters["sync_object_id"])
+    content_page.update_column(:site_id, parameters["sync_object_site_id"])
+    
+    params = {}
+    debugger
+    params["language_id"] = parameters["language"].id
+    params["title"] = parameters["title"]
+    params["main_content"] = parameters["main_content"]
+    params["left_content"] = parameters["left_content"]
+    params["meta_keywords"] = parameters["meta_keywords"]
+    params["meta_description"] = parameters["meta_description"]
+    params["active_translation"] = parameters["active_translation"]
+    
+    content_page.translations.build(params)
+    
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    content_page.last_update_user_id = user.id unless content_page.blank?
+  end
 end

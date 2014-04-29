@@ -31,5 +31,21 @@ describe Admins::ContentPagesController do
     session[:user_id] = @cms_user.id
     expect { get :index }.not_to raise_error
   end
+  
+  describe "synchronization" do
+    it "should log create action" do
+      session[:user_id] = @admin.id
+      post :create ,{"content_page"=>{"parent_content_page_id"=>"", "page_name"=>"test5", "active"=>"1"}, 
+                     "translated_content_page"=>{"language_id"=>"#{Language.first.id}", 
+                                                 "title"=>"test5", 
+                                                 "main_content"=>"<p>hello5</p>\r\n", 
+                                                 "left_content"=>"", 
+                                                 "meta_keywords"=>"",
+                                                 "meta_description"=>"", 
+                                                 "active_translation"=>"1"}}
+                                                 
+
+    end
+  end
 
 end
