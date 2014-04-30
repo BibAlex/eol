@@ -1771,5 +1771,155 @@ describe SyncPeerLog do
         end
       end
     end    
+    
+    
+      # test collections actions synchronization
+  describe "process pulling for data objects actions " do
+    describe "pulling create data object" do
+      before(:all) do
+        truncate_all_tables
+        load_foundation_cache
+        Activity.create_enumerated
+        Visibility.create_enumerated
+        @toc = TocItem.gen_if_not_exists(:label => 'overview')
+        @toc[:origin_id] = @toc.id
+        @toc[:site_id] = PEER_SITE_ID
+        @toc.save
+        
+        @user = User.gen        
+        @user[:origin_id] = @user.id
+        @user[:site_id] = PEER_SITE_ID
+        @user.save
+        @taxon_concept = TaxonConcept.gen
+        @taxon_concept[:origin_id] = @taxon_concept.id
+        @taxon_concept[:site_id] = PEER_SITE_ID
+        @taxon_concept.save
+        
+        
+        #create sync_object_action
+        SyncObjectAction.create(:object_action => 'create')
+        SyncObjectAction.create(:object_action => 'add_item')
+        #create sync_object_type
+        SyncObjectType.create(:object_type => 'Ref')
+        SyncObjectType.create(:object_type => 'Collection')
+        SyncObjectType.create(:object_type => 'data_object')
+        
+        # create sync peer log for creating ref
+        @create_ref_peer_log = SyncPeerLog.new
+        @create_ref_peer_log.sync_event_id = 5 #pull event
+        @create_ref_peer_log.user_site_id = @user.site_id
+        @create_ref_peer_log.user_site_object_id = @user.origin_id
+        @create_ref_peer_log.action_taken_at_time = Time.now
+        @create_ref_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
+        @create_ref_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Ref').id
+        @create_ref_peer_log.save
+        
+        create_ref_parameters = ["reference"]
+        create_ref_values = [ "Test reference."]
+        for i in 0..create_ref_parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @create_ref_peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = create_ref_parameters[i]
+          lap.value = create_ref_values[i]
+          lap.save
+        end
+        #call process entery
+        @create_ref_peer_log.process_entry
+        
+         # create sync peer log for creating ref
+        @create_data_object_peer_log = SyncPeerLog.new
+        @create_data_object_peer_log.sync_event_id = 5 #pull event
+        @create_data_object_peer_log.user_site_id = @user.site_id
+        @create_data_object_peer_log.user_site_object_id = @user.origin_id
+        @create_data_object_peer_log.action_taken_at_time = Time.now
+        @create_data_object_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
+        @create_data_object_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
+        @create_data_object_peer_log.sync_object_id = 1
+        @create_data_object_peer_log.sync_object_site_id = PEER_SITE_ID
+        @create_data_object_peer_log.save
+     
+        create_data_object_parameters = ["taxon_concept_origin_id", "taxon_concept_site_id", 
+          "references", "toc_id", "toc_site_id", "object_title", "description", "data_type_id",
+          "language_id", "license_id"]
+        create_data_object_values = ["#{@taxon_concept.origin_id}", "#{@taxon_concept.site_id}",
+           "Test reference.", @toc.origin_id, @toc.site_id, "Test Article",
+           "Test text", DataType.text.id.to_s, Language.english.id.to_s, License.public_domain.id.to_s]
+        for i in 0..create_data_object_parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @create_data_object_peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = create_data_object_parameters[i]
+          lap.value = create_data_object_values[i]
+          lap.save
+        end
+        #call process entery
+        @create_data_object_peer_log.process_entry
+        
+        
+        # create sync peer log for creating ref
+        @create_collection_item_peer_log = SyncPeerLog.new
+        @create_collection_item_peer_log.sync_event_id = 5 #pull event
+        @create_collection_item_peer_log.user_site_id = @user.site_id
+        @create_collection_item_peer_log.user_site_object_id = @user.origin_id
+        @create_collection_item_peer_log.action_taken_at_time = Time.now
+        @create_collection_item_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
+        @create_collection_item_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
+        @create_collection_item_peer_log.sync_object_id = @user.watch_collection.origin_id
+        @create_collection_item_peer_log.sync_object_site_id = PEER_SITE_ID
+        @create_collection_item_peer_log.save
+     
+        create_collection_item_parameters = ["item_id", "item_site_id", "collected_item_type", "collected_item_name"]
+        create_collection_item_values = ["1", PEER_SITE_ID, "DataObject", "Test Article"]
+        for i in 0..create_collection_item_parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @create_collection_item_peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = create_collection_item_parameters[i]
+          lap.value = create_collection_item_values[i]
+          lap.save
+        end
+        #call process entery
+        @create_collection_item_peer_log.process_entry
+        
+      end
+     
+      it "should create data object" do
+        ref = Ref.first
+        ref.full_reference.should == "Test reference."
+        ref.user_submitted.should == true
+        ref.visibility_id.should == Visibility.visible.id
+        ref.published.should == 1
+          
+        data_obj = DataObject.find(2)
+        data_obj.object_title.should == "Test Article"
+        data_obj.description.should == "Test text"
+        data_obj.license_id.should == License.public_domain.id
+        
+        user_data_obj = UsersDataObject.first
+        user_data_obj.user_id.should == @user.id
+        data_obj.toc_items[0].id.should == TocItem.overview.id
+        
+        data_obj_ref = data_obj.refs[0]
+        data_obj_ref.id.should == ref.id  
+        
+        data_obj_taxon_concept = DataObjectsTaxonConcept.first 
+        data_obj_taxon_concept.taxon_concept_id.should == @taxon_concept.id
+        data_obj_taxon_concept.data_object_id.should == data_obj.id
+        
+        col_item = CollectionItem.first        
+        col_item.collected_item_type.should == "DataObject"
+        col_item.name.should == "Test Article"
+        col_item.collected_item_id.should == data_obj.id
+        col_item.collection_id.should == @user.watch_collection.id
+      end
+    end      
   end
+ end
 end

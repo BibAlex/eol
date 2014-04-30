@@ -373,18 +373,19 @@ class SyncPeerLog < ActiveRecord::Base
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     item = parameters["collected_item_type"].constantize.find_by_origin_id_and_site_id(parameters["item_id"], parameters["item_site_id"])
     col = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-
-      # add item to one collection
+    # add item to one collection
+    unless col.nil? || item.nil?
       col_item = CollectionItem.create(:name => parameters["collected_item_name"], :collected_item_type => parameters["collected_item_type"],
                                  :collection_id => col.id, :collected_item_id => item.id  )
-        if parameters["base_item"]
-          EOL::GlobalStatistics.increment('collections')
-          CollectionActivityLog.create(collection: col, user_id: user.id,
-                             activity: Activity.collect, collection_item: col_item)
-        elsif parameters["add_item"]
-          CollectionActivityLog.create(collection: col_item.collection, user: user,
-                                   activity: Activity.collect, collection_item: col_item)
-        end        
+      if parameters["base_item"]
+        EOL::GlobalStatistics.increment('collections')
+        CollectionActivityLog.create(collection: col, user_id: user.id,
+                           activity: Activity.collect, collection_item: col_item)
+      elsif parameters["add_item"]
+        CollectionActivityLog.create(collection: col_item.collection, user: user,
+                                 activity: Activity.collect, collection_item: col_item)
+      end
+    end        
   end
   
    # remove item from collection
@@ -486,6 +487,50 @@ class SyncPeerLog < ActiveRecord::Base
       ref = Ref.new(full_reference: parameters["reference"], user_submitted: true, published: 1, visibility: Visibility.visible)
       ref.save
     end       
+  end 
+  
+  # how node site handle create data object action after pull
+  def self.create_data_object(parameters)
+    debugger
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
+    references = parameters["references"]
+    commit_link = parameters["commit_link"]
+    toc_id = nil
+    unless parameters["toc_site_id"].nil?
+      toc = TocItem.find(:first, :conditions => "site_id = #{parameters["toc_site_id"]} and origin_id = #{parameters["toc_id"]}")
+      toc_id = toc.id unless toc.nil?
+    end
+    link_type_id = nil
+    unless parameters["link_type_site_id"].nil?
+      link_type = LinkType.find(:first, :conditions => "site_id = #{parameters["link_type_site_id"]} and origin_id = #{parameters["link_type_id"]}")
+      link_type_id = link_type.id  unless link_type.nil?
+    end
+    
+    parameters = parameters.reverse_merge("origin_id" => parameters["sync_object_id"],
+                                          "site_id" => parameters["sync_object_site_id"])                                                           
+    [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
+      "action_taken_at_time", "language", "commit_link",  "taxon_concept_origin_id",
+      "taxon_concept_site_id", "references", "link_type_id", "toc_id",
+      "toc_site_id", "link_type_site_id"].each { |key| parameters.delete key }    
+    
+    data_object = DataObject.create_user_text(parameters, user: user,
+                                               taxon_concept: taxon_concept, toc_id: toc_id,
+                                               link_type_id: link_type_id, link_object: commit_link)
+     
+    references = references.split("\r\n") unless references.blank?
+      unless references.blank?      
+        references.each do |reference|
+          if reference.strip != ''
+            ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(reference, 1, 1, Visibility.visible.id)
+            data_object.refs << ref unless ref.nil?
+           end
+        end
+      end
+                                                 
+    user.log_activity(:created_data_object_id, value: data_object.id,
+                                taxon_concept_id: taxon_concept.id)     
+    data_object.log_activity_in_solr(keyword: 'create', user: user, taxon_concept: taxon_concept) 
   end 
   
  

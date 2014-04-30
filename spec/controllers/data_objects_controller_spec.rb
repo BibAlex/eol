@@ -125,4 +125,148 @@ describe DataObjectsController do
       flash[:notice].should == "Image was cropped successfully."
     end
   end
+  
+  
+  
+    # add items to collections synchronization
+  describe "mange data objects synchronization" do
+    describe "create new data object" do
+      before(:each) do
+        truncate_all_tables
+        load_foundation_cache
+        Activity.create_enumerated
+        Visibility.create_enumerated
+        TocItem.gen_if_not_exists(:label => 'overview')
+        
+        @current_user = User.gen
+        session[:user_id] = @current_user.id
+        @current_user[:origin_id] = @current_user.id
+        @current_user[:site_id] = PEER_SITE_ID
+        @current_user.save
+        @taxon_concept = TaxonConcept.gen
+       
+      end
+      
+      it 'should save creating data object paramters in synchronization tables' do
+        post :create, { :taxon_id => @taxon_concept.id, :references => "Test reference.",
+                      :data_object => { :toc_items => { :id => TocItem.overview.id.to_s }, :data_type_id => DataType.text.id.to_s,
+                                        :object_title => "Test Article", :language_id => Language.english.id.to_s,
+                                        :description => "Test text", :license_id => License.public_domain.id.to_s} },
+                      { :user => @current_user, :user_id => @current_user.id }
+         
+          
+        # created data object
+        data_obj = DataObject.find(2)
+        data_obj.object_title.should == "Test Article"
+        data_obj.description.should == "Test text"
+        data_obj.license_id.should == License.public_domain.id
+        user_data_obj = UsersDataObject.first
+        user_data_obj.user_id.should == @current_user.id
+        data_obj.toc_items[0].id.should == TocItem.overview.id
+        # check created references
+        ref = Ref.first
+        ref.full_reference.should == "Test reference."
+        ref.user_submitted.should == true
+        ref.visibility_id.should == Visibility.visible.id
+        ref.published.should == 1         
+        data_obj_ref = data_obj.refs[0]
+        data_obj_ref.id.should == ref.id  
+        
+        # check created record for data object taxon concept
+        data_obj_taxon_concept = DataObjectsTaxonConcept.first 
+        data_obj_taxon_concept.taxon_concept_id.should == @taxon_concept.id
+        data_obj_taxon_concept.data_object_id.should == data_obj.id
+        
+        col_item = CollectionItem.first        
+        col_item.collected_item_type.should == "DataObject"
+        col_item.collected_item_id.should == data_obj.id
+        col_item.collection_id.should == @current_user.watch_collection.id        
+        
+        # check sync_object_type
+        ref_type = SyncObjectType.first
+        ref_type.should_not be_nil
+        ref_type.object_type.should == "Ref"
+        
+        data_object_type = SyncObjectType.find(2)
+        data_object_type.should_not be_nil
+        data_object_type.object_type.should == "data_object"
+        
+        collection_type = SyncObjectType.find(3)
+        collection_type.should_not be_nil
+        collection_type.object_type.should == "Collection"
+
+        # check sync_object_actions
+        create_action = SyncObjectAction.first
+        create_action.should_not be_nil
+        create_action.object_action.should == "create"
+        
+        add_item_action = SyncObjectAction.find(2)
+        add_item_action.should_not be_nil
+        add_item_action.object_action.should == "add_item"
+         
+        # check peer logs
+        create_ref_peer_log = SyncPeerLog.first
+        create_ref_peer_log.should_not be_nil
+        create_ref_peer_log.sync_object_action_id.should == create_action.id
+        create_ref_peer_log.sync_object_type_id.should == ref_type.id
+        create_ref_peer_log.user_site_id .should == PEER_SITE_ID
+        create_ref_peer_log.user_site_object_id.should == @current_user.id
+
+         # check log action parameters
+        full_reference_parameter = SyncLogActionParameter.where(:peer_log_id => create_ref_peer_log.id, :parameter => "reference")
+        full_reference_parameter[0][:value].should == "Test reference."
+        
+        create_data_object_peer_log = SyncPeerLog.find(2)
+        create_data_object_peer_log.should_not be_nil
+        create_data_object_peer_log.sync_object_action_id.should == create_action.id
+        create_data_object_peer_log.sync_object_type_id.should == data_object_type.id
+        create_data_object_peer_log.user_site_id .should == PEER_SITE_ID
+        create_data_object_peer_log.user_site_object_id.should == @current_user.id
+        create_data_object_peer_log.sync_object_id.should == data_obj.origin_id
+        create_data_object_peer_log.sync_object_site_id.should == data_obj.site_id
+
+         # check log action parameters
+        toc = TocItem.find(TocItem.overview.id)
+        
+        taxon_concept_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "taxon_concept_origin_id")
+        taxon_concept_origin_id_parameter[0][:value].should == @taxon_concept.origin_id
+        
+        taxon_concept_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "taxon_concept_site_id")
+        taxon_concept_site_id_parameter[0][:value].should == "#{@taxon_concept.site_id}"
+        
+        references_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "references")
+        references_parameter[0][:value].should == "Test reference."
+        
+        toc_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "toc_id")
+        toc_id_parameter[0][:value].should == toc.origin_id
+        
+        toc_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "toc_site_id")
+        toc_site_id_parameter[0][:value].should == toc.site_id
+        
+        # check peer logs
+        create_collection_item_peer_log = SyncPeerLog.find(3)
+        create_collection_item_peer_log.should_not be_nil
+        create_collection_item_peer_log.sync_object_action_id.should == add_item_action.id
+        create_collection_item_peer_log.sync_object_type_id.should == collection_type.id
+        create_collection_item_peer_log.user_site_id .should == PEER_SITE_ID
+        create_collection_item_peer_log.user_site_object_id.should == @current_user.id
+        create_collection_item_peer_log.sync_object_id.should == @current_user.watch_collection.id
+        create_collection_item_peer_log.sync_object_site_id.should == @current_user.watch_collection.site_id
+
+        # check log action parameters
+        collection_origin_ids_parameter = SyncLogActionParameter.where(:peer_log_id => create_collection_item_peer_log.id, :parameter => "item_id")
+        collection_origin_ids_parameter[0][:value].should == "#{data_obj.origin_id}"
+        collection_site_ids_parameter = SyncLogActionParameter.where(:peer_log_id => create_collection_item_peer_log.id, :parameter => "item_site_id")
+        collection_site_ids_parameter[0][:value].should == "#{data_obj.site_id}"
+    
+    
+        collected_item_type_parameter = SyncLogActionParameter.where(:peer_log_id => create_collection_item_peer_log.id, :parameter => "collected_item_type")
+        collected_item_type_parameter[0][:value].should == "DataObject"
+        collected_item_name_parameter = SyncLogActionParameter.where(:peer_log_id => create_collection_item_peer_log.id, :parameter => "collected_item_name")
+        collected_item_name_parameter[0][:value].should == "#{data_obj.object_title}"
+      end
+    end
+  end
+  
+  
 end
