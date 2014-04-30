@@ -37,16 +37,21 @@ class CommentsController < ApplicationController
       end
       auto_collect(@comment.parent)
       
-      # # sync create comment
-      # # add synchronization id
-      # @comment[:origin_id] = @comment.id
-      # @comment[:site_id] = PEER_SITE_ID
-      # sync_params = params[:comment]
-      # sync_params = sync_params.reverse_merge(:from_curator => @comment.from_curator,
-                                              # :visible_at => @comment.visible_at,
-                                              # :hidden => @comment.hidden )
-      # SyncPeerLog.log_create_comment(@user.origin_id, @comment.origin_id, sync_params)
-
+      # sync create comment
+      # add synchronization id
+      @comment[:origin_id] = @comment.id
+      @comment[:site_id] = PEER_SITE_ID
+      @comment.save
+      sync_params = params[:comment]
+      sync_params.delete("parent_id")
+      sync_params = sync_params.reverse_merge(:from_curator => @comment.from_curator,
+                                              :visible_at => @comment.visible_at,
+                                              :hidden => @comment.hidden,
+                                              :comment_parent_origin_id => @comment.parent.origin_id,
+                                              :comment_parent_site_id => @comment.parent.site_id )
+      options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.get_create_action.id,
+                    "type_id" =>  SyncObjectType.get_comment_type.id, "params" => sync_params} 
+      SyncPeerLog.log_action(options)                                 
     else
       flash[:error] = I18n.t(:comment_not_added_error)
       flash[:error] << " #{@comment.errors.full_messages.join('; ')}." if @comment.errors.any?
@@ -92,6 +97,12 @@ class CommentsController < ApplicationController
     actual_date = params[:actual_date]
     actual_date ||= false
     if @comment.update_attributes(params[:comment])
+      # sync update comment action
+      sync_params = params[:comment]      
+      options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.get_update_action.id,
+                    "type_id" =>  SyncObjectType.get_comment_type.id, "params" => sync_params} 
+      SyncPeerLog.log_action(options)
+      
       respond_to do |format|
         format.html do
           flash[:notice] = I18n.t(:the_comment_was_successfully_updated)
@@ -118,6 +129,12 @@ class CommentsController < ApplicationController
     actual_date = params[:actual_date]
     actual_date ||= false
     if @comment.update_attributes(deleted: 1)
+      # sync update comment action
+      sync_params = {:deleted => 1}     
+      options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.get_delete_action.id,
+                    "type_id" =>  SyncObjectType.get_comment_type.id, "params" => sync_params} 
+      SyncPeerLog.log_action(options)
+      
       respond_to do |format|
         format.html do
           flash[:notice] = I18n.t(:the_comment_was_successfully_deleted)

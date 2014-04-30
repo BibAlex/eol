@@ -14,12 +14,14 @@ class SyncPeerLog < ActiveRecord::Base
     action_id = options["action_id"]
     type_id = options["type_id"]
     params = options["params"]
+    object_site_id = object.site_id unless object.nil?
+    object_origin_id = object.origin_id unless object.nil?
     spl = self.create_sync_peer_log("user_site_id" => user.site_id, 
                                     "user_origin_id" => user.origin_id, 
                                     "action_id" => action_id, 
                                     "type_id" => type_id, 
-                                    "object_site_id" => object.site_id, 
-                                    "object_origin_id" => object.origin_id, 
+                                    "object_site_id" => object_site_id, 
+                                    "object_origin_id" => object_origin_id, 
                                     "params" => params, 
                                     "time" => Time.now)
     if spl
@@ -77,7 +79,6 @@ class SyncPeerLog < ActiveRecord::Base
     action = SyncObjectAction.find(sync_object_action_id).object_action unless SyncObjectAction.find(sync_object_action_id).nil?
     
     if (action.include?("delete") )      
-     
      sync_peer_logs = SyncPeerLog.find(:all, :conditions => "sync_event_id IS NULL 
                                                    and sync_object_id = #{sync_object_id} and sync_object_site_id = #{sync_object_site_id}")   
       unless (sync_peer_logs.blank?)
@@ -88,7 +89,7 @@ class SyncPeerLog < ActiveRecord::Base
       end     
     
     elsif (action.include?("remove_item"))
-      result = SyncPeerLog.find_by_sql "SELECT p1.peer_log_id as id FROM sync_peer_logs l, sync_log_action_parameters p1, sync_log_action_parameters p2 WHERE l.sync_event_id IS NULL and p1.peer_log_id = l.id and p2.peer_log_id = l.id and l.sync_object_id = #{sync_object_id}  and l.sync_object_site_id = #{sync_object_site_id} and p1.parameter = 'item_id' and p1.value = #{parameters["item_id"]} and p2.parameter = 'collected_item_type' and p2.value = '#{parameters["collected_item_type"]}'"
+      result = SyncPeerLog.find_by_sql "SELECT p1.peer_log_id as id FROM sync_peer_logs l, sync_log_action_parameters p1, sync_log_action_parameters p2, sync_log_action_parameters p3 WHERE l.sync_event_id IS NULL and p1.peer_log_id = l.id and p2.peer_log_id = l.id and p3.peer_log_id = l.id and l.sync_object_id = #{sync_object_id}  and l.sync_object_site_id = #{sync_object_site_id} and p1.parameter = 'item_id' and p1.value = #{parameters["item_id"]}  and p3.parameter = 'item_site_id' and p3.value = #{parameters["item_site_id"]} and p2.parameter = 'collected_item_type' and p2.value = '#{parameters["collected_item_type"]}'"
       unless (result.blank?)
         sync_peer_log = SyncPeerLog.find(result[0].id)
         unless sync_peer_log.nil?
@@ -396,14 +397,104 @@ class SyncPeerLog < ActiveRecord::Base
     end  
   end
    
+     # how node site handle create comment action
+  def self.create_comment(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    comment_parent = parameters["parent_type"].constantize.find_by_origin_id_and_site_id(parameters["comment_parent_origin_id"], parameters["comment_parent_site_id"])
+    # remove extra parameters which not needed in creating collection 
+    unless user.nil?
+      parameters["site_id"] = parameters["sync_object_site_id"]
+      parameters["origin_id"] = parameters["sync_object_id"]
+      parameters["parent_id"] = comment_parent.id   
+      [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
+        "action_taken_at_time", "language", "comment_parent_origin_id",
+        "comment_parent_site_id"].each { |key| parameters.delete key }
+      parameters["user_id"] = user.id
+      comment = Comment.new(parameters)       
+      comment.save!
+    end    
+  end
   
+       # how node site handle update comment action
+  def self.update_comment(parameters)
+    comment = Comment.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    # remove extra parameters which not needed in creating collection 
+    unless comment.nil?
+      [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
+        "action_taken_at_time", "language"].each { |key| parameters.delete key }
+      comment.update_attributes(parameters)
+    end    
+  end
+  
+  # how node site handle destroy comment action
+  def self.delete_comment(parameters)   
+     # update deleted attribute
+     self.update_comment(parameters)
+  end
+   
+    # how node site handle hide comment action
+  def self.hide_comment(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    comment = Comment.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    # remove extra parameters which not needed in creating collection 
+    unless user.nil?
+     comment.hide(user)
+     Rails.cache.delete('homepage/activity_logs_expiration') if Rails.cache
+    end    
+  end 
+  
+  # how node site handle show comment action
+  def self.show_comment(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    comment = Comment.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    # remove extra parameters which not needed in creating collection 
+    unless user.nil?
+     comment.show(user)
+     Rails.cache.delete('homepage/activity_logs_expiration') if Rails.cache
+    end    
+  end 
+  
+  # how node site handle update collection item action after pull
+  def self.update_collection_item(parameters)
+    references = parameters["references"]
+    col = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    item = parameters["collected_item_type"].constantize.find_by_origin_id_and_site_id(parameters["item_id"], parameters["item_site_id"])    
+    col_item = CollectionItem.find(:first, :conditions => "collection_id = #{col.id} and collected_item_id = #{item.id}")
+    if col_item.updated_at < parameters["updated_at"]
+      [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
+          "action_taken_at_time", "collected_item_type", "item_id",
+          "item_site_id", "language", "references", "updated_at"].each { |key| parameters.delete key }
+      col_item.update_attributes(parameters) 
+      col_item.refs.clear    
+      references = references.split("\n") unless references.blank?
+      unless references.blank?      
+        references.each do |reference|
+          if reference.strip != ''
+            ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(reference, 1, 1, Visibility.visible.id)
+            col_item.refs << ref unless ref.nil?
+           end
+        end
+      end
+    end
+  end
+         
+  
+  # how node site handle create Ref action after pull
+  def self.create_ref(parameters)
+    ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(parameters["reference"],1, 1, Visibility.visible.id)
+    unless ref
+      ref = Ref.new(full_reference: parameters["reference"], user_submitted: true, published: 1, visibility: Visibility.visible)
+      ref.save
+    end       
+  end 
+  
+ 
   def self.get_url(base_url, cache_url,file_type)
     file_type = "jpg" if file_type == "jpeg"
     file_url = "#{cache_url[0,4]}\/#{cache_url[4,2]}\/#{cache_url[6,2]}\/#{cache_url[8,2]}\/#{cache_url[10,5]}.#{file_type}"
     return base_url + file_url
   end
   
-  # common names
   
   def self.create_common_name(parameters)
     taxon_concept = TaxonConcept.where(:site_id => parameters["taxon_concept_site_id"], :origin_id => parameters["taxon_concept_origin_id"])
@@ -468,23 +559,31 @@ class SyncPeerLog < ActiveRecord::Base
     params["page_name"] = parameters["page_name"]
     params["active"] = parameters["active"]
     content_page = ContentPage.new(params)
+    translated_params = {}
+    translated_params["language_id"] = parameters["language"].id
+    translated_params["title"] = parameters["title"]
+    translated_params["main_content"] = parameters["main_content"]
+    translated_params["left_content"] = parameters["left_content"]
+    translated_params["meta_keywords"] = parameters["meta_keywords"]
+    translated_params["meta_description"] = parameters["meta_description"]
+    translated_params["active_translation"] = parameters["active_translation"]
+    content_page.translations.build(translated_params) 
     content_page.save
     content_page.update_column(:origin_id, parameters["sync_object_id"])
     content_page.update_column(:site_id, parameters["sync_object_site_id"])
     
-    params = {}
-    debugger
-    params["language_id"] = parameters["language"].id
-    params["title"] = parameters["title"]
-    params["main_content"] = parameters["main_content"]
-    params["left_content"] = parameters["left_content"]
-    params["meta_keywords"] = parameters["meta_keywords"]
-    params["meta_description"] = parameters["meta_description"]
-    params["active_translation"] = parameters["active_translation"]
-    
-    content_page.translations.build(params)
-    
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     content_page.last_update_user_id = user.id unless content_page.blank?
+  end
+  
+  def self.delete_content_page(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"], include: [:translations, :children])
+    page_name = content_page.page_name
+    content_page.last_update_user_id = user.id
+    parent_content_page_id = content_page.parent_content_page_id
+    sort_order = content_page.sort_order
+    content_page.destroy
+    ContentPage.update_sort_order_based_on_deleting_page(parent_content_page_id, sort_order)
   end
 end

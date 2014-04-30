@@ -68,6 +68,10 @@ class DataObjectsController < ApplicationController
       CollectionActivityLog.create(collection: current_user.watch_collection, user_id: current_user.id,
                                    activity: Activity.collect, collection_item: collection_item)
       @data_object.log_activity_in_solr(keyword: 'create', user: current_user, taxon_concept: @taxon_concept)
+      
+      # sync create data object 
+      
+      
 
       # redirect to appropriate tab/sub-tab after creating the users_data_object/link_object
       if @data_object.is_link?

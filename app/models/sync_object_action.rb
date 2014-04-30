@@ -36,5 +36,17 @@ class SyncObjectAction < ActiveRecord::Base
   def self.get_create_job_action
     self.find_or_create_by_object_action('create_job')
   end
+  
+  def self.get_hide_action
+    self.find_or_create_by_object_action('hide')
+  end
+  
+  def self.get_show_action
+    self.find_or_create_by_object_action('show')
+  end
+  
+  def self.get_add_action
+    self.find_or_create_by_object_action('add')
+  end
  
 end
