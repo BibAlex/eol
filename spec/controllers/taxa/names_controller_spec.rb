@@ -2,7 +2,7 @@ require File.dirname(__FILE__) + '/../../spec_helper'
 
 describe Taxa::NamesController do
 
-  before(:all) do
+  before(:each) do
     truncate_all_tables
     load_scenario_with_caching :testy
     @testy = EOL::TestInfo.load('testy')
@@ -120,8 +120,8 @@ describe Taxa::NamesController do
       peer_log.should_not be_nil
       peer_log.sync_object_action_id.should == action.id
       peer_log.sync_object_type_id.should == type.id
-      peer_log.sync_object_id.should == @testy[:name].origin_id
-      peer_log.sync_object_site_id.should == @testy[:name].site_id
+      peer_log.sync_object_id.should == @testy[:synonym]["synonym"].origin_id
+      peer_log.sync_object_site_id.should == @testy[:synonym]["synonym"].site_id
       
       # check log action parameters
       taxon_concept_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_origin_id")
@@ -132,6 +132,9 @@ describe Taxa::NamesController do
       
       language_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "language")
       language_parameter[0][:value].should ==   @approved_languages.first.to_s
+      
+      string_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "string")
+      string_parameter[0][:value].should ==   @testy[:name].string
     end
     
     it 'should prepare data when add common names for syncronization' do
@@ -139,7 +142,6 @@ describe Taxa::NamesController do
       truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
       truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
       truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        
       approved_language_id = @approved_languages.first
       post :create, :name => { :synonym => { :language_id => approved_language_id }, :string => "snake" }, 
                     :commit_add_common_name => "Add name", :taxon_id => @testy[:taxon_concept].id.to_i
@@ -162,8 +164,6 @@ describe Taxa::NamesController do
       peer_log.should_not be_nil
       peer_log.sync_object_action_id.should == action.id
       peer_log.sync_object_type_id.should == type.id
-      peer_log.sync_object_id.should == name.origin_id
-      peer_log.sync_object_site_id.should == name.site_id
       
       # check log action parameters
       taxon_concept_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_origin_id")
@@ -208,8 +208,8 @@ describe Taxa::NamesController do
       peer_log.should_not be_nil
       peer_log.sync_object_action_id.should == action.id
       peer_log.sync_object_type_id.should == type.id
-      peer_log.sync_object_id.should == @testy[:name].origin_id
-      peer_log.sync_object_site_id.should == @testy[:name].site_id
+      peer_log.sync_object_id.should == @testy[:synonym]["synonym"].origin_id
+      peer_log.sync_object_site_id.should == @testy[:synonym]["synonym"].site_id
       
       # check log action parameters
       taxon_concept_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_origin_id")

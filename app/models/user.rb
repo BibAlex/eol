@@ -285,8 +285,7 @@ class User < ActiveRecord::Base
   def build_watch_collection(site_id = PEER_SITE_ID, origin_id = nil)
     c = Collection.count_by_sql("SELECT COUNT(*) FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id) WHERE cu.user_id = #{self.id} AND c.special_collection_id = #{SpecialCollection.watch.id}")
     if c == 0
-      collection = Collection.create(name: I18n.t(:default_watch_collection_name, username: self.full_name.titleize), special_collection_id: SpecialCollection.watch.id,
-                                     site_id: site_id)
+      collection = Collection.create(name: I18n.t(:default_watch_collection_name, username: self.full_name.titleize),special_collection_id: SpecialCollection.watch.id, site_id: site_id)
       if origin_id
         collection.update_column(:origin_id, origin_id) 
       else
@@ -708,6 +707,7 @@ class User < ActiveRecord::Base
 
   # An eol authentication indicates a user that has no open authentications, i.e. only has eol credentials
   def eol_authentication?
+#    return false
    open_authentications.blank?
   end
 
