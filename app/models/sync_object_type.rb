@@ -28,14 +28,7 @@ class SyncObjectType < ActiveRecord::Base
   def self.get_collection_item_type
     self.find_or_create_by_object_type('collection_item')
   end
-  
-<<<<<<< HEAD
-end
-=======
   def self.get_data_object_type
     self.find_or_create_by_object_type('data_object')
   end
-  
 end
-
->>>>>>> 68756c7353691f06b82d54f83cca29412aefca41

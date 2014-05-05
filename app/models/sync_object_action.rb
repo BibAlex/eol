@@ -48,5 +48,7 @@ class SyncObjectAction < ActiveRecord::Base
   def self.get_add_action
     self.find_or_create_by_object_action('add')
   end
- 
+  def self.get_swap_action
+    self.find_or_create_by_object_action('swap')
+  end 
 end

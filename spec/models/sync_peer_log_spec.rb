@@ -1770,6 +1770,54 @@ describe SyncPeerLog do
           translated_content_page.language_id.should == Language.first.id
         end
       end
+      
+      describe "pulling delete content page" do
+        before(:each) do
+          truncate_table(ActiveRecord::Base.connection, "content_pages", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "translated_content_pages", {})
+          @admin = User.gen
+          @admin.grant_admin
+          content_page = ContentPage.create("parent_content_page_id"=>"", "page_name"=>"test5", "active"=>"1")
+          content_page.update_column(:origin_id, content_page.id)
+          content_page.update_column(:site_id, PEER_SITE_ID)
+          translated_content_page = TranslatedContentPage.create({"content_page_id" => "#{content_page.id}" , 
+                                                 "language_id"=>"#{Language.first.id}", 
+                                                 "title"=>"test5", 
+                                                 "main_content"=>"<p>hello5</p>\r\n", 
+                                                 "left_content"=>"", 
+                                                 "meta_keywords"=>"",
+                                                 "meta_description"=>"", 
+                                                 "active_translation"=>"1"})
+          #create sync_object_action
+          SyncObjectAction.create(:object_action => 'delete')
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'content_page')
+          #create sync_peer_log
+          @peer_log = SyncPeerLog.new
+          @peer_log.sync_event_id = 4 #pull event (random number)
+          @peer_log.user_site_id = @admin.site_id
+          @peer_log.user_site_object_id = @admin.origin_id
+          @peer_log.action_taken_at_time = Time.now
+          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('delete').id
+          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('content_page').id
+          @peer_log.sync_object_id = content_page.origin_id
+          @peer_log.sync_object_site_id = content_page.site_id
+          @peer_log.save
+          
+          #call process entery
+          @peer_log.process_entry
+        end
+  
+        it "should delete content_page" do
+          ContentPage.count.should == 0
+          TranslatedContentPage.count.should == 0
+        end
+      end
     end    
     
     
