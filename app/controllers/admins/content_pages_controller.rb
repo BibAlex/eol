@@ -91,7 +91,6 @@ class Admins::ContentPagesController < AdminsController
     new_sort_order = sort_order - 1
     # TODO: This assumes distance between sort order is 1, change it to be less than greater than next one
     if swap_page = ContentPage.find_by_parent_content_page_id_and_sort_order(content_page.parent_content_page_id, new_sort_order)
-      debugger
       swap_page.update_column(:sort_order, sort_order)
       #Syncronize here
       options = {"user" => current_user, "object" =>  swap_page, "action_id" => SyncObjectAction.get_swap_action.id,
@@ -115,8 +114,16 @@ class Admins::ContentPagesController < AdminsController
     # TODO: This assumes distance between sort order is 1, change it to be less than greater than next one
     if swap_page = ContentPage.find_by_parent_content_page_id_and_sort_order(content_page.parent_content_page_id, new_sort_order)
      swap_page.update_column(:sort_order, sort_order)
+     #Syncronize here
+      options = {"user" => current_user, "object" =>  swap_page, "action_id" => SyncObjectAction.get_swap_action.id,
+                  "type_id" =>  SyncObjectType.get_content_page_type.id, "params" => {:sort_order => sort_order}}
+      SyncPeerLog.log_action(options)
     end
     content_page.update_column(:sort_order, new_sort_order)
+    #And syncronize here
+    options = {"user" => current_user, "object" =>  content_page, "action_id" => SyncObjectAction.get_swap_action.id,
+                "type_id" =>  SyncObjectType.get_content_page_type.id, "params" => {:sort_order => new_sort_order}}
+    SyncPeerLog.log_action(options)
     flash[:notice] = I18n.t(:admin_content_page_sort_order_updated)
     redirect_to action: :index, status: :moved_permanently
   end

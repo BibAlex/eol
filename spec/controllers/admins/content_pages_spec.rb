@@ -109,5 +109,42 @@ describe Admins::ContentPagesController do
       peer_log.sync_object_id.should == content_page.origin_id
       peer_log.sync_object_site_id.should == content_page.site_id
     end
+    
+    it "should log move action" do
+      truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+      truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+      truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+      truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+      truncate_table(ActiveRecord::Base.connection, "content_pages", {})
+      session[:user_id] = @admin.id
+      upper_page = ContentPage.create("parent_content_page_id"=>"", "page_name"=>"upper_page", "active"=>"1", "sort_order" => 1)
+      upper_page.update_column(:origin_id, upper_page.id)
+      upper_page.update_column(:site_id, PEER_SITE_ID)
+      lower_page = ContentPage.create("parent_content_page_id"=>"", "page_name"=>"lower_page", "active"=>"1", "sort_order" => 2)
+      lower_page.update_column(:origin_id, lower_page.id)
+      lower_page.update_column(:site_id, PEER_SITE_ID)                                             
+      post :move_down , {:id => upper_page.id}
+    
+      # check sync_object_type
+      type = SyncObjectType.first
+      type.should_not be_nil
+      type.object_type.should == "content_page"
+      
+      # check sync_object_actions
+      action = SyncObjectAction.first
+      action.should_not be_nil
+      action.object_action.should == "swap"
+      
+      # check peer logs
+      SyncPeerLog.count.should == 2
+      peer_log = SyncPeerLog.first
+      peer_log.should_not be_nil
+      peer_log.sync_object_action_id.should == action.id
+      peer_log.sync_object_type_id.should == type.id
+      peer_log.user_site_id .should == @admin.site_id
+      peer_log.user_site_object_id.should == @admin.origin_id
+      peer_log.sync_object_id.should == lower_page.origin_id
+      peer_log.sync_object_site_id.should == lower_page.site_id
+    end
   end
 end

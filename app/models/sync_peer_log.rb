@@ -631,6 +631,12 @@ class SyncPeerLog < ActiveRecord::Base
     content_page.destroy
     ContentPage.update_sort_order_based_on_deleting_page(parent_content_page_id, sort_order)
   end
+  
+  def self.swap_content_page(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    content_page.update_column(:sort_order, parameters["sort_order"])
+  end
 
   def self.create_community(parameters)
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
