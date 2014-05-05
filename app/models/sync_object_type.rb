@@ -7,10 +7,14 @@ class SyncObjectType < ActiveRecord::Base
   
   def self.get_common_name_type
     self.find_or_create_by_object_type('common_name')
-  end 
+  end
   
   def self.get_collection_type
     self.find_or_create_by_object_type('Collection')
+  end
+  
+  def self.get_community_type
+    self.find_or_create_by_object_type('Community')
   end
   
   def self.get_comment_type

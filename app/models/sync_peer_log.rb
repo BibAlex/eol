@@ -2,7 +2,7 @@ require 'image_manipulation'
 class SyncPeerLog < ActiveRecord::Base
   
   include FileHelper
-  
+  include CommunitiesHelper
   attr_accessible :action_taken_at_time, :sync_event_id, :sync_object_action_id, :sync_object_id, :sync_object_site_id, :sync_object_type_id, :user_site_id, :user_site_object_id
   has_many :sync_log_action_parameter, :foreign_key => 'peer_log_id'
   belongs_to :sync_object_type, :foreign_key => 'sync_object_type_id'
@@ -644,4 +644,141 @@ class SyncPeerLog < ActiveRecord::Base
                                           is_preferred: parameters["is_preferred"])
     user.log_activity(:updated_common_names, taxon_concept_id: taxon_concept.id)
   end
+  
+  def self.create_community(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    collection = Collection.find_by_origin_id_and_site_id(parameters["collection_origin_id"], parameters["collection_site_id"])
+    community = Community.create(:name => parameters["community_name"], 
+                               :description => parameters["community_description"], 
+                               :origin_id => parameters["sync_object_id"], 
+                               :site_id => parameters["sync_object_site_id"])
+    if collection
+      collection.communities << community
+    end
+    community.initialize_as_created_by(user)
+    EOL::GlobalStatistics.increment('communities') if community.published?
+    #add logo
+    self.handle_community_logo(community, parameters)
+    options = {}
+    options[:desired_user_origin_id] = user.origin_id
+    options[:desired_user_site_id] = user.site_id
+    auto_collect_helper(community, options)
+    community.collections.each do |focus|
+      auto_collect_helper(focus, options)
+    end
+    opts = {}
+    opts["user"] = user
+    opts["community"] = community
+    log_community_action(:create, opts)
+  end
+  
+  def self.update_community(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    community = Community.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    if community
+      community.update_column(:name, parameters["community_name"]) if parameters["name_change"]
+      community.update_column(:description, parameters["community_description"]) if parameters["description_change"]
+      #UPDATE logo
+      self.handle_community_logo(community, parameters)
+      opts = {}
+      opts["user"] = user
+      opts["community"] = community
+      if parameters["name_change"] == "1"
+        log_community_action(:change_name, opts)
+      end 
+      opts = {}
+      opts["user"] = user
+      opts["community"] = community
+      if parameters["description_change"] == "1"
+        log_community_action(:change_description, opts)
+      end 
+    end
+  end
+  
+  def self.delete_community(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    community = Community.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    if community
+      community.update_column(:published, false)
+      community.collection.update_column(:published, false) rescue nil
+      if user
+        community.remove_member(user)
+        community.save
+      end
+      EOL::GlobalStatistics.decrement('communities')
+      opts = {}
+      opts["user"] = user
+      opts["community"] = community
+      log_community_action(:delete, opts)
+    end
+  end
+  
+  def self.join_community(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    community = Community.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    if community && user
+      member = community.add_member(user)
+      options = {}
+      options[:desired_user_origin_id] = user.origin_id
+      options[:desired_user_site_id] = user.site_id
+      options[:annotation] = I18n.t(:user_joined_community_on_date, date: I18n.l(parameters["action_taken_at_time"]),
+      username: user.full_name)
+      auto_collect_helper(community, options)
+      community.collections.each do |focus|
+        auto_collect_helper(focus,options)
+      end
+      opts = {}
+      opts["user"] = user
+      opts["community"] = community
+      opts["member_id"] = user.id
+      log_community_action(:join, opts)
+    end
+    
+  end
+  
+  def self.leave_community(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    community = Community.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    if community && user
+      community.remove_member(user)
+      opts = {}
+      opts["user"] = user
+      opts["community"] = community
+      opts["member_id"] = user.id
+      log_community_action(:leave, opts)
+    end
+  end
+  
+  def self.handle_community_logo(community, parameters)
+    logo_file_name = parameters["logo_file_name"]
+    if !(logo_file_name.nil?)
+      file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ]
+      community_logo_name = "communities_#{community.id}.#{file_type}"
+      file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
+      if download_file?(file_url, community_logo_name, "logo")
+        community.update_column(:logo_file_name, community_logo_name)
+        community.update_column(:logo_content_type, parameters["logo_content_type"])
+        community.update_column(:logo_file_size, parameters["logo_file_size"])
+        # upload logo
+        upload_file(community)
+      else
+         # add failed file record
+        failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => community_logo_name, :file_type => "logo",
+                  :object_type => "Community" , :object_id => community.id)
+        FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
+        FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
+        FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])
+      end
+    end
+  end
+#  def self.find_invitees(parameters)
+#    invitees = []
+#    parameters.each do |key,value|
+#      if key.include? "invitee_"
+#        invitees << value
+#      end
+#    end
+#    invitees
+#  end
+  
 end

@@ -273,9 +273,10 @@ class UsersController < ApplicationController
   end
 
   # NOTE - this is slightly silly, but the JS plugin we're using really does want all usernames in one call.
+  # NOTE - I added site_id in conditions so that only users in the same site should be selected so that thier emails are available then invitations can be sent to them.
   def usernames
     usernames = Rails.cache.fetch('users/usernames', expires_in: 55.minutes) do
-      User.all(select: 'username', conditions: 'active = 1').map {|u| u.username }
+      User.all(select: 'username', conditions: "active = 1 AND site_id = #{PEER_SITE_ID}").map {|u| u.username }
     end
     render text: usernames.to_json
   end

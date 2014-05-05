@@ -49,4 +49,11 @@ class SyncObjectAction < ActiveRecord::Base
     self.find_or_create_by_object_action('add')
   end
  
+  def self.get_join_action
+    self.find_or_create_by_object_action('join')
+  end
+  
+  def self.get_leave_action
+      self.find_or_create_by_object_action('leave')
+    end
 end

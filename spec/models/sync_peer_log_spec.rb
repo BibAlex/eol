@@ -3,8 +3,278 @@ require "spec_helper"
 describe SyncPeerLog do
 
   describe "process pull" do
-    describe "pulling create user action" do
+    describe "pulling create community action" do
       before(:each) do
+        load_scenario_with_caching(:communities)
+        truncate_table(ActiveRecord::Base.connection, "communities", {})
+        truncate_table(ActiveRecord::Base.connection, "collections", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        SpecialCollection.create(:name => "watch")
+        
+        user = User.first
+        user.origin_id = user.id
+        user.site_id = 1
+        user.save
+        
+        #create sync_object_action
+        SyncObjectAction.create(:object_action => 'create')
+        
+        #create sync_object_type
+        SyncObjectType.create(:object_type => 'Community')
+        
+        #create sync_peer_log
+        @peer_log = SyncPeerLog.new
+        @peer_log.sync_event_id = 4 #pull event
+        @peer_log.user_site_id = user.origin_id
+        @peer_log.user_site_object_id = user.site_id
+        @peer_log.action_taken_at_time = Time.now
+        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
+        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
+        @peer_log.sync_object_id = 80
+        @peer_log.sync_object_site_id = 2
+        @peer_log.save
+          
+        parameters = ["community_name", "community_description", "collection_origin_id", "collection_site_id"]
+        values = ["comm_name", "community_description", "12", "2"]
+ 
+        for i in 0..parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = parameters[i]
+          lap.value = values[i]
+          lap.save
+        end
+        
+        #call process entery
+        @peer_log.process_entry
+      end
+      
+      it "should create community" do
+        Community.first.should_not be_nil
+        Community.first.name.should == "comm_name"
+        Community.first.description.should == "community_description"
+        Community.first.origin_id.should == 80
+        Community.first.site_id.should == 2
+      end
+    end
+    
+    describe "pulling update community action" do
+      before(:each) do
+        truncate_table(ActiveRecord::Base.connection, "communities", {})
+        truncate_table(ActiveRecord::Base.connection, "collections", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        SpecialCollection.create(:name => "watch")
+        
+        load_scenario_with_caching(:communities)
+        
+        user = User.first
+        user.origin_id = user.id
+        user.site_id = 1
+        user.save
+        
+        community = Community.first
+        community.name = "name"
+        community.description = "desc"
+        community.origin_id = community.id
+        community.site_id = 1
+        community.save
+        
+        #create sync_object_action
+        SyncObjectAction.create(:object_action => 'update')
+        #create sync_object_type
+        SyncObjectType.create(:object_type => 'Community')
+        #create sync_peer_log
+        @peer_log = SyncPeerLog.new
+        @peer_log.sync_event_id = 4 #pull event
+        @peer_log.user_site_id = user.origin_id
+        @peer_log.user_site_object_id = user.site_id
+        @peer_log.action_taken_at_time = Time.now
+        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
+        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
+        @peer_log.sync_object_id = community.origin_id
+        @peer_log.sync_object_site_id = community.site_id
+        @peer_log.save
+          
+        parameters = ["community_name", "community_description", "name_change", "description_change"]
+        values = ["new_name", "new_description", "1", "1"]
+ 
+        for i in 0..parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = parameters[i]
+          lap.value = values[i]
+          lap.save
+        end
+        #call process entery
+        @peer_log.process_entry
+      end
+      
+      it "should update community" do
+        Community.first.should_not be_nil
+        Community.first.name.should == "new_name"
+        Community.first.description.should == "new_description"
+      end
+    end
+    
+    describe "pulling delete community action" do
+      before(:each) do
+        truncate_table(ActiveRecord::Base.connection, "communities", {})
+        truncate_table(ActiveRecord::Base.connection, "collections", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        SpecialCollection.create(:name => "watch")
+        load_scenario_with_caching(:communities)
+        user = User.first
+        user.origin_id = user.id
+        user.site_id = 1
+        user.save
+        
+        community = Community.first
+        community.name = "name"
+        community.description = "desc"
+        community.origin_id = community.id
+        community.site_id = 1
+        community.save
+        community.add_member(user)
+
+        #create sync_object_action
+        SyncObjectAction.create(:object_action => 'delete')
+        #create sync_object_type
+        SyncObjectType.create(:object_type => 'Community')
+        
+        #create sync_peer_log
+        @peer_log = SyncPeerLog.new
+        @peer_log.sync_event_id = 4 #pull event
+        @peer_log.user_site_id = user.origin_id
+        @peer_log.user_site_object_id = user.site_id
+        @peer_log.action_taken_at_time = Time.now
+        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('delete').id
+        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
+        @peer_log.sync_object_id = community.origin_id
+        @peer_log.sync_object_site_id = community.site_id
+        @peer_log.save
+      end
+     
+      it "should delete community" do
+        Community.first.published.should be_true
+        #call process entery
+        @peer_log.process_entry
+        Community.first.published.should be_false
+      end
+    end
+    
+    describe "pulling join community action" do
+      before(:each) do
+        truncate_table(ActiveRecord::Base.connection, "communities", {})
+        truncate_table(ActiveRecord::Base.connection, "collections", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        SpecialCollection.create(:name => "watch")
+        load_scenario_with_caching(:communities)
+        @user = User.first
+        @user.origin_id = @user.id
+        @user.site_id = 1
+        @user.save
+        
+        community = Community.first
+        community.name = "name"
+        community.description = "desc"
+        community.origin_id = community.id
+        community.site_id = 1
+        community.save
+        
+        #create sync_object_action
+        SyncObjectAction.create(:object_action => 'join')
+        #create sync_object_type
+        SyncObjectType.create(:object_type => 'Community')
+        #create sync_peer_log
+        @peer_log = SyncPeerLog.new
+        @peer_log.sync_event_id = 4 #pull event
+        @peer_log.user_site_id = @user.origin_id
+        @peer_log.user_site_object_id = @user.site_id
+        @peer_log.action_taken_at_time = Time.now
+        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('join').id
+        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
+        @peer_log.sync_object_id = community.origin_id
+        @peer_log.sync_object_site_id = community.site_id
+        @peer_log.save
+      end
+      
+      it "should add member to community" do
+        prev_members_count = Community.first.members.count
+        #call process entery
+        @peer_log.process_entry
+        Community.first.members.count.should == prev_members_count + 1
+      end
+    end
+   
+    describe "pulling leave community action" do
+      before(:each) do
+        truncate_table(ActiveRecord::Base.connection, "communities", {})
+        truncate_table(ActiveRecord::Base.connection, "collections", {})
+        truncate_table(ActiveRecord::Base.connection, "users", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        SpecialCollection.create(:name => "watch")
+        load_scenario_with_caching(:communities)
+        user = User.first
+        user.origin_id = user.id
+        user.site_id = 1
+        user.save
+        
+        community = Community.first
+        community.name = "name"
+        community.description = "desc"
+        community.origin_id = community.id
+        community.site_id = 1
+        community.save
+        community.add_member(user)
+        
+        #create sync_object_action
+        SyncObjectAction.create(:object_action => 'leave')
+        #create sync_object_type
+        SyncObjectType.create(:object_type => 'Community')
+        #create sync_peer_log
+        @peer_log = SyncPeerLog.new
+        @peer_log.sync_event_id = 4 #pull event
+        @peer_log.user_site_id = user.origin_id
+        @peer_log.user_site_object_id = user.site_id
+        @peer_log.action_taken_at_time = Time.now
+        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('leave').id
+        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
+        @peer_log.sync_object_id = community.origin_id
+        @peer_log.sync_object_site_id = community.site_id
+        @peer_log.save
+      end
+     
+      it "should add member to community" do
+        prev_count = Community.first.members.count
+        #call process entery
+        @peer_log.process_entry
+        Community.first.members.count.should == prev_count - 1
+      end
+    end
+    
+    describe "pulling create user action" do
+      before(:all) do
         truncate_table(ActiveRecord::Base.connection, "users", {})
         truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
         truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
@@ -12,6 +282,9 @@ describe SyncPeerLog do
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
         truncate_table(ActiveRecord::Base.connection, "users", {})
         truncate_table(ActiveRecord::Base.connection, "collections", {})
+        truncate_table(ActiveRecord::Base.connection, "special_collections", {})
+        truncate_table(ActiveRecord::Base.connection, "collections_users", {})
+        
         SpecialCollection.create(:name => "watch")
         @prev_count = EOL::GlobalStatistics.solr_count('User')
         #create sync_object_action
@@ -48,7 +321,7 @@ describe SyncPeerLog do
         @peer_log.process_entry
       end
 
-      it "should create user" do
+      it "should create user and watch collection" do
         User.count.should == 1
         user = User.first
         #user must not have a password or an email
@@ -63,10 +336,8 @@ describe SyncPeerLog do
         user.site_id.should == 2
         user.username.should == "user100"
         user.agreed_with_terms == 1
-      end
-
-      it "should create watch collection" do
-        user = User.first
+        
+        
         Collection.all.count.should_not == 0
         col = Collection.find_by_sql("SELECT * FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id)
               WHERE cu.user_id = #{user.id}
