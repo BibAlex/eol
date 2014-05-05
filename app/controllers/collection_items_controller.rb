@@ -101,10 +101,17 @@ class CollectionItemsController < ApplicationController
 
   # PUT /collection_items/:id
   def update
+    last_updated_at = @collection_item.updated_at
     # Update method is called when JS off by submit of /collection_items/:id/edit. When JS is on collection item
     # updates are handled by the Collections update method and specifically the annotate method in Collections controller.
     return access_denied unless current_user.can_update?(@collection_item)
     if @collection_item.update_attributes(params[:collection_item])
+
+      # prepere parameters for sync
+      col = @collection_item.collection
+      item = @collection_item.collected_item_type.constantize.find(@collection_item.collected_item_id)
+      
+            
       # update collection item references
       if @collection_item.collection.show_references?
         @collection_item.refs.clear
@@ -118,11 +125,37 @@ class CollectionItemsController < ApplicationController
                 @collection_item.refs << ref
               else
                 @collection_item.refs << Ref.new(full_reference: reference, user_submitted: true, published: 1, visibility: Visibility.visible)
+                
+                # sync create ref
+                sync_params = {"reference" => reference}
+                options = {"user" => current_user, "object" =>  nil, "action_id" => SyncObjectAction.get_create_action.id,
+                    "type_id" =>  SyncObjectType.get_ref_type.id, "params" => sync_params}           
+                SyncPeerLog.log_action(options)          
               end
+            
             end
           end
         end
+        
+        if last_updated_at == @collection_item.updated_at
+          last_updated_at = Time.now.utc
+        else
+          last_updated_at = @collection_item.updated_at
+        end   
+        sync_params = {"collected_item_type" =>  @collection_item.collected_item_type,
+                       "item_id" => item.origin_id,
+                       "item_site_id" => item.site_id,
+                       "annotation" => params[:collection_item][:annotation],
+                       "sort_field" => params[:collection_item][:sort_field],
+                       "references" => @references,
+                       "updated_at" => last_updated_at}
+        options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.get_update_action.id,
+                      "type_id" =>  SyncObjectType.get_collection_item_type.id, "params" => sync_params}           
+        SyncPeerLog.log_action(options)
       end
+      
+      
+          
       respond_to do |format|
         format.html do
           flash[:notice] = I18n.t(:item_updated_in_collection_notice, collection_name: @collection_item.collection.name)

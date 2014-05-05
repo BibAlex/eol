@@ -286,6 +286,9 @@ describe UsersController do
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
         truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
         truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+        @user[:origin_id] = @user.id
+        @user[:site_id] = PEER_SITE_ID
+        @user.save
         
       end
       it 'should save updating user paramters in synchronization tables' do 
@@ -312,7 +315,7 @@ describe UsersController do
         peer_log.should_not be_nil
         peer_log.sync_object_action_id.should == action.id
         peer_log.sync_object_type_id.should == type.id
-        peer_log.user_site_id .should == PEER_SITE_ID
+        peer_log.user_site_id.should == PEER_SITE_ID
         peer_log.user_site_object_id.should == @user.id
         peer_log.sync_object_id.should == @user.id
         peer_log.sync_object_site_id.should == PEER_SITE_ID

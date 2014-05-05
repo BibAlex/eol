@@ -57,17 +57,60 @@ class DataObjectsController < ApplicationController
       create_failed && return
     else
       @taxon_concept.reload # Clears caches, too!
+      # add sync ids
+      @data_object[:origin_id] = @data_object.id
+      @data_object[:site_id] = PEER_SITE_ID
+      @data_object.save
       add_references(@data_object)
+      
       current_user.log_activity(:created_data_object_id, value: @data_object.id,
                                 taxon_concept_id: @taxon_concept.id)
-      # add this new object to the user's watch collection
+     
+      @data_object.log_activity_in_solr(keyword: 'create', user: current_user, taxon_concept: @taxon_concept)
+      
+      # sync create data object
+      toc = TocItem.find(toc_id)      
+      link_type_origin_id = nil
+      link_type_site_id = nil
+      unless link_type_id.nil?
+        link_type = LinkType.find(link_type_id)
+        link_type_origin_id = link_type.origin_id
+        link_type_site_id = link_type.site_id
+      end
+      sync_params = params[:data_object]
+      sync_params = sync_params.reverse_merge("taxon_concept_origin_id" =>  @taxon_concept.origin_id,
+                                              "taxon_concept_site_id" => @taxon_concept.site_id,
+                                              "commit_link" => params[:commit_link],                                              
+                                              "references" => @references,
+                                              "toc_id" => toc.origin_id,
+                                              "toc_site_id" => toc.site_id,
+                                              "link_type_id" => link_type_origin_id,
+                                              "link_type_site_id" => link_type_site_id)
+      options = {"user" => current_user, "object" =>  @data_object, "action_id" => SyncObjectAction.get_create_action.id,
+                 "type_id" =>  SyncObjectType.get_data_object_type.id, "params" => sync_params}           
+      SyncPeerLog.log_action(options)
+      
+       # add this new object to the user's watch collection
       collection_item = CollectionItem.create(
         collected_item: @data_object,
         collection: current_user.watch_collection
       )
       CollectionActivityLog.create(collection: current_user.watch_collection, user_id: current_user.id,
                                    activity: Activity.collect, collection_item: collection_item)
-      @data_object.log_activity_in_solr(keyword: 'create', user: current_user, taxon_concept: @taxon_concept)
+      
+      # sync create collection item
+      sync_params = {"collected_item_type" =>  "DataObject",
+                     "collected_item_name" => @data_object.object_title,
+                     "item_id" => @data_object.origin_id,                                              
+                     "item_site_id" => @data_object.site_id,
+                     "add_item" =>  true}       
+      col = current_user.watch_collection
+      options = {"user" => current_user, "object" =>  col , "action_id" => SyncObjectAction.get_add_item_to_collection_action.id,
+                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}           
+      SyncPeerLog.log_action(options)
+      
+      
+      
 
       # redirect to appropriate tab/sub-tab after creating the users_data_object/link_object
       if @data_object.is_link?
@@ -511,6 +554,11 @@ private
         if reference.strip != ''
           dato.refs << Ref.new(full_reference: reference, user_submitted: true, published: 1,
                                        visibility: Visibility.visible)
+          # sync create ref
+          sync_params = {"reference" => reference}
+          options = {"user" => current_user, "object" =>  nil, "action_id" => SyncObjectAction.get_create_action.id,
+              "type_id" =>  SyncObjectType.get_ref_type.id, "params" => sync_params}           
+          SyncPeerLog.log_action(options)                                 
         end
       end
     end

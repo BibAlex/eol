@@ -61,7 +61,7 @@ class CollectionJobsController < ApplicationController
           #sync_params["new_collection_origin_id"] = new_collection.origin_id
           params["name"] = new_collection.name
           options = {"user" => current_user, "object" =>  new_collection, "action_id" => SyncObjectAction.get_create_action.id,
-                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params} 
+                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => params} 
           SyncPeerLog.log_action(options)
         end
         
@@ -106,7 +106,7 @@ class CollectionJobsController < ApplicationController
             params["item_site_id"] = item.site_id 
             params["collected_item_type"] = collected_item.collected_item_type
             options = {"user" => current_user, "object" =>  @collection_job.collection, "action_id" => SyncObjectAction.get_remove_collection_item_action.id,
-              "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}              
+              "type_id" =>  SyncObjectType.get_collection_type.id, "params" => params}              
              SyncPeerLog.log_action(options)
           elsif @collection_job.command == "copy"
              params["collected_item_name"] = collected_item.name
@@ -115,7 +115,7 @@ class CollectionJobsController < ApplicationController
              params["item_site_id"] = item.site_id
              all_collections.each do |col|
                options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.get_add_item_to_collection_action.id,
-              "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}                              
+              "type_id" =>  SyncObjectType.get_collection_type.id, "params" => params}                              
                 SyncPeerLog.log_action(options)
              end
           end

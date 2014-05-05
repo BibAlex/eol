@@ -1429,6 +1429,111 @@ describe SyncPeerLog do
 
         end
       end
+      
+      describe "pulling update collection item" do
+        before(:each) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
+
+          Activity.create_enumerated
+          Visibility.create_enumerated
+
+          @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
+          @collection = Collection.create(:origin_id => 30, :site_id => 1, :name => "name")
+          @collection.users = [@user]
+
+          @item = Collection.create(:origin_id => 100, :site_id => 1, :name => "item")
+          @collection_item = CollectionItem.create(:name => "#{@item.name}", :collected_item_type => "Collection",
+                              :collected_item_id => @item.id, :collection_id => @collection.id)
+
+           #create sync_object_action
+          SyncObjectAction.create(:object_action => 'create')
+          SyncObjectAction.create(:object_action => 'update')
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'Ref')
+          SyncObjectType.create(:object_type => 'collection_item')
+          #create sync_peer_log
+          @peer_log_create_ref = SyncPeerLog.new
+          @peer_log_create_ref.sync_event_id = 5 #pull event
+          @peer_log_create_ref.user_site_id = 2
+          @peer_log_create_ref.user_site_object_id = @user.origin_id
+          @peer_log_create_ref.action_taken_at_time = Time.now
+          @peer_log_create_ref.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
+          @peer_log_create_ref.sync_object_type_id = SyncObjectType.find_by_object_type('Ref').id
+          @peer_log_create_ref.save
+          #create sync_action_parameters
+
+          parameters_create_ref = ["reference"]
+          values_create_ref = ["reference"]
+
+          for i in 0..parameters_create_ref.length-1
+            lap = SyncLogActionParameter.new
+            lap.peer_log_id = @peer_log_create_ref.id
+            lap.param_object_type_id = nil
+            lap.param_object_id = nil
+            lap.param_object_site_id = nil
+            lap.parameter = parameters_create_ref[i]
+            lap.value = values_create_ref[i]
+            lap.save
+          end
+          #call process entery
+          @peer_log_create_ref.process_entry
+          
+          @peer_log_update_collection_item = SyncPeerLog.new
+          @peer_log_update_collection_item.sync_event_id = 5 #pull event
+          @peer_log_update_collection_item.user_site_id = 2
+          @peer_log_update_collection_item.user_site_object_id = @user.origin_id
+          @peer_log_update_collection_item.action_taken_at_time = Time.now
+          @peer_log_update_collection_item.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
+          @peer_log_update_collection_item.sync_object_type_id = SyncObjectType.find_by_object_type('collection_item').id
+          @peer_log_update_collection_item.sync_object_id = @collection.origin_id
+          @peer_log_update_collection_item.sync_object_site_id = @collection.site_id
+          @peer_log_update_collection_item.save
+          #create sync_action_parameters
+
+          parameters_update_collection_item = ["collected_item_type", "item_id", "item_site_id", "annotation", "references", "updated_at"]
+          values_update_collection_item = ["Collection", "100", "1", "annotation", "reference", Time.now.utc]
+
+          for i in 0..parameters_update_collection_item.length-1
+            lap = SyncLogActionParameter.new
+            lap.peer_log_id = @peer_log_update_collection_item.id
+            lap.param_object_type_id = nil
+            lap.param_object_id = nil
+            lap.param_object_site_id = nil
+            lap.parameter = parameters_update_collection_item[i]
+            lap.value = values_update_collection_item[i]
+            lap.save
+          end
+          #call process entery
+          @peer_log_update_collection_item.process_entry
+        end
+
+        it "should update collection item" do
+
+        # created collections items
+        collection_item = CollectionItem.first
+        collection_item.annotation.should == "annotation"
+        # check created references
+        ref = Ref.first
+        ref.full_reference.should == "reference"
+        ref.user_submitted.should == true
+        ref.visibility_id.should == Visibility.visible.id
+        ref.published.should == 1       
+        # collection item references
+        collection_items_refs = collection_item.refs
+        collection_items_refs[0].id.should == ref.id
+    
+        end
+      end
+      
       describe "pulling remove items from collection" do
         before(:each) do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
@@ -1532,5 +1637,501 @@ describe SyncPeerLog do
         end
       end
     end
+    
+    # test collections actions synchronization
+    describe "process pulling for comments actions " do
+      describe "pulling create comment" do
+        before(:each) do
+          truncate_all_tables
+          SpecialCollection.create_enumerated
+          
+          @user = User.gen
+          @user[:origin_id] = @user.id
+          @user[:site_id] = PEER_SITE_ID
+          @user.save
+          @comment_parent = Collection.create(:name => "collection")
+          @comment_parent[:origin_id] = @comment_parent.id
+          @comment_parent[:site_id] = PEER_SITE_ID
+          @comment_parent.save
+          
+          #create sync_object_action
+          SyncObjectAction.create(:object_action => 'create')
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'Comment')
+          
+          # create sync peer log for removing items from collection
+          @peer_log = SyncPeerLog.new
+          @peer_log.sync_event_id = 5 #pull event
+          @peer_log.user_site_id = @user.site_id
+          @peer_log.user_site_object_id = @user.origin_id
+          @peer_log.action_taken_at_time = Time.now
+          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
+          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Comment').id
+          @peer_log.sync_object_id = 20
+          @peer_log.sync_object_site_id = PEER_SITE_ID
+          @peer_log.save
+          
+          parameters = ["parent_type", "comment_parent_origin_id", "comment_parent_site_id", "body"]
+          values = [ "Collection" , "#{@comment_parent.origin_id}", "#{@comment_parent.site_id}", "comment"]
+
+          for i in 0..parameters.length-1
+            lap = SyncLogActionParameter.new
+            lap.peer_log_id = @peer_log.id
+            lap.param_object_type_id = nil
+            lap.param_object_id = nil
+            lap.param_object_site_id = nil
+            lap.parameter = parameters[i]
+            lap.value = values[i]
+            lap.save
+          end
+          #call process entery
+          @peer_log.process_entry
+        end
+        it "should create comment in current site after pull" do
+          comment = Comment.first
+          comment.body.should == "comment"
+          comment.user_id.should == @user.id
+          comment.parent_id.should == @comment_parent.id
+          comment.parent_type.should == "Collection"
+        end
+      end
+      
+      describe "pulling update comment" do
+        before(:each) do
+          truncate_all_tables
+          SpecialCollection.create_enumerated
+          
+          @user = User.gen
+          @user[:origin_id] = @user.id
+          @user[:site_id] = PEER_SITE_ID
+          @user.save
+          @comment_parent = Collection.create(:name => "collection")
+          @comment_parent[:origin_id] = @comment_parent.id
+          @comment_parent[:site_id] = PEER_SITE_ID
+          @comment_parent.save
+          
+          @comment =  Comment.create(:user_id => @user.id, :parent_id => @comment_parent.id,
+                                      :parent_type => "Collection", :body => "comment") 
+          @comment[:origin_id] = @comment.id
+          @comment[:site_id] = PEER_SITE_ID
+          @comment.save                            
+          
+          #create sync_object_action
+          SyncObjectAction.create(:object_action => 'update')
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'Comment')
+          
+          # create sync peer log for removing items from collection
+          @peer_log = SyncPeerLog.new
+          @peer_log.sync_event_id = 5 #pull event
+          @peer_log.user_site_id = @user.site_id
+          @peer_log.user_site_object_id = @user.origin_id
+          @peer_log.action_taken_at_time = Time.now
+          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
+          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Comment').id
+          @peer_log.sync_object_id = @comment.origin_id
+          @peer_log.sync_object_site_id = PEER_SITE_ID
+          @peer_log.save
+          
+          parameters = ["body"]
+          values = [ "new comment"]
+
+          for i in 0..parameters.length-1
+            lap = SyncLogActionParameter.new
+            lap.peer_log_id = @peer_log.id
+            lap.param_object_type_id = nil
+            lap.param_object_id = nil
+            lap.param_object_site_id = nil
+            lap.parameter = parameters[i]
+            lap.value = values[i]
+            lap.save
+          end
+          #call process entery
+          @peer_log.process_entry
+        end
+        it "should update comment in current site after pull" do
+          comment = Comment.find_by_origin_id_and_site_id(@comment.origin_id, @comment.site_id)
+          comment.body.should == "new comment"
+        end
+      end
+      
+      describe "pulling update comment by admin" do
+        before(:each) do
+          truncate_all_tables
+          SpecialCollection.create_enumerated
+          
+          @user = User.gen
+          @user[:origin_id] = @user.id
+          @user[:site_id] = PEER_SITE_ID
+          @user.save
+          @admin = User.gen(:username => "admin", :password => "admin")
+          @admin[:origin_id] = @admin.id
+          @admin[:site_id] = PEER_SITE_ID
+          @admin.save
+          @admin.grant_admin
+          @comment_parent = Collection.create(:name => "collection")
+          @comment_parent[:origin_id] = @comment_parent.id
+          @comment_parent[:site_id] = PEER_SITE_ID
+          @comment_parent.save
+          
+          @comment =  Comment.create(:user_id => @user.id, :parent_id => @comment_parent.id,
+                                      :parent_type => "Collection", :body => "comment") 
+          @comment[:origin_id] = @comment.id
+          @comment[:site_id] = PEER_SITE_ID
+          @comment.save                            
+          
+          #create sync_object_action
+          SyncObjectAction.create(:object_action => 'update')
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'Comment')
+          
+          # create sync peer log for removing items from collection
+          @peer_log = SyncPeerLog.new
+          @peer_log.sync_event_id = 5 #pull event
+          @peer_log.user_site_id = @admin.site_id
+          @peer_log.user_site_object_id = @admin.origin_id
+          @peer_log.action_taken_at_time = Time.now
+          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
+          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Comment').id
+          @peer_log.sync_object_id = @comment.origin_id
+          @peer_log.sync_object_site_id = PEER_SITE_ID
+          @peer_log.save
+          
+          parameters = ["body"]
+          values = [ "changed by admin"]
+
+          for i in 0..parameters.length-1
+            lap = SyncLogActionParameter.new
+            lap.peer_log_id = @peer_log.id
+            lap.param_object_type_id = nil
+            lap.param_object_id = nil
+            lap.param_object_site_id = nil
+            lap.parameter = parameters[i]
+            lap.value = values[i]
+            lap.save
+          end
+          #call process entery
+          @peer_log.process_entry
+        end
+        it "should update comment in current site after pull" do
+          comment = Comment.find_by_origin_id_and_site_id(@comment.origin_id, @comment.site_id)
+          comment.body.should == "changed by admin"
+        end
+      end
+      
+      describe "pulling hide comment by admin" do
+        before(:each) do
+          truncate_all_tables
+          SpecialCollection.create_enumerated
+          
+          @user = User.gen
+          @user[:origin_id] = @user.id
+          @user[:site_id] = PEER_SITE_ID
+          @user.save
+          @admin = User.gen(:username => "admin", :password => "admin")
+          @admin[:origin_id] = @admin.id
+          @admin[:site_id] = PEER_SITE_ID
+          @admin.save
+          @admin.grant_admin
+          @comment_parent = Collection.create(:name => "collection")
+          @comment_parent[:origin_id] = @comment_parent.id
+          @comment_parent[:site_id] = PEER_SITE_ID
+          @comment_parent.save
+          
+          @comment =  Comment.create(:user_id => @user.id, :parent_id => @comment_parent.id,
+                                      :parent_type => "Collection", :body => "comment") 
+          @comment[:origin_id] = @comment.id
+          @comment[:site_id] = PEER_SITE_ID
+          @comment.save                            
+          
+          #create sync_object_action
+          SyncObjectAction.create(:object_action => 'hide')
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'Comment')
+          
+          # create sync peer log for removing items from collection
+          @peer_log = SyncPeerLog.new
+          @peer_log.sync_event_id = 5 #pull event
+          @peer_log.user_site_id = @admin.site_id
+          @peer_log.user_site_object_id = @admin.origin_id
+          @peer_log.action_taken_at_time = Time.now
+          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('hide').id
+          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Comment').id
+          @peer_log.sync_object_id = @comment.origin_id
+          @peer_log.sync_object_site_id = PEER_SITE_ID
+          @peer_log.save
+          
+          
+          #call process entery
+          @peer_log.process_entry
+        end
+        it "should hide comment in current site after pull" do
+          comment = Comment.find_by_origin_id_and_site_id(@comment.origin_id, @comment.site_id)
+          comment.visible_at.should be nil
+        end
+      end
+      
+      describe "pulling show comment by admin" do
+        before(:each) do
+          truncate_all_tables
+          SpecialCollection.create_enumerated
+          
+          @user = User.gen
+          @user[:origin_id] = @user.id
+          @user[:site_id] = PEER_SITE_ID
+          @user.save
+          @admin = User.gen(:username => "admin", :password => "admin")
+          @admin[:origin_id] = @admin.id
+          @admin[:site_id] = PEER_SITE_ID
+          @admin.save
+          @admin.grant_admin
+          @comment_parent = Collection.create(:name => "collection")
+          @comment_parent[:origin_id] = @comment_parent.id
+          @comment_parent[:site_id] = PEER_SITE_ID
+          @comment_parent.save
+          
+          @comment =  Comment.create(:user_id => @user.id, :parent_id => @comment_parent.id,
+                                      :parent_type => "Collection", :body => "comment") 
+          @comment[:origin_id] = @comment.id
+          @comment[:site_id] = PEER_SITE_ID
+          @comment.save                            
+          
+          #create sync_object_action
+          SyncObjectAction.create(:object_action => 'show')
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'Comment')
+          
+          # create sync peer log for removing items from collection
+          @peer_log = SyncPeerLog.new
+          @peer_log.sync_event_id = 5 #pull event
+          @peer_log.user_site_id = @admin.site_id
+          @peer_log.user_site_object_id = @admin.origin_id
+          @peer_log.action_taken_at_time = Time.now
+          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('show').id
+          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Comment').id
+          @peer_log.sync_object_id = @comment.origin_id
+          @peer_log.sync_object_site_id = PEER_SITE_ID
+          @peer_log.save
+          
+          
+          #call process entery
+          @peer_log.process_entry
+        end
+        it "should show comment in current site after pull" do
+          comment = Comment.find_by_origin_id_and_site_id(@comment.origin_id, @comment.site_id)
+          comment.visible_at.should_not be nil
+        end
+      end
+      
+      describe "pulling destroy comment" do
+        before(:each) do
+          truncate_all_tables
+          SpecialCollection.create_enumerated
+          
+          @user = User.gen
+          @user[:origin_id] = @user.id
+          @user[:site_id] = PEER_SITE_ID
+          @user.save
+          @comment_parent = Collection.create(:name => "collection")
+          @comment_parent[:origin_id] = @comment_parent.id
+          @comment_parent[:site_id] = PEER_SITE_ID
+          @comment_parent.save
+          
+          @comment =  Comment.create(:user_id => @user.id, :parent_id => @comment_parent.id,
+                                      :parent_type => "Collection", :body => "comment") 
+          @comment[:origin_id] = @comment.id
+          @comment[:site_id] = PEER_SITE_ID
+          @comment.save                            
+          
+          #create sync_object_action
+          SyncObjectAction.create(:object_action => 'delete')
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'Comment')
+          
+          # create sync peer log for removing items from collection
+          @peer_log = SyncPeerLog.new
+          @peer_log.sync_event_id = 5 #pull event
+          @peer_log.user_site_id = @user.site_id
+          @peer_log.user_site_object_id = @user.origin_id
+          @peer_log.action_taken_at_time = Time.now
+          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('delete').id
+          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Comment').id
+          @peer_log.sync_object_id = @comment.origin_id
+          @peer_log.sync_object_site_id = PEER_SITE_ID
+          @peer_log.save
+          
+          parameters = ["deleted"]
+          values = ["1"]
+
+          for i in 0..parameters.length-1
+            lap = SyncLogActionParameter.new
+            lap.peer_log_id = @peer_log.id
+            lap.param_object_type_id = nil
+            lap.param_object_id = nil
+            lap.param_object_site_id = nil
+            lap.parameter = parameters[i]
+            lap.value = values[i]
+            lap.save
+          end
+          #call process entery
+          @peer_log.process_entry
+        end
+        it "should destroy comment in current site after pull" do
+          comment = Comment.find_by_origin_id_and_site_id(@comment.origin_id, @comment.site_id)
+          comment.deleted.should == 1
+        end
+      end
+    end
+    
+    
+    
+      # test collections actions synchronization
+  describe "process pulling for data objects actions " do
+    describe "pulling create data object" do
+      before(:all) do
+        truncate_all_tables
+        load_foundation_cache
+        Activity.create_enumerated
+        Visibility.create_enumerated
+        @toc = TocItem.gen_if_not_exists(:label => 'overview')
+        @toc[:origin_id] = @toc.id
+        @toc[:site_id] = PEER_SITE_ID
+        @toc.save
+        
+        @user = User.gen        
+        @user[:origin_id] = @user.id
+        @user[:site_id] = PEER_SITE_ID
+        @user.save
+        @taxon_concept = TaxonConcept.gen
+        @taxon_concept[:origin_id] = @taxon_concept.id
+        @taxon_concept[:site_id] = PEER_SITE_ID
+        @taxon_concept.save
+        
+        
+        #create sync_object_action
+        SyncObjectAction.create(:object_action => 'create')
+        SyncObjectAction.create(:object_action => 'add_item')
+        #create sync_object_type
+        SyncObjectType.create(:object_type => 'Ref')
+        SyncObjectType.create(:object_type => 'Collection')
+        SyncObjectType.create(:object_type => 'data_object')
+        
+        # create sync peer log for creating ref
+        @create_ref_peer_log = SyncPeerLog.new
+        @create_ref_peer_log.sync_event_id = 5 #pull event
+        @create_ref_peer_log.user_site_id = @user.site_id
+        @create_ref_peer_log.user_site_object_id = @user.origin_id
+        @create_ref_peer_log.action_taken_at_time = Time.now
+        @create_ref_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
+        @create_ref_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Ref').id
+        @create_ref_peer_log.save
+        
+        create_ref_parameters = ["reference"]
+        create_ref_values = [ "Test reference."]
+        for i in 0..create_ref_parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @create_ref_peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = create_ref_parameters[i]
+          lap.value = create_ref_values[i]
+          lap.save
+        end
+        #call process entery
+        @create_ref_peer_log.process_entry
+        
+         # create sync peer log for creating ref
+        @create_data_object_peer_log = SyncPeerLog.new
+        @create_data_object_peer_log.sync_event_id = 5 #pull event
+        @create_data_object_peer_log.user_site_id = @user.site_id
+        @create_data_object_peer_log.user_site_object_id = @user.origin_id
+        @create_data_object_peer_log.action_taken_at_time = Time.now
+        @create_data_object_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
+        @create_data_object_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
+        @create_data_object_peer_log.sync_object_id = 1
+        @create_data_object_peer_log.sync_object_site_id = PEER_SITE_ID
+        @create_data_object_peer_log.save
+     
+        create_data_object_parameters = ["taxon_concept_origin_id", "taxon_concept_site_id", 
+          "references", "toc_id", "toc_site_id", "object_title", "description", "data_type_id",
+          "language_id", "license_id"]
+        create_data_object_values = ["#{@taxon_concept.origin_id}", "#{@taxon_concept.site_id}",
+           "Test reference.", @toc.origin_id, @toc.site_id, "Test Article",
+           "Test text", DataType.text.id.to_s, Language.english.id.to_s, License.public_domain.id.to_s]
+        for i in 0..create_data_object_parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @create_data_object_peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = create_data_object_parameters[i]
+          lap.value = create_data_object_values[i]
+          lap.save
+        end
+        #call process entery
+        @create_data_object_peer_log.process_entry
+        
+        
+        # create sync peer log for creating ref
+        @create_collection_item_peer_log = SyncPeerLog.new
+        @create_collection_item_peer_log.sync_event_id = 5 #pull event
+        @create_collection_item_peer_log.user_site_id = @user.site_id
+        @create_collection_item_peer_log.user_site_object_id = @user.origin_id
+        @create_collection_item_peer_log.action_taken_at_time = Time.now
+        @create_collection_item_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
+        @create_collection_item_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
+        @create_collection_item_peer_log.sync_object_id = @user.watch_collection.origin_id
+        @create_collection_item_peer_log.sync_object_site_id = PEER_SITE_ID
+        @create_collection_item_peer_log.save
+     
+        create_collection_item_parameters = ["item_id", "item_site_id", "collected_item_type", "collected_item_name"]
+        create_collection_item_values = ["1", PEER_SITE_ID, "DataObject", "Test Article"]
+        for i in 0..create_collection_item_parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @create_collection_item_peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = create_collection_item_parameters[i]
+          lap.value = create_collection_item_values[i]
+          lap.save
+        end
+        #call process entery
+        @create_collection_item_peer_log.process_entry
+        
+      end
+     
+      it "should create data object" do
+        ref = Ref.first
+        ref.full_reference.should == "Test reference."
+        ref.user_submitted.should == true
+        ref.visibility_id.should == Visibility.visible.id
+        ref.published.should == 1
+          
+        data_obj = DataObject.find(2)
+        data_obj.object_title.should == "Test Article"
+        data_obj.description.should == "Test text"
+        data_obj.license_id.should == License.public_domain.id
+        
+        user_data_obj = UsersDataObject.first
+        user_data_obj.user_id.should == @user.id
+        data_obj.toc_items[0].id.should == TocItem.overview.id
+        
+        data_obj_ref = data_obj.refs[0]
+        data_obj_ref.id.should == ref.id  
+        
+        data_obj_taxon_concept = DataObjectsTaxonConcept.first 
+        data_obj_taxon_concept.taxon_concept_id.should == @taxon_concept.id
+        data_obj_taxon_concept.data_object_id.should == data_obj.id
+        
+        col_item = CollectionItem.first        
+        col_item.collected_item_type.should == "DataObject"
+        col_item.name.should == "Test Article"
+        col_item.collected_item_id.should == data_obj.id
+        col_item.collection_id.should == @user.watch_collection.id
+      end
+    end      
   end
+ end
 end
