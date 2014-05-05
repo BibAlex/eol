@@ -492,7 +492,6 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle create data object action after pull
   def self.create_data_object(parameters)
-    debugger
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
     references = parameters["references"]
@@ -533,6 +532,53 @@ class SyncPeerLog < ActiveRecord::Base
                                 taxon_concept_id: taxon_concept.id)     
     data_object.log_activity_in_solr(keyword: 'create', user: user, taxon_concept: taxon_concept) 
   end 
+  
+  # how node site handle update data object action after pull
+  def self.update_data_object(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    references = parameters["references"]
+    commit_link = parameters["commit_link"]
+    new_revision_origin_id = parameters["new_revision_origin_id"]
+    new_revision_site_id = parameters["new_revision_site_id"]
+    toc_id = nil
+    unless parameters["toc_site_id"].nil?
+      toc = TocItem.find(:first, :conditions => "site_id = #{parameters["toc_site_id"]} and origin_id = #{parameters["toc_id"]}")
+      toc_id = toc.id unless toc.nil?
+    end
+    link_type_id = nil
+    unless parameters["link_type_site_id"].nil?
+      link_type = LinkType.find(:first, :conditions => "site_id = #{parameters["link_type_site_id"]} and origin_id = #{parameters["link_type_id"]}")
+      link_type_id = link_type.id  unless link_type.nil?
+    end
+    
+    parameters = parameters.reverse_merge("origin_id" => parameters["sync_object_id"],
+                                          "site_id" => parameters["sync_object_site_id"])                                                           
+    [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
+      "action_taken_at_time", "language", "commit_link",  "taxon_concept_origin_id",
+      "taxon_concept_site_id", "references", "link_type_id", "toc_id",
+      "toc_site_id", "link_type_site_id", "new_revision_origin_id",
+      "new_revision_site_id"].each { |key| parameters.delete key }    
+    
+    new_data_object = data_object.replicate(parameters, user: user, toc_id: toc_id,
+                                             link_type_id: link_type_id, link_object: commit_link)
+    # add sync ids
+    new_data_object[:origin_id] = new_revision_origin_id
+    new_data_object[:site_id] = new_revision_site_id
+    new_data_object.save                                        
+    references = references.split("\r\n") unless references.blank?
+      unless references.blank?      
+        references.each do |reference|
+          if reference.strip != ''
+            ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(reference, 1, 1, Visibility.visible.id)
+            new_data_object.refs << ref unless ref.nil?
+           end
+        end
+      end
+     
+    user.log_activity(:updated_data_object_id, value: new_data_object.id,
+                                taxon_concept_id: new_data_object.taxon_concept_for_users_text.id)                                             
+  end
   
  
   def self.get_url(base_url, cache_url,file_type)
