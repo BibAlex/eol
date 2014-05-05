@@ -398,6 +398,7 @@ FactoryGirl.define do
     published             true
     special_collection_id nil
     association           :sort_style
+    site_id               PEER_SITE_ID
   end
 
   factory :collection_job do
@@ -446,6 +447,7 @@ FactoryGirl.define do
     name        { (Faker::Lorem.words << generate(:string)).join(' ').titleize }
     description { Faker::Lorem.paragraph }
     published   true
+    site_id     PEER_SITE_ID
     after(:create) { |c| c.collections << FactoryGirl.create(:collection) }
   end
 

@@ -2,6 +2,8 @@ require 'eol/activity_loggable'
 
 class Collection < ActiveRecord::Base
 
+#  attr_accessible :site_id, :name, :special_collection_id, :origin_id
+  
   include EOL::ActivityLoggable
 
   REINDEX_LIMIT = 1000
@@ -9,6 +11,7 @@ class Collection < ActiveRecord::Base
   belongs_to :user # This is the OWNER.  Use #users rather than #user... this basically only gets set once.
   belongs_to :sort_style
   belongs_to :view_style
+  belongs_to :site
 
   has_many :collection_items
   has_many :others_collection_items, class_name: CollectionItem.to_s, as: :collected_item
