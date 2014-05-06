@@ -84,7 +84,10 @@ class ContentPage < ActiveRecord::Base
         ] }
       ] } ] )
   end
-
+  def self.initial_sort_order(parent_id)
+    condition = parent_id.blank? ? " IS NULL" : " = #{parent_id}"
+    self.connection.select_values("SELECT max(sort_order) FROM content_pages WHERE parent_content_page_id #{condition}")[0].to_i
+  end
   def self.max_view_order_by_parent_id(parent_id)
     condition = parent_id.blank? ? " IS NULL" : " = #{parent_id}"
     self.connection.select_values("SELECT max(id) FROM content_pages WHERE parent_content_page_id #{condition}")[0].to_i

@@ -657,6 +657,7 @@ class SyncPeerLog < ActiveRecord::Base
     params["parent_content_page_id"] = parameters["parent_content_page_id"]
     params["page_name"] = parameters["page_name"]
     params["active"] = parameters["active"]
+    params["sort_order"] = parameters["sort_order"]
     content_page = ContentPage.new(params)
     translated_params = {}
     translated_params["language_id"] = parameters["language"].id
