@@ -51,13 +51,13 @@ end
 $UNSUBSCRIBE_NOTIFICATIONS_KEY = 'f0de2a0651aa88a090e5679e5e3a7d28'
 # variables used for syncing
 PEER_SITE_ID = 2
-AUTH_CODE = '437b8710-9250-11e3-a9d6-000ffe473aab'
+AUTH_CODE = '5371149c-9250-11e3-a9d6-000ffe473aab'
 REGISTRY_URL = 'http://localhost:3000/'
 REGISTRY_PUSH_URL = 'push_requests/make_push'
 REGISTRY_PUSH_QUERY_URL = 'push_requests/query'
 REGISTRY_PULL_URL = 'pull_requests/pull'
 REGISTRY_PULL_REPORT = 'pull_requests/report'
-INIT_UUID = '2bab1806-c9f2-11e3-b325-000ffe473aab'
+INIT_UUID = '29f8b004-d456-11e3-95c7-000ffe475813'
 SITE_URI = 'http://127.0.0.1:3002'
 SITE_PORT = "3002"
 $SERVER_PORT = 8081

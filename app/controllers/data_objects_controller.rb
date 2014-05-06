@@ -184,7 +184,6 @@ class DataObjectsController < ApplicationController
   # NOTE we don't actually edit the data object we create a new one and unpublish the old one.
   # old @data_object is loaded in before_filter :load_data_object
   def update
-    debugger
     @references = params[:references]
     if @data_object.users_data_object.user_id != current_user.id
       update_failed(I18n.t(:dato_update_users_text_not_owner_exception)) and return
@@ -254,6 +253,13 @@ class DataObjectsController < ApplicationController
       if rated_successfully
         @data_object.update_solr_index
         flash[:notice] = I18n.t(:rating_added_notice)
+        
+        # sync rate data object
+        sync_params = {"stars" => params[:stars]}
+        options = {"user" => current_user, "object" =>  @data_object, "action_id" => SyncObjectAction.get_rate_action.id,
+                   "type_id" =>  SyncObjectType.get_data_object_type.id, "params" => sync_params}           
+        SyncPeerLog.log_action(options)
+        
       else
         # TODO: Ideally examine validation error and provide more informative error message.
         flash[:error] = I18n.t(:rating_not_added_error)

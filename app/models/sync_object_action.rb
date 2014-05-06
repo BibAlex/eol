@@ -55,5 +55,9 @@ class SyncObjectAction < ActiveRecord::Base
   
   def self.get_leave_action
       self.find_or_create_by_object_action('leave')
-    end
+  end
+  
+  def self.get_rate_action
+      self.find_or_create_by_object_action('rate')
+  end
 end

@@ -2234,14 +2234,81 @@ describe SyncPeerLog do
           
           data_obj_taxon_concept = DataObjectsTaxonConcept.find(:first, :conditions => "data_object_id = 3 and taxon_concept_id = #{@taxon_concept.id}")
           data_obj_taxon_concept.should_not be_nil
-
-          # data_obj_taxon_concept = DataObjectsTaxonConcept.first
-          # data_obj_taxon_concept.taxon_concept_id.should == @taxon_concept.id
-          # data_obj_taxon_concept.data_object_id.should == data_obj.id
-
-         
         end
       end
+      
+      describe "pulling rate data object" do
+        before(:all) do
+          truncate_all_tables
+          load_foundation_cache
+          Activity.create_enumerated
+          Visibility.create_enumerated
+          @toc = TocItem.gen_if_not_exists(:label => 'overview')
+          @toc[:origin_id] = @toc.id
+          @toc[:site_id] = PEER_SITE_ID
+          @toc.save
+
+          @user = User.gen
+          @user[:origin_id] = @user.id
+          @user[:site_id] = PEER_SITE_ID
+          @user.save
+          @taxon_concept = TaxonConcept.gen
+          @taxon_concept[:origin_id] = @taxon_concept.id
+          @taxon_concept[:site_id] = PEER_SITE_ID
+          @taxon_concept.save
+          @data_object = @taxon_concept.add_user_submitted_text(:user => @user)
+          @data_object[:origin_id] = @data_object.id
+          @data_object[:site_id] = PEER_SITE_ID
+          @data_object.save
+          @data_object.refs << Ref.new(full_reference: "Test reference", user_submitted: true, published: 1,
+                                         visibility: Visibility.visible)
+
+          #create sync_object_action
+          SyncObjectAction.create(:object_action => 'rate')
+          
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'data_object')
+
+          # create sync peer log for rating data object
+          @rate_data_object_peer_log = SyncPeerLog.new
+          @rate_data_object_peer_log.sync_event_id = 5 #pull event
+          @rate_data_object_peer_log.user_site_id = @user.site_id
+          @rate_data_object_peer_log.user_site_object_id = @user.origin_id
+          @rate_data_object_peer_log.action_taken_at_time = Time.now
+          @rate_data_object_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('rate').id
+          @rate_data_object_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
+          @rate_data_object_peer_log.sync_object_id = @data_object.origin_id
+          @rate_data_object_peer_log.sync_object_site_id = @data_object.site_id
+          @rate_data_object_peer_log.save
+
+          rate_data_object_parameters = ["stars"]
+          rate_data_object_values = [3]
+          
+          for i in 0..rate_data_object_parameters.length-1
+            lap = SyncLogActionParameter.new
+            lap.peer_log_id = @rate_data_object_peer_log.id
+            lap.param_object_type_id = nil
+            lap.param_object_id = nil
+            lap.param_object_site_id = nil
+            lap.parameter = rate_data_object_parameters[i]
+            lap.value = rate_data_object_values[i]
+            lap.save
+          end
+          #call process entery
+          @rate_data_object_peer_log.process_entry
+        end
+
+        it "should rate data object" do          
+          data_obj = DataObject.find(2)
+          data_obj.data_rating.should == 3
+          
+          user_data_obj_rate = UsersDataObjectsRating.first
+          user_data_obj_rate.user_id.should == @user.id
+          user_data_obj_rate.data_object_guid.should == @data_object.guid
+          user_data_obj_rate.rating.should == 3         
+        end
+      end
+      
     end
   end
 end
