@@ -2161,6 +2161,61 @@ describe SyncPeerLog do
           content_page.sort_order.should == 2
         end
       end
+      
+      describe "pulling update content page" do
+        before(:each) do
+          truncate_table(ActiveRecord::Base.connection, "content_pages", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          @admin = User.gen
+          @admin.grant_admin
+          content_page = ContentPage.create("parent_content_page_id"=>"", "page_name"=>"old_name", "active"=>"1")
+          content_page.update_column(:origin_id, content_page.id)
+          content_page.update_column(:site_id, PEER_SITE_ID)
+          #create sync_object_action
+          SyncObjectAction.create(:object_action => 'update')
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'content_page')
+          #create sync_peer_log
+          @peer_log = SyncPeerLog.new
+          @peer_log.sync_event_id = 4 #pull event (random number)
+          @peer_log.user_site_id = @admin.site_id
+          @peer_log.user_site_object_id = @admin.origin_id
+          @peer_log.action_taken_at_time = Time.now
+          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
+          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('content_page').id
+          @peer_log.sync_object_id = content_page.origin_id
+          @peer_log.sync_object_site_id = content_page.site_id
+          @peer_log.save
+          
+          #create sync_action_parameters
+          parameters = ["parent_content_page_id", "page_name", "active"]
+          values = ["", "updated_name", "1"]
+  
+          for i in 0..parameters.length-1
+            lap = SyncLogActionParameter.new
+            lap.peer_log_id = @peer_log.id
+            lap.param_object_type_id = nil
+            lap.param_object_id = nil
+            lap.param_object_site_id = nil
+            lap.parameter = parameters[i]
+            lap.value = values[i]
+            lap.save
+          end
+          #call process entery
+          @peer_log.process_entry
+        end
+  
+        it "should update page name of content_page" do
+          ContentPage.count.should == 1
+          content_page = ContentPage.first
+          content_page.page_name.should == "updated_name"
+          content_page.active.should == true
+        end
+      end
     end    
     
     
