@@ -79,7 +79,6 @@ class SyncPeerLog < ActiveRecord::Base
     action = SyncObjectAction.find(sync_object_action_id).object_action unless SyncObjectAction.find(sync_object_action_id).nil?
     
     if (action.include?("delete") )      
-     
      sync_peer_logs = SyncPeerLog.find(:all, :conditions => "sync_event_id IS NULL 
                                                    and sync_object_id = #{sync_object_id} and sync_object_site_id = #{sync_object_site_id}")   
       unless (sync_peer_logs.blank?)
@@ -653,6 +652,46 @@ class SyncPeerLog < ActiveRecord::Base
     user.log_activity(:updated_common_names, taxon_concept_id: taxon_concept.id)
   end
   
+  def self.create_content_page(parameters)
+    params = {}
+    params["parent_content_page_id"] = parameters["parent_content_page_id"]
+    params["page_name"] = parameters["page_name"]
+    params["active"] = parameters["active"]
+    content_page = ContentPage.new(params)
+    translated_params = {}
+    translated_params["language_id"] = parameters["language"].id
+    translated_params["title"] = parameters["title"]
+    translated_params["main_content"] = parameters["main_content"]
+    translated_params["left_content"] = parameters["left_content"]
+    translated_params["meta_keywords"] = parameters["meta_keywords"]
+    translated_params["meta_description"] = parameters["meta_description"]
+    translated_params["active_translation"] = parameters["active_translation"]
+    content_page.translations.build(translated_params) 
+    content_page.save
+    content_page.update_column(:origin_id, parameters["sync_object_id"])
+    content_page.update_column(:site_id, parameters["sync_object_site_id"])
+    
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    content_page.last_update_user_id = user.id unless content_page.blank?
+  end
+  
+  def self.delete_content_page(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"], include: [:translations, :children])
+    page_name = content_page.page_name
+    content_page.last_update_user_id = user.id
+    parent_content_page_id = content_page.parent_content_page_id
+    sort_order = content_page.sort_order
+    content_page.destroy
+    ContentPage.update_sort_order_based_on_deleting_page(parent_content_page_id, sort_order)
+  end
+  
+  def self.swap_content_page(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    content_page.update_column(:sort_order, parameters["sort_order"])
+  end
+
   def self.create_community(parameters)
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     collection = Collection.find_by_origin_id_and_site_id(parameters["collection_origin_id"], parameters["collection_site_id"])
@@ -788,5 +827,4 @@ class SyncPeerLog < ActiveRecord::Base
 #    end
 #    invitees
 #  end
-  
 end

@@ -480,6 +480,7 @@ FactoryGirl.define do
     sort_order           1
     last_update_user_id  1 # This *should* be the admin, and we don't *really* care otherwise.
     active               1
+    site_id              PEER_SITE_ID
   end
 
   factory :content_partner do

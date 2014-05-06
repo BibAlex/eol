@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 [{"user_site_id":2,"user_site_object_id":98,"action_taken_at_time":"2014-05-05T13:17:26Z","sync_object_action":"rate","sync_object_type":"data_object","sync_object_id":271,"sync_object_site_id":1,"log_action_parameters":[{"parameter":"stars","value":"2"}]}]
+=======
+[{"user_site_id":1,"user_site_object_id":79,"action_taken_at_time":"2014-05-05T13:34:44Z","sync_object_action":"swap","sync_object_type":"content_page","sync_object_id":7,"sync_object_site_id":1,"log_action_parameters":[{"parameter":"sort_order","value":"3"}]},{"user_site_id":1,"user_site_object_id":79,"action_taken_at_time":"2014-05-05T13:34:44Z","sync_object_action":"swap","sync_object_type":"content_page","sync_object_id":5,"sync_object_site_id":1,"log_action_parameters":[{"parameter":"sort_order","value":"4"}]}]
+>>>>>>> dd11ff2f2bf3a08253e47322299c21700359455d

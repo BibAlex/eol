@@ -1633,8 +1633,6 @@ describe SyncPeerLog do
         end
       end
     end
-
-    # test collections actions synchronization
     describe "process pulling for comments actions " do
       describe "pulling create comment" do
         before(:each) do
@@ -1976,58 +1974,280 @@ describe SyncPeerLog do
         end
       end
     end
-
-    # test collections actions synchronization
-    describe "process pulling for data objects actions " do
-      describe "pulling create data object" do
-        before(:all) do
-          truncate_all_tables
-          load_foundation_cache
-          Activity.create_enumerated
-          Visibility.create_enumerated
-          @toc = TocItem.gen_if_not_exists(:label => 'overview')
-          @toc[:origin_id] = @toc.id
-          @toc[:site_id] = PEER_SITE_ID
-          @toc.save
-
-          @user = User.gen
-          @user[:origin_id] = @user.id
-          @user[:site_id] = PEER_SITE_ID
-          @user.save
-          @taxon_concept = TaxonConcept.gen
-          @taxon_concept[:origin_id] = @taxon_concept.id
-          @taxon_concept[:site_id] = PEER_SITE_ID
-          @taxon_concept.save
-
+    
+    # test admin content pages actions synchronization
+    describe "process pulling for content pages actions " do
+      describe "pulling create content page" do
+        before(:each) do
+          truncate_table(ActiveRecord::Base.connection, "content_pages", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "translated_content_pages", {})
+          @admin = User.gen
+          @admin.grant_admin
           #create sync_object_action
           SyncObjectAction.create(:object_action => 'create')
-          SyncObjectAction.create(:object_action => 'add_item')
           #create sync_object_type
-          SyncObjectType.create(:object_type => 'Ref')
-          SyncObjectType.create(:object_type => 'Collection')
-          SyncObjectType.create(:object_type => 'data_object')
-
-          # create sync peer log for creating ref
-          @create_ref_peer_log = SyncPeerLog.new
-          @create_ref_peer_log.sync_event_id = 5 #pull event
-          @create_ref_peer_log.user_site_id = @user.site_id
-          @create_ref_peer_log.user_site_object_id = @user.origin_id
-          @create_ref_peer_log.action_taken_at_time = Time.now
-          @create_ref_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
-          @create_ref_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Ref').id
-          @create_ref_peer_log.save
-
-          create_ref_parameters = ["reference"]
-          create_ref_values = [ "Test reference."]
-          for i in 0..create_ref_parameters.length-1
+          SyncObjectType.create(:object_type => 'content_page')
+          #create sync_peer_log
+          @peer_log = SyncPeerLog.new
+          @peer_log.sync_event_id = 4 #pull event
+          @peer_log.user_site_id = @admin.site_id
+          @peer_log.user_site_object_id = @admin.origin_id
+          @peer_log.action_taken_at_time = Time.now
+          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
+          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('content_page').id
+          @peer_log.sync_object_id = 80
+          @peer_log.sync_object_site_id = 2
+          @peer_log.save
+          
+          #create sync_action_parameters
+          parameters = ["parent_content_page_id", "page_name", "active", "language_id", "title", "main_content", "left_content", "meta_keywords", "meta_description", "active_translation"]
+          values = ["", "test5", "1", "#{Language.first.id}", "test5", "<p>hello5</p>\r\n", "", "", "", "1"]
+  
+          for i in 0..parameters.length-1
             lap = SyncLogActionParameter.new
-            lap.peer_log_id = @create_ref_peer_log.id
+            lap.peer_log_id = @peer_log.id
             lap.param_object_type_id = nil
             lap.param_object_id = nil
             lap.param_object_site_id = nil
-            lap.parameter = create_ref_parameters[i]
-            lap.value = create_ref_values[i]
+            lap.parameter = parameters[i]
+            lap.value = values[i]
             lap.save
+          end
+          #call process entery
+          @peer_log.process_entry
+        end
+  
+        it "should create content_page" do
+          ContentPage.count.should == 1
+          content_page = ContentPage.first
+          content_page.page_name.should == "test5"
+          content_page.active.should == true
+          TranslatedContentPage.count.should == 1
+          translated_content_page = TranslatedContentPage.first
+          translated_content_page.title.should == "test5"
+          translated_content_page.language_id.should == Language.first.id
+        end
+      end
+      
+      describe "pulling delete content page" do
+        before(:each) do
+          truncate_table(ActiveRecord::Base.connection, "content_pages", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "translated_content_pages", {})
+          @admin = User.gen
+          @admin.grant_admin
+          content_page = ContentPage.create("parent_content_page_id"=>"", "page_name"=>"test5", "active"=>"1")
+          content_page.update_column(:origin_id, content_page.id)
+          content_page.update_column(:site_id, PEER_SITE_ID)
+          translated_content_page = TranslatedContentPage.create({"content_page_id" => "#{content_page.id}" , 
+                                                 "language_id"=>"#{Language.first.id}", 
+                                                 "title"=>"test5", 
+                                                 "main_content"=>"<p>hello5</p>\r\n", 
+                                                 "left_content"=>"", 
+                                                 "meta_keywords"=>"",
+                                                 "meta_description"=>"", 
+                                                 "active_translation"=>"1"})
+          #create sync_object_action
+          SyncObjectAction.create(:object_action => 'delete')
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'content_page')
+          #create sync_peer_log
+          @peer_log = SyncPeerLog.new
+          @peer_log.sync_event_id = 4 #pull event (random number)
+          @peer_log.user_site_id = @admin.site_id
+          @peer_log.user_site_object_id = @admin.origin_id
+          @peer_log.action_taken_at_time = Time.now
+          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('delete').id
+          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('content_page').id
+          @peer_log.sync_object_id = content_page.origin_id
+          @peer_log.sync_object_site_id = content_page.site_id
+          @peer_log.save
+          
+          #call process entery
+          @peer_log.process_entry
+        end
+  
+        it "should delete content_page" do
+          ContentPage.count.should == 0
+          TranslatedContentPage.count.should == 0
+        end
+      end
+      
+      describe "pulling move content page" do
+        before(:each) do
+          truncate_table(ActiveRecord::Base.connection, "content_pages", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          @admin = User.gen
+          @admin.grant_admin
+          
+          upper_page = ContentPage.create("parent_content_page_id"=>"", "page_name"=>"upper_page", "active"=>"1", "sort_order" => 1)
+          upper_page.update_column(:origin_id, upper_page.id)
+          upper_page.update_column(:site_id, PEER_SITE_ID)
+          lower_page = ContentPage.create("parent_content_page_id"=>"", "page_name"=>"lower_page", "active"=>"1", "sort_order" => 2)
+          lower_page.update_column(:origin_id, lower_page.id)
+          lower_page.update_column(:site_id, PEER_SITE_ID)
+          
+          #create sync_object_action
+          SyncObjectAction.create(:object_action => 'swap')
+          #create sync_object_type
+          SyncObjectType.create(:object_type => 'content_page')
+          #create sync_peer_log
+          @peer_log = SyncPeerLog.new
+          @peer_log.sync_event_id = 4 #pull event (random number)
+          @peer_log.user_site_id = @admin.site_id
+          @peer_log.user_site_object_id = @admin.origin_id
+          @peer_log.action_taken_at_time = Time.now
+          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('swap').id
+          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('content_page').id
+          @peer_log.sync_object_id = lower_page.origin_id
+          @peer_log.sync_object_site_id = lower_page.site_id
+          @peer_log.save
+          
+          #create sync_action_parameters
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = "sort_order"
+          lap.value = upper_page.sort_order
+          lap.save
+          
+          #call process entery
+          @peer_log.process_entry
+          
+          @peer_log1 = SyncPeerLog.new
+          @peer_log1.sync_event_id = 4 #pull event (random number)
+          @peer_log1.user_site_id = @admin.site_id
+          @peer_log1.user_site_object_id = @admin.origin_id
+          @peer_log1.action_taken_at_time = Time.now
+          @peer_log1.sync_object_action_id = SyncObjectAction.find_by_object_action('swap').id
+          @peer_log1.sync_object_type_id = SyncObjectType.find_by_object_type('content_page').id
+          @peer_log1.sync_object_id = upper_page.origin_id
+          @peer_log1.sync_object_site_id = upper_page.site_id
+          @peer_log1.save
+                    
+          lap1 = SyncLogActionParameter.new
+          lap1.peer_log_id = @peer_log1.id
+          lap1.param_object_type_id = nil
+          lap1.param_object_id = nil
+          lap1.param_object_site_id = nil
+          lap1.parameter = "sort_order"
+          lap1.value = upper_page.sort_order + 1
+          lap1.save
+          
+          #call process entery
+          @peer_log1.process_entry
+        end
+  
+        it "should update sort_order of content_page" do
+          ContentPage.count.should == 2
+          content_page = ContentPage.first
+          content_page.page_name.should == "upper_page"
+          content_page.active.should == true
+          content_page.sort_order.should == 2
+        end
+      end
+    end    
+    
+    
+      # test collections actions synchronization
+  describe "process pulling for data objects actions " do
+    describe "pulling create data object" do
+      before(:all) do
+        truncate_all_tables
+        load_foundation_cache
+        Activity.create_enumerated
+        Visibility.create_enumerated
+        @toc = TocItem.gen_if_not_exists(:label => 'overview')
+        @toc[:origin_id] = @toc.id
+        @toc[:site_id] = PEER_SITE_ID
+        @toc.save
+        
+        @user = User.gen        
+        @user[:origin_id] = @user.id
+        @user[:site_id] = PEER_SITE_ID
+        @user.save
+        @taxon_concept = TaxonConcept.gen
+        @taxon_concept[:origin_id] = @taxon_concept.id
+        @taxon_concept[:site_id] = PEER_SITE_ID
+        @taxon_concept.save
+        
+        
+        #create sync_object_action
+        SyncObjectAction.create(:object_action => 'create')
+        SyncObjectAction.create(:object_action => 'add_item')
+        #create sync_object_type
+        SyncObjectType.create(:object_type => 'Ref')
+        SyncObjectType.create(:object_type => 'Collection')
+        SyncObjectType.create(:object_type => 'data_object')
+        
+        # create sync peer log for creating ref
+        @create_ref_peer_log = SyncPeerLog.new
+        @create_ref_peer_log.sync_event_id = 5 #pull event
+        @create_ref_peer_log.user_site_id = @user.site_id
+        @create_ref_peer_log.user_site_object_id = @user.origin_id
+        @create_ref_peer_log.action_taken_at_time = Time.now
+        @create_ref_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
+        @create_ref_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Ref').id
+        @create_ref_peer_log.save
+        
+        create_ref_parameters = ["reference"]
+        create_ref_values = [ "Test reference."]
+        for i in 0..create_ref_parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @create_ref_peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = create_ref_parameters[i]
+          lap.value = create_ref_values[i]
+          lap.save
+        end
+        #call process entery
+        @create_ref_peer_log.process_entry
+        
+         # create sync peer log for creating ref
+        @create_data_object_peer_log = SyncPeerLog.new
+        @create_data_object_peer_log.sync_event_id = 5 #pull event
+        @create_data_object_peer_log.user_site_id = @user.site_id
+        @create_data_object_peer_log.user_site_object_id = @user.origin_id
+        @create_data_object_peer_log.action_taken_at_time = Time.now
+        @create_data_object_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
+        @create_data_object_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
+        @create_data_object_peer_log.sync_object_id = 1
+        @create_data_object_peer_log.sync_object_site_id = PEER_SITE_ID
+        @create_data_object_peer_log.save
+     
+        create_data_object_parameters = ["taxon_concept_origin_id", "taxon_concept_site_id", 
+          "references", "toc_id", "toc_site_id", "object_title", "description", "data_type_id",
+          "language_id", "license_id"]
+        create_data_object_values = ["#{@taxon_concept.origin_id}", "#{@taxon_concept.site_id}",
+           "Test reference.", @toc.origin_id, @toc.site_id, "Test Article",
+           "Test text", DataType.text.id.to_s, Language.english.id.to_s, License.public_domain.id.to_s]
+        for i in 0..create_data_object_parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @create_data_object_peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = create_data_object_parameters[i]
+          lap.value = create_data_object_values[i]
+          lap.save
+
           end
           #call process entery
           @create_ref_peer_log.process_entry
