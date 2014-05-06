@@ -578,7 +578,15 @@ class SyncPeerLog < ActiveRecord::Base
     user.log_activity(:updated_data_object_id, value: new_data_object.id,
                                 taxon_concept_id: new_data_object.taxon_concept_for_users_text.id)                                             
   end
-  
+ 
+   def self.rate_data_object(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    stars = parameters["stars"]
+    rated_successfully = data_object.rate(user, stars.to_i)
+    user.log_activity(:rated_data_object_id, value: data_object.id)
+    data_object.update_solr_index if rated_successfully
+   end 
  
   def self.get_url(base_url, cache_url,file_type)
     file_type = "jpg" if file_type == "jpeg"

@@ -395,5 +395,70 @@ describe DataObjectsController do
         license_id_parameter[0][:value].should == License.public_domain.id.to_s
       end
     end
+    
+    describe "sync rate data object" do
+      before(:each) do
+        truncate_all_tables
+        load_foundation_cache
+        Activity.create_enumerated
+        Visibility.create_enumerated
+        TocItem.gen_if_not_exists(:label => 'overview')
+        
+        @user = User.gen
+        session[:user_id] = @user.id
+        @user[:origin_id] = @user.id
+        @user[:site_id] = PEER_SITE_ID
+        @user.save
+        @taxon_concept = TaxonConcept.gen
+        @data_object = @taxon_concept.add_user_submitted_text(:user => @user)
+        @data_object[:origin_id] = @data_object.id
+        @data_object[:site_id] = PEER_SITE_ID
+        @data_object.save
+        @data_object.refs << Ref.new(full_reference: "Test reference", user_submitted: true, published: 1,
+                                       visibility: Visibility.visible)
+      end
+      
+      it 'should save rate data object paramters in synchronization tables' do
+        get :rate,  { :id => @data_object.id, 
+                      :minimal => false, :return_to => "http://localhost:3001/data_objects/#{@data_object.id}", 
+                      :stars => 2}
+               
+        # created data object
+        data_obj = DataObject.find(2)
+        data_obj.data_rating.should == 2
+        
+        user_data_obj_rate = UsersDataObjectsRating.first
+        user_data_obj_rate.user_id.should == @user.id
+        user_data_obj_rate.data_object_guid.should == @data_object.guid
+        user_data_obj_rate.rating.should == 2   
+        
+        # check sync_object_type 
+        data_object_type = SyncObjectType.first
+        data_object_type.should_not be_nil
+        data_object_type.object_type.should == "data_object"
+        
+        # check sync_object_actions 
+        rate_action = SyncObjectAction.first
+        rate_action.should_not be_nil
+        rate_action.object_action.should == "rate"
+        
+        # check peer logs        
+        rate_data_object_peer_log = SyncPeerLog.first
+        rate_data_object_peer_log.should_not be_nil
+        rate_data_object_peer_log.sync_object_action_id.should == rate_action.id
+        rate_data_object_peer_log.sync_object_type_id.should == data_object_type.id
+        rate_data_object_peer_log.user_site_id.should == PEER_SITE_ID
+        rate_data_object_peer_log.user_site_object_id.should == @user.id
+        rate_data_object_peer_log.sync_object_id.should == @data_object.origin_id
+        rate_data_object_peer_log.sync_object_site_id.should == @data_object.site_id
+
+         # check log action parameters
+        toc = TocItem.find(TocItem.overview.id)
+        
+        stars_parameter = SyncLogActionParameter.where(:peer_log_id => rate_data_object_peer_log.id, :parameter => "stars")
+        stars_parameter[0][:value].should == "2"
+      end
+    end
+    
   end
 end
