@@ -108,9 +108,7 @@ class DataObjectsController < ApplicationController
       options = {"user" => current_user, "object" =>  col , "action_id" => SyncObjectAction.get_add_item_to_collection_action.id,
                     "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}           
       SyncPeerLog.log_action(options)
-      
-      
-      
+    
 
       # redirect to appropriate tab/sub-tab after creating the users_data_object/link_object
       if @data_object.is_link?
@@ -199,9 +197,36 @@ class DataObjectsController < ApplicationController
       @data_object = new_data_object # We want to show the errors...
       update_failed(I18n.t(:dato_update_user_text_error)) and return
     else
+      # add sync ids
+      new_data_object[:origin_id] = new_data_object.id
+      new_data_object[:site_id] = PEER_SITE_ID
+      new_data_object.save
       add_references(new_data_object)
       current_user.log_activity(:updated_data_object_id, value: new_data_object.id,
                                 taxon_concept_id: new_data_object.taxon_concept_for_users_text.id)
+      
+      toc = TocItem.find(toc_id)      
+      link_type_origin_id = nil
+      link_type_site_id = nil
+      unless link_type_id.nil?
+        link_type = LinkType.find(link_type_id)
+        link_type_origin_id = link_type.origin_id
+        link_type_site_id = link_type.site_id
+      end
+                                
+      sync_params = params[:data_object]
+      sync_params = sync_params.reverse_merge("new_revision_origin_id" => new_data_object.origin_id,
+                                              "new_revision_site_id" => new_data_object.site_id,
+                                              "commit_link" => params[:commit_link],                                              
+                                              "references" => @references,
+                                              "toc_id" => toc.origin_id,
+                                              "toc_site_id" => toc.site_id,
+                                              "link_type_id" => link_type_origin_id,
+                                              "link_type_site_id" => link_type_site_id)
+      options = {"user" => current_user, "object" =>  @data_object, "action_id" => SyncObjectAction.get_update_action.id,
+                 "type_id" =>  SyncObjectType.get_data_object_type.id, "params" => sync_params}           
+      SyncPeerLog.log_action(options)
+                                
       redirect_to data_object_path(new_data_object), status: :moved_permanently
     end
   end
@@ -228,6 +253,13 @@ class DataObjectsController < ApplicationController
       if rated_successfully
         @data_object.update_solr_index
         flash[:notice] = I18n.t(:rating_added_notice)
+        
+        # sync rate data object
+        sync_params = {"stars" => params[:stars]}
+        options = {"user" => current_user, "object" =>  @data_object, "action_id" => SyncObjectAction.get_rate_action.id,
+                   "type_id" =>  SyncObjectType.get_data_object_type.id, "params" => sync_params}           
+        SyncPeerLog.log_action(options)
+        
       else
         # TODO: Ideally examine validation error and provide more informative error message.
         flash[:error] = I18n.t(:rating_not_added_error)

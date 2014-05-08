@@ -13,6 +13,10 @@ class SyncObjectType < ActiveRecord::Base
     self.find_or_create_by_object_type('Collection')
   end
   
+  def self.get_content_page_type
+    self.find_or_create_by_object_type('content_page')
+  end
+  
   def self.get_community_type
     self.find_or_create_by_object_type('Community')
   end
@@ -32,6 +36,4 @@ class SyncObjectType < ActiveRecord::Base
   def self.get_data_object_type
     self.find_or_create_by_object_type('data_object')
   end
-  
 end
-

@@ -79,7 +79,6 @@ class SyncPeerLog < ActiveRecord::Base
     action = SyncObjectAction.find(sync_object_action_id).object_action unless SyncObjectAction.find(sync_object_action_id).nil?
     
     if (action.include?("delete") )      
-     
      sync_peer_logs = SyncPeerLog.find(:all, :conditions => "sync_event_id IS NULL 
                                                    and sync_object_id = #{sync_object_id} and sync_object_site_id = #{sync_object_site_id}")   
       unless (sync_peer_logs.blank?)
@@ -403,6 +402,9 @@ class SyncPeerLog < ActiveRecord::Base
   def self.create_comment(parameters)
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     comment_parent = parameters["parent_type"].constantize.find_by_origin_id_and_site_id(parameters["comment_parent_origin_id"], parameters["comment_parent_site_id"])
+    if parameters["parent_comment_origin_id"]
+      parent_comment = Comment.find_by_origin_id_and_site_id(parameters["parent_comment_origin_id"], parameters["parent_comment_site_id"])
+    end
     # remove extra parameters which not needed in creating collection 
     unless user.nil?
       parameters["site_id"] = parameters["sync_object_site_id"]
@@ -410,8 +412,9 @@ class SyncPeerLog < ActiveRecord::Base
       parameters["parent_id"] = comment_parent.id   
       [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
         "action_taken_at_time", "language", "comment_parent_origin_id",
-        "comment_parent_site_id"].each { |key| parameters.delete key }
+        "comment_parent_site_id", "parent_comment_origin_id", "parent_comment_site_id"].each { |key| parameters.delete key }
       parameters["user_id"] = user.id
+      parameters["reply_to_id"] = parent_comment.id if parent_comment
       comment = Comment.new(parameters)       
       comment.save!
     end    
@@ -533,6 +536,61 @@ class SyncPeerLog < ActiveRecord::Base
     data_object.log_activity_in_solr(keyword: 'create', user: user, taxon_concept: taxon_concept) 
   end 
   
+  # how node site handle update data object action after pull
+  def self.update_data_object(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    references = parameters["references"]
+    commit_link = parameters["commit_link"]
+    new_revision_origin_id = parameters["new_revision_origin_id"]
+    new_revision_site_id = parameters["new_revision_site_id"]
+    toc_id = nil
+    unless parameters["toc_site_id"].nil?
+      toc = TocItem.find(:first, :conditions => "site_id = #{parameters["toc_site_id"]} and origin_id = #{parameters["toc_id"]}")
+      toc_id = toc.id unless toc.nil?
+    end
+    link_type_id = nil
+    unless parameters["link_type_site_id"].nil?
+      link_type = LinkType.find(:first, :conditions => "site_id = #{parameters["link_type_site_id"]} and origin_id = #{parameters["link_type_id"]}")
+      link_type_id = link_type.id  unless link_type.nil?
+    end
+    
+    parameters = parameters.reverse_merge("origin_id" => parameters["sync_object_id"],
+                                          "site_id" => parameters["sync_object_site_id"])                                                           
+    [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
+      "action_taken_at_time", "language", "commit_link",  "taxon_concept_origin_id",
+      "taxon_concept_site_id", "references", "link_type_id", "toc_id",
+      "toc_site_id", "link_type_site_id", "new_revision_origin_id",
+      "new_revision_site_id"].each { |key| parameters.delete key }    
+    
+    new_data_object = data_object.replicate(parameters, user: user, toc_id: toc_id,
+                                             link_type_id: link_type_id, link_object: commit_link)
+    # add sync ids
+    new_data_object[:origin_id] = new_revision_origin_id
+    new_data_object[:site_id] = new_revision_site_id
+    new_data_object.save                                        
+    references = references.split("\r\n") unless references.blank?
+      unless references.blank?      
+        references.each do |reference|
+          if reference.strip != ''
+            ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(reference, 1, 1, Visibility.visible.id)
+            new_data_object.refs << ref unless ref.nil?
+           end
+        end
+      end
+     
+    user.log_activity(:updated_data_object_id, value: new_data_object.id,
+                                taxon_concept_id: new_data_object.taxon_concept_for_users_text.id)                                             
+  end
+ 
+   def self.rate_data_object(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    stars = parameters["stars"]
+    rated_successfully = data_object.rate(user, stars.to_i)
+    user.log_activity(:rated_data_object_id, value: data_object.id)
+    data_object.update_solr_index if rated_successfully
+   end 
  
   def self.get_url(base_url, cache_url,file_type)
     file_type = "jpg" if file_type == "jpeg"
@@ -596,6 +654,56 @@ class SyncPeerLog < ActiveRecord::Base
                                           date: parameters["action_taken_at_time"],
                                           is_preferred: parameters["is_preferred"])
     user.log_activity(:updated_common_names, taxon_concept_id: taxon_concept.id)
+  end
+  
+  def self.create_content_page(parameters)
+    params = {}
+    params["parent_content_page_id"] = parameters["parent_content_page_id"]
+    params["page_name"] = parameters["page_name"]
+    params["active"] = parameters["active"]
+    params["sort_order"] = parameters["sort_order"]
+    content_page = ContentPage.new(params)
+    translated_params = {}
+    translated_params["language_id"] = parameters["language"].id
+    translated_params["title"] = parameters["title"]
+    translated_params["main_content"] = parameters["main_content"]
+    translated_params["left_content"] = parameters["left_content"]
+    translated_params["meta_keywords"] = parameters["meta_keywords"]
+    translated_params["meta_description"] = parameters["meta_description"]
+    translated_params["active_translation"] = parameters["active_translation"]
+    content_page.translations.build(translated_params) 
+    content_page.save
+    content_page.update_column(:origin_id, parameters["sync_object_id"])
+    content_page.update_column(:site_id, parameters["sync_object_site_id"])
+    
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    content_page.last_update_user_id = user.id unless content_page.blank?
+  end
+  
+  def self.delete_content_page(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"], include: [:translations, :children])
+    page_name = content_page.page_name
+    content_page.last_update_user_id = user.id
+    parent_content_page_id = content_page.parent_content_page_id
+    sort_order = content_page.sort_order
+    content_page.destroy
+    ContentPage.update_sort_order_based_on_deleting_page(parent_content_page_id, sort_order)
+  end
+  
+  def self.swap_content_page(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    content_page.update_column(:sort_order, parameters["sort_order"])
+  end
+  
+  def self.update_content_page(parameters)
+    params = {}
+    params["parent_content_page_id"] = parameters["parent_content_page_id"]
+    params["page_name"] = parameters["page_name"]
+    params["active"] = parameters["active"]
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    content_page.update_attributes(params)
   end
   
   def self.create_community(parameters)
@@ -801,5 +909,4 @@ class SyncPeerLog < ActiveRecord::Base
 #    end
 #    invitees
 #  end
-  
 end

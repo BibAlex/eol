@@ -12,7 +12,6 @@ namespace :sync do
   task :push => :environment do
     # check if there is any pending push
     sync_event_count = SyncEvent.count(:all, :conditions => "status is null")
-
     if (sync_event_count > 0)
       puts 'Failed: A push request is in progress'
     else

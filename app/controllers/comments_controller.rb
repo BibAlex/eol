@@ -43,13 +43,19 @@ class CommentsController < ApplicationController
       @comment[:origin_id] = @comment.id
       @comment[:site_id] = PEER_SITE_ID
       @comment.save
+      parent_comment = Comment.find(params[:comment][:reply_to_id].to_i)  unless params[:comment][:reply_to_id].blank?      
       sync_params = params[:comment]
       sync_params.delete("parent_id")
+      sync_params.delete("reply_to_id")
       sync_params = sync_params.reverse_merge(:from_curator => @comment.from_curator,
                                               :visible_at => @comment.visible_at,
                                               :hidden => @comment.hidden,
                                               :comment_parent_origin_id => @comment.parent.origin_id,
-                                              :comment_parent_site_id => @comment.parent.site_id )
+                                              :comment_parent_site_id => @comment.parent.site_id)
+      if parent_comment
+        sync_params = sync_params.reverse_merge(:parent_comment_origin_id => parent_comment.origin_id,
+                                                :parent_comment_site_id => parent_comment.site_id)
+      end
       options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.get_create_action.id,
                     "type_id" =>  SyncObjectType.get_comment_type.id, "params" => sync_params} 
       SyncPeerLog.log_action(options)                                 

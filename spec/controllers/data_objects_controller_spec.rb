@@ -323,6 +323,21 @@ describe DataObjectsController do
         toc_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "toc_site_id")
         toc_site_id_parameter[0][:value].should == toc.site_id
         
+        object_title_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "object_title")
+        object_title_parameter[0][:value].should == "Test Article" 
+      
+        description_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "description")
+        description_parameter[0][:value].should == "Test text"
+       
+        data_type_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "data_type_id")
+        data_type_id_parameter[0][:value].should == DataType.text.id.to_s
+        
+        language_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "language_id")
+        language_id_parameter[0][:value].should == Language.english.id.to_s
+        
+        license_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "license_id")
+        license_id_parameter[0][:value].should == License.public_domain.id.to_s
+        
         # check peer logs
         create_collection_item_peer_log = SyncPeerLog.find(3)
         create_collection_item_peer_log.should_not be_nil
@@ -346,7 +361,184 @@ describe DataObjectsController do
         collected_item_name_parameter[0][:value].should == "#{data_obj.object_title}"
       end
     end
+    
+    describe "sync update data object" do
+      before(:each) do
+        truncate_all_tables
+        load_foundation_cache
+        Activity.create_enumerated
+        Visibility.create_enumerated
+        TocItem.gen_if_not_exists(:label => 'overview')
+        
+        @user = User.gen
+        session[:user_id] = @user.id
+        @user[:origin_id] = @user.id
+        @user[:site_id] = PEER_SITE_ID
+        @user.save
+        @taxon_concept = TaxonConcept.gen
+        @data_object = @taxon_concept.add_user_submitted_text(:user => @user)
+        @data_object[:origin_id] = @data_object.id
+        @data_object[:site_id] = PEER_SITE_ID
+        @data_object.save
+        @data_object.refs << Ref.new(full_reference: "Test reference", user_submitted: true, published: 1,
+                                       visibility: Visibility.visible)
+      end
+      
+      it 'should save updating data object paramters in synchronization tables' do
+        put :update, { :id => @data_object.id,
+                     :data_object => { :source_url => "", :rights_statement => "",
+                                       :toc_items => { :id => @data_object.toc_items.first.id.to_s }, :bibliographic_citation => "",
+                                       :data_type_id => DataType.text.id.to_s, :object_title =>"test_master",
+                                       :description => "desc", :license_id => License.public_domain.id.to_s,
+                                       :language_id => Language.english.id.to_s }, 
+                                       :references => "Test reference"},
+                   { :user => @user, :user_id => @user.id }
+               
+          
+        # created data object
+        new_data_obj = DataObject.find(3)
+        new_data_obj.object_title.should == "test_master"
+        new_data_obj.description.should == "desc"
+        new_data_obj.license_id.should == License.public_domain.id
+        user_data_obj = UsersDataObject.find(2)
+        user_data_obj.user_id.should == @user.id
+        new_data_obj.toc_items[0].id.should == @data_object.toc_items.first.id
+        # check created references
+        ref = Ref.find(2)       
+        new_data_obj_ref = new_data_obj.refs[0]
+        new_data_obj_ref.id.should == ref.id  
+        
+        # check created record for data object taxon concept
+        data_obj_taxon_concept = DataObjectsTaxonConcept.find(:first, :conditions => "data_object_id = #{new_data_obj.id} and taxon_concept_id = #{@taxon_concept.id}")
+        data_obj_taxon_concept.should_not be_nil      
+        
+        # check sync_object_type 
+        ref_type = SyncObjectType.first
+        ref_type.should_not be_nil
+        ref_type.object_type.should == "Ref"
+            
+        data_object_type = SyncObjectType.find(2)
+        data_object_type.should_not be_nil
+        data_object_type.object_type.should == "data_object"        
+        
+        # check sync_object_actions 
+        create_action = SyncObjectAction.first
+        create_action.should_not be_nil
+        create_action.object_action.should == "create"
+        
+        update_action = SyncObjectAction.find(2)
+        update_action.should_not be_nil
+        update_action.object_action.should == "update"        
+       
+         
+        # check peer logs        
+        update_data_object_peer_log = SyncPeerLog.find(2)
+        update_data_object_peer_log.should_not be_nil
+        update_data_object_peer_log.sync_object_action_id.should == update_action.id
+        update_data_object_peer_log.sync_object_type_id.should == data_object_type.id
+        update_data_object_peer_log.user_site_id.should == PEER_SITE_ID
+        update_data_object_peer_log.user_site_object_id.should == @user.id
+        update_data_object_peer_log.sync_object_id.should == @data_object.origin_id
+        update_data_object_peer_log.sync_object_site_id.should == @data_object.site_id
+
+         # check log action parameters
+        toc = TocItem.find(TocItem.overview.id)
+        
+        new_data_object_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "new_revision_origin_id")
+        new_data_object_origin_id_parameter[0][:value].should == "#{new_data_obj.origin_id}"
+        
+        new_data_object_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "new_revision_site_id")
+        new_data_object_site_id_parameter[0][:value].should == "#{new_data_obj.site_id}"
+        
+        references_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "references")
+        references_parameter[0][:value].should == "Test reference"
+        
+        toc_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "toc_id")
+        toc_id_parameter[0][:value].should == toc.origin_id
+        
+        toc_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "toc_site_id")
+        toc_site_id_parameter[0][:value].should == toc.site_id
+      
+        object_title_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "object_title")
+        object_title_parameter[0][:value].should == "test_master"
+      
+        description_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "description")
+        description_parameter[0][:value].should == "desc"
+       
+        data_type_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "data_type_id")
+        data_type_id_parameter[0][:value].should == DataType.text.id.to_s
+        
+        language_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "language_id")
+        language_id_parameter[0][:value].should == Language.english.id.to_s
+        
+        license_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "license_id")
+        license_id_parameter[0][:value].should == License.public_domain.id.to_s
+      end
+    end
+    
+    describe "sync rate data object" do
+      before(:each) do
+        truncate_all_tables
+        load_foundation_cache
+        Activity.create_enumerated
+        Visibility.create_enumerated
+        TocItem.gen_if_not_exists(:label => 'overview')
+        
+        @user = User.gen
+        session[:user_id] = @user.id
+        @user[:origin_id] = @user.id
+        @user[:site_id] = PEER_SITE_ID
+        @user.save
+        @taxon_concept = TaxonConcept.gen
+        @data_object = @taxon_concept.add_user_submitted_text(:user => @user)
+        @data_object[:origin_id] = @data_object.id
+        @data_object[:site_id] = PEER_SITE_ID
+        @data_object.save
+        @data_object.refs << Ref.new(full_reference: "Test reference", user_submitted: true, published: 1,
+                                       visibility: Visibility.visible)
+      end
+      
+      it 'should save rate data object paramters in synchronization tables' do
+        get :rate,  { :id => @data_object.id, 
+                      :minimal => false, :return_to => "http://localhost:3001/data_objects/#{@data_object.id}", 
+                      :stars => 2}
+               
+        # created data object
+        data_obj = DataObject.find(2)
+        data_obj.data_rating.should == 2
+        
+        user_data_obj_rate = UsersDataObjectsRating.first
+        user_data_obj_rate.user_id.should == @user.id
+        user_data_obj_rate.data_object_guid.should == @data_object.guid
+        user_data_obj_rate.rating.should == 2   
+        
+        # check sync_object_type 
+        data_object_type = SyncObjectType.first
+        data_object_type.should_not be_nil
+        data_object_type.object_type.should == "data_object"
+        
+        # check sync_object_actions 
+        rate_action = SyncObjectAction.first
+        rate_action.should_not be_nil
+        rate_action.object_action.should == "rate"
+        
+        # check peer logs        
+        rate_data_object_peer_log = SyncPeerLog.first
+        rate_data_object_peer_log.should_not be_nil
+        rate_data_object_peer_log.sync_object_action_id.should == rate_action.id
+        rate_data_object_peer_log.sync_object_type_id.should == data_object_type.id
+        rate_data_object_peer_log.user_site_id.should == PEER_SITE_ID
+        rate_data_object_peer_log.user_site_object_id.should == @user.id
+        rate_data_object_peer_log.sync_object_id.should == @data_object.origin_id
+        rate_data_object_peer_log.sync_object_site_id.should == @data_object.site_id
+
+         # check log action parameters
+        toc = TocItem.find(TocItem.overview.id)
+        
+        stars_parameter = SyncLogActionParameter.where(:peer_log_id => rate_data_object_peer_log.id, :parameter => "stars")
+        stars_parameter[0][:value].should == "2"
+      end
+    end
+    
   end
-  
-  
 end
