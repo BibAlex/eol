@@ -282,20 +282,39 @@ class DataObjectsController < ApplicationController
   end
 
   def remove_association
+    debugger
     he = HierarchyEntry.find(params[:hierarchy_entry_id])
     cdohe = @data_object.remove_curated_association(current_user, he)
     @data_object.update_solr_index
     clear_cached_media_count_and_exemplar(he)
     log_action(cdohe, :remove_association)
+    
+    #synchronization
+    sync_params = {:hierarchy_entry_origin_id => he.origin_id,
+                   :hierarchy_entry_site_id => he.site_id}
+                        
+    options = {"user" => current_user, "object" =>  @data_object, "action_id" => SyncObjectAction.get_remove_association_action.id,
+               "type_id" =>  SyncObjectType.get_data_object_type.id, "params" => sync_params}
+    SyncPeerLog.log_action(options)
+    
     redirect_to data_object_path(@data_object), status: :moved_permanently
   end
 
   def save_association
+    debugger
     he = HierarchyEntry.find(params[:hierarchy_entry_id])
     cdohe = @data_object.add_curated_association(current_user, he)
     clear_cached_media_count_and_exemplar(he)
     @data_object.update_solr_index
     log_action(cdohe, :add_association)
+    #synchronization
+    sync_params = {:hierarchy_entry_origin_id => he.origin_id,
+                   :hierarchy_entry_site_id => he.site_id}
+                         
+    options = {"user" => current_user, "object" =>  @data_object, "action_id" => SyncObjectAction.get_save_association_action.id,
+               "type_id" =>  SyncObjectType.get_data_object_type.id, "params" => sync_params}
+    SyncPeerLog.log_action(options)
+    
     redirect_to data_object_path(@data_object), status: :moved_permanently, notice: I18n.t(:association_added_flash)
   end
 
@@ -327,13 +346,18 @@ class DataObjectsController < ApplicationController
     access_denied unless current_user.min_curator_level?(:full)
     store_location(params[:return_to]) # TODO - this should be generalized at the application level, it's quick, it's common.
     curations = []
+    associations = []
+    comments = []
     @data_object.data_object_taxa.each do |association|
+      associations << association
+      comment = curation_comment(params["curation_comment_#{association.id}"]) # Note, this gets saved regardless!
+      comments << comment
       curations << Curation.new(
         association: association,
         user: current_user,
         vetted: Vetted.find(params["vetted_id_#{association.id}"]),
         visibility: visibility_from_params(association),
-        comment: curation_comment(params["curation_comment_#{association.id}"]), # Note, this gets saved regardless!
+        comment: comment,
         untrust_reason_ids: params["untrust_reasons_#{association.id}"],
         hide_reason_ids: params["hide_reasons_#{association.id}"] )
     end
@@ -345,8 +369,45 @@ class DataObjectsController < ApplicationController
       auto_collect(@data_object) # SPG wants all curated objects collected.
       flash[:notice] = I18n.t(:object_curated)
       @data_object.reindex
+      
+      #Synchronization
+      
+      index = 0
+      associations.each do |association|
+        
+        untrust_reasons = params["untrust_reasons_#{association.id}"]? get_objects_labels(params["untrust_reasons_#{association.id}"], "UntrustReason"): nil
+        hide_reasons = params["hide_reasons_#{association.id}"]? get_objects_labels(params["hide_reasons_#{association.id}"], "UntrustReason"): nil
+        visibility = TranslatedVisibility.find_by_visibility_id_and_language_id(
+                  params["visibility_id_#{association.id}"], current_language.id)
+                    
+        sync_params = {}
+        sync_params["language"] = current_language
+        sync_params["vetted_view_order"] = Vetted.find(params["vetted_id_#{association.id}"]).view_order
+        sync_params["curation_comment_origin_id"] = comments[index].origin_id if comments[index]
+        sync_params["curation_comment_site_id"] = comments[index].site_id if comments[index]
+        sync_params["untrust_reasons"] = untrust_reasons if untrust_reasons
+        sync_params["hide_reasons"] = hide_reasons if hide_reasons
+        sync_params["visibility_label"] = visibility.label if visibility
+        sync_params["taxon_concept_origin_id"] = association.taxon_concept.origin_id
+        sync_params["taxon_concept_site_id"] = association.taxon_concept.site_id
+        options = {"user" => current_user, "object" =>  @data_object, "action_id" => SyncObjectAction.get_curate_associations_action.id,
+                   "type_id" =>  SyncObjectType.get_data_object_type.id, "params" => sync_params}
+        SyncPeerLog.log_action(options)
+        index = index + 1
+      end
     end
     redirect_back_or_default data_object_path(@data_object.latest_published_version_in_same_language)
+  end
+  
+  def get_objects_labels(objects_ids, object_type)
+    objects_labels = ""
+    if objects_ids
+      objects_ids.each do |object_id|
+        object = object_type.constantize.find(object_id.to_i)
+        objects_labels += object.class_name + "," if object
+      end
+    end  
+    objects_labels  
   end
 
   def ignore
@@ -457,7 +518,22 @@ private
       return nil
     else
       auto_collect(@data_object) # SPG asks for all curation comments to add the item to their watchlist.
-      return Comment.create(parent: @data_object, body: comment, user: current_user)
+      comment = Comment.create(parent: @data_object, body: comment, user: current_user, site_id: PEER_SITE_ID)
+      comment.update_column(:origin_id, comment.id)
+      
+      sync_params = {:parent_type => "DataObject",
+                     :reply_to_type => comment.reply_to_type,
+                     :reply_to_id => comment.reply_to_id,
+                     :body => comment.body,
+                     :from_curator => comment.from_curator,
+                     :visible_at => comment.visible_at,
+                     :hidden => comment.hidden,
+                     :comment_parent_origin_id => comment.parent.origin_id,
+                     :comment_parent_site_id => comment.parent.site_id }
+      options = {"user" => current_user, "object" =>  comment, "action_id" => SyncObjectAction.get_create_action.id,
+                    "type_id" =>  SyncObjectType.get_comment_type.id, "params" => sync_params} 
+      SyncPeerLog.log_action(options)                                 
+      return comment
     end
   end
 

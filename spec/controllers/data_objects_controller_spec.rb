@@ -130,6 +130,86 @@ describe DataObjectsController do
   
     # add items to collections synchronization
   describe "mange data objects synchronization" do
+    
+    describe "add association" do
+      before(:each) do
+        truncate_all_tables
+        load_foundation_cache
+        
+        @current_user = User.gen
+        session[:user_id] = @current_user.id
+        @current_user[:origin_id] = @current_user.id
+        @current_user[:site_id] = PEER_SITE_ID
+        @current_user.save
+      end
+      
+      it "should add association" do
+        data_object = DataObject.gen
+        data_object.update_column(:origin_id, data_object.id)
+        data_object.update_column(:site_id, 1)
+        
+        he = HierarchyEntry.first
+        he.update_column(:origin_id, he.id)
+        he.update_column(:site_id, 1)
+        
+        put :save_association, {:id => data_object.id, :hierarchy_entry_id => he.id}
+        cdoh = CuratedDataObjectsHierarchyEntry.find_by_hierarchy_entry_id_and_data_object_id(HierarchyEntry.first.id, data_object.id)
+        cdoh.should_not be_nil
+        
+        # check sync_object_type
+        type = SyncObjectType.first
+        type.should_not be_nil
+        type.object_type.should == "data_object"
+  
+        # check sync_object_actions
+        action = SyncObjectAction.first
+        action.should_not be_nil
+        action.object_action.should == "save_association"
+  
+        # check peer log for creating new collection
+        peer_log = SyncPeerLog.first
+        peer_log.should_not be_nil
+        peer_log.sync_object_action_id.should == action.id
+        peer_log.sync_object_type_id.should == type.id
+        peer_log.user_site_id.should == @current_user.site_id
+        peer_log.user_site_object_id.should == @current_user.origin_id
+        peer_log.sync_object_id.should == data_object.origin_id
+        peer_log.sync_object_site_id.should == data_object.site_id
+        
+        # check log action parameters
+        hierarchy_entry_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "hierarchy_entry_origin_id")
+        hierarchy_entry_origin_id_parameter[0][:value].should == "#{he.origin_id}"
+        hierarchy_entry_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "hierarchy_entry_site_id")
+        hierarchy_entry_site_id_parameter[0][:value].should == "#{he.site_id}"
+      end
+    end
+    
+    describe "remove association" do
+      before(:each) do
+        truncate_all_tables
+        load_foundation_cache
+        
+        @current_user = User.gen
+        session[:user_id] = @current_user.id
+        @current_user[:origin_id] = @current_user.id
+        @current_user[:site_id] = PEER_SITE_ID
+        @current_user.save
+      end
+      
+      it "should add association" do
+        data_object = DataObject.gen
+        cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
+        :visibility_id => Visibility.visible.id, :user_id => @current_user.id, 
+        :data_object_guid => data_object.guid, :hierarchy_entry_id => HierarchyEntry.first.id,
+        :data_object_id => data_object.id)
+        get "/data_objects/#{data_object.id}/remove_association/#{HierarchyEntry.first.id}"
+#        get :remove_association, {:id =>, :hierarchy_entry_id => }
+          
+        CuratedDataObjectsHierarchyEntry.find_by_data_object_guid_and_data_object_id(data_object.guid,
+                                         data_object.id).should be_nil
+      end
+    end
+    
     describe "create new data object" do
       before(:each) do
         truncate_all_tables

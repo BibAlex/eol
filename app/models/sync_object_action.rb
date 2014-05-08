@@ -54,6 +54,18 @@ class SyncObjectAction < ActiveRecord::Base
   end
   
   def self.get_leave_action
-      self.find_or_create_by_object_action('leave')
-    end
+    self.find_or_create_by_object_action('leave')
+  end
+  
+  def self.get_save_association_action
+    self.find_or_create_by_object_action('save_association')
+  end
+  
+  def self.get_remove_association_action
+    self.find_or_create_by_object_action('remove_association')
+  end
+  
+  def self.get_curate_associations_action
+    self.find_or_create_by_object_action('curate_associations')
+  end
 end

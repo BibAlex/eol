@@ -1,6 +1,6 @@
 # encoding: utf-8
-require "#{Rails.root}/app/helpers/communities_helper"
-include CommunitiesHelper::ClassMethods
+require "#{Rails.root}/app/helpers/sync_peer_log_helper"
+include SyncPeerLogHelper::ClassMethods
 
 class ApplicationController < ActionController::Base
 

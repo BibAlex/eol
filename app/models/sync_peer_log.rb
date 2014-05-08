@@ -2,7 +2,7 @@ require 'image_manipulation'
 class SyncPeerLog < ActiveRecord::Base
   
   include FileHelper
-  include CommunitiesHelper
+  include SyncPeerLogHelper
   attr_accessible :action_taken_at_time, :sync_event_id, :sync_object_action_id, :sync_object_id, :sync_object_site_id, :sync_object_type_id, :user_site_id, :user_site_object_id
   has_many :sync_log_action_parameter, :foreign_key => 'peer_log_id'
   belongs_to :sync_object_type, :foreign_key => 'sync_object_type_id'
@@ -492,7 +492,6 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle create data object action after pull
   def self.create_data_object(parameters)
-    debugger
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
     references = parameters["references"]
@@ -614,8 +613,8 @@ class SyncPeerLog < ActiveRecord::Base
     #add logo
     self.handle_community_logo(community, parameters)
     options = {}
-    options[:desired_user_origin_id] = user.origin_id
-    options[:desired_user_site_id] = user.site_id
+    options[:user] = user
+    options[:without_flash] = true
     auto_collect_helper(community, options)
     community.collections.each do |focus|
       auto_collect_helper(focus, options)
@@ -673,10 +672,10 @@ class SyncPeerLog < ActiveRecord::Base
     if community && user
       member = community.add_member(user)
       options = {}
-      options[:desired_user_origin_id] = user.origin_id
-      options[:desired_user_site_id] = user.site_id
+      options[:user] = user
       options[:annotation] = I18n.t(:user_joined_community_on_date, date: I18n.l(parameters["action_taken_at_time"]),
       username: user.full_name)
+      options[:without_flash] = true
       auto_collect_helper(community, options)
       community.collections.each do |focus|
         auto_collect_helper(focus,options)
@@ -701,6 +700,74 @@ class SyncPeerLog < ActiveRecord::Base
       opts["member_id"] = user.id
       log_community_action(:leave, opts)
     end
+  end
+  
+  def self.save_association_data_object(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    he = HierarchyEntry.find_by_origin_id_and_site_id(parameters["hierarchy_entry_origin_id"], parameters["hierarchy_entry_site_id"])
+    cdohe = data_object.add_curated_association(user, he)
+    data_object.update_solr_index
+    options = {}
+    options["data_object"] = data_object
+    options["user"] = user
+    log_data_object_action(cdohe, :add_association, options)
+  end
+  
+  def self.remove_association_data_object(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    he = HierarchyEntry.find_by_origin_id_and_site_id(parameters["hierarchy_entry_origin_id"], parameters["hierarchy_entry_site_id"])
+    cdohe = data_object.remove_curated_association(user, he)
+    data_object.update_solr_index
+    options = {}
+    options["data_object"] = data_object
+    options["user"] = user
+    log_data_object_action(cdohe, :remove_association, options)
+  end
+  
+  def self.curate_associations_data_object(parameters)
+    
+    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
+    
+    visibility = parameters["visibility_label"] ? Visibility.find(TranslatedVisibility.find_by_language_id_and_label(parameters["language"].id, parameters["visibility_label"]).visibility_id) : nil
+    untrust_reasons = parameters["untrust_reasons"] ? get_objects_ids(parameters["untrust_reasons"], "UntrustReason") : nil
+    hide_reasons = parameters["hide_reasons"] ? get_objects_ids(parameters["hide_reasons"], "UntrustReason"): nil
+    comment = (parameters["curation_comment_origin_id"] && parameters["curation_comment_site_id"]) ? Comment.find_by_origin_id_and_site_id(parameters["curation_comment_origin_id"], parameters["curation_comment_site_id"]) : nil
+      
+    association = data_object.data_object_taxa.find {|item| item.taxon_concept.origin_id == taxon_concept.origin_id && item.taxon_concept.site_id == taxon_concept.site_id}
+    
+    
+    
+    curation = Curation.new(
+        association: association,
+        user: user,
+        vetted: Vetted.find_by_view_order(parameters["vetted_view_order"]),
+        visibility: visibility,
+        comment: comment, 
+        untrust_reason_ids: untrust_reasons,
+        hide_reason_ids: hide_reasons)
+    curation.curate
+    DataObjectCaching.clear(data_object)
+    options = {}
+    options[:user] = user
+    options[:without_flash] = true
+    auto_collect_helper(data_object, options) 
+    data_object.reindex
+  end
+  
+  def self.get_objects_ids(objects_labels, object_type)
+    objects_ids = []
+    objects_labels = objects_labels.split(",")
+    if objects_labels
+      objects_labels.each do |object_label|
+        object = object_type.constantize.find_by_class_name(object_label)
+        objects_ids << object.id.to_s if object
+      end
+    end  
+    objects_ids  
   end
   
   def self.handle_community_logo(community, parameters)

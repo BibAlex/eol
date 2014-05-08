@@ -12,6 +12,7 @@ class CommentsController < ApplicationController
 
   # POST /comments
   def create
+    debugger
     comment_data = params[:comment] unless params[:comment].blank?
     return_to = params[:return_to] unless params[:return_to].blank?
     if session[:submitted_data]
