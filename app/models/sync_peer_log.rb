@@ -402,6 +402,9 @@ class SyncPeerLog < ActiveRecord::Base
   def self.create_comment(parameters)
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     comment_parent = parameters["parent_type"].constantize.find_by_origin_id_and_site_id(parameters["comment_parent_origin_id"], parameters["comment_parent_site_id"])
+    if parameters["parent_comment_origin_id"]
+      parent_comment = Comment.find_by_origin_id_and_site_id(parameters["parent_comment_origin_id"], parameters["parent_comment_site_id"])
+    end
     # remove extra parameters which not needed in creating collection 
     unless user.nil?
       parameters["site_id"] = parameters["sync_object_site_id"]
@@ -409,8 +412,9 @@ class SyncPeerLog < ActiveRecord::Base
       parameters["parent_id"] = comment_parent.id   
       [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
         "action_taken_at_time", "language", "comment_parent_origin_id",
-        "comment_parent_site_id"].each { |key| parameters.delete key }
+        "comment_parent_site_id", "parent_comment_origin_id", "parent_comment_site_id"].each { |key| parameters.delete key }
       parameters["user_id"] = user.id
+      parameters["reply_to_id"] = parent_comment.id if parent_comment
       comment = Comment.new(parameters)       
       comment.save!
     end    
