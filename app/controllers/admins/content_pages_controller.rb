@@ -20,9 +20,12 @@ class Admins::ContentPagesController < AdminsController
 
   # POST /admin/content_pages
   def create
+    sort_order = ContentPage.initial_sort_order(params[:content_page][:parent_content_page_id])
+    params[:content_page][:sort_order] = sort_order + 1
     @content_page = ContentPage.new(params[:content_page])
     @translated_content_page = @content_page.translations.build(params[:translated_content_page])
     @content_page.last_update_user_id = current_user.id unless @content_page.blank?
+    
     if @content_page.save
       @content_page.update_column(:origin_id, @content_page.id)
       @content_page.update_column(:site_id, PEER_SITE_ID)
@@ -54,6 +57,10 @@ class Admins::ContentPagesController < AdminsController
   def update
     @content_page = ContentPage.find(params[:id])
     if @content_page.update_attributes(params[:content_page])
+      #Sync Here
+      options = {"user" => current_user, "object" =>  @content_page, "action_id" => SyncObjectAction.get_update_action.id,
+                    "type_id" =>  SyncObjectType.get_content_page_type.id, "params" => params[:content_page]}
+      SyncPeerLog.log_action(options)
       flash[:notice] = I18n.t(:admin_content_page_update_successful_notice,
                               page_name: @content_page.page_name,
                               anchor: @content_page.page_name.gsub(' ', '_').downcase)

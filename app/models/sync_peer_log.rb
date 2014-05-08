@@ -661,6 +661,7 @@ class SyncPeerLog < ActiveRecord::Base
     params["parent_content_page_id"] = parameters["parent_content_page_id"]
     params["page_name"] = parameters["page_name"]
     params["active"] = parameters["active"]
+    params["sort_order"] = parameters["sort_order"]
     content_page = ContentPage.new(params)
     translated_params = {}
     translated_params["language_id"] = parameters["language"].id
@@ -695,7 +696,16 @@ class SyncPeerLog < ActiveRecord::Base
     content_page = ContentPage.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
     content_page.update_column(:sort_order, parameters["sort_order"])
   end
-
+  
+  def self.update_content_page(parameters)
+    params = {}
+    params["parent_content_page_id"] = parameters["parent_content_page_id"]
+    params["page_name"] = parameters["page_name"]
+    params["active"] = parameters["active"]
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    content_page.update_attributes(params)
+  end
+  
   def self.create_community(parameters)
     user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
     collection = Collection.find_by_origin_id_and_site_id(parameters["collection_origin_id"], parameters["collection_site_id"])
