@@ -169,7 +169,7 @@ class Taxa::NamesController < TaxaController
                  "taxon_concept_origin_id" => @taxon_concept.origin_id,
                  "taxon_concept_site_id" => @taxon_concept.site_id,
                  "string" => name.string,
-                 "action_taken_at_time" => Time.now}
+                 "action_taken_at" => Time.now}
     synonym = Synonym.find_by_name_id(name_id)         
     options = {"user" => current_user, "object" =>  synonym, "action_id" => SyncObjectAction.get_vet_action.id,
               "type_id" =>  SyncObjectType.get_common_name_type.id, "params" => sync_params}

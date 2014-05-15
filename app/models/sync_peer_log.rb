@@ -3,7 +3,7 @@ class SyncPeerLog < ActiveRecord::Base
   
   include FileHelper
   include SyncPeerLogHelper
-  attr_accessible :action_taken_at_time, :sync_event_id, :sync_object_action_id, :sync_object_id, :sync_object_site_id, :sync_object_type_id, :user_site_id, :user_site_object_id
+  attr_accessible :action_taken_at, :sync_event_id, :sync_object_action_id, :sync_object_id, :sync_object_site_id, :sync_object_type_id, :user_site_id, :user_site_object_id
   has_many :sync_log_action_parameter, :foreign_key => 'peer_log_id'
   belongs_to :sync_object_type, :foreign_key => 'sync_object_type_id'
   belongs_to :sync_object_action, :foreign_key => 'sync_object_action_id'
@@ -38,7 +38,7 @@ class SyncPeerLog < ActiveRecord::Base
     parameters["user_site_object_id"] = user_site_object_id
     parameters["sync_object_site_id"] = sync_object_site_id
     parameters["sync_object_id"] = sync_object_id
-    parameters["action_taken_at_time"] = action_taken_at_time
+    parameters["action_taken_at"] = action_taken_at
       
     sync_log_action_parameter.each do |lap|
       unless lap.param_object_type_id
@@ -102,7 +102,7 @@ class SyncPeerLog < ActiveRecord::Base
     spl = SyncPeerLog.new
     spl.user_site_id = user_site_id   
     spl.user_site_object_id = user_site_object_id
-    spl.action_taken_at_time = time
+    spl.action_taken_at = time
     spl.sync_object_action_id = sync_object_action_id
     spl.sync_object_type_id = sync_object_type_id
     spl.sync_object_site_id = sync_object_site_id
@@ -125,7 +125,7 @@ class SyncPeerLog < ActiveRecord::Base
     params["site_id"] = parameters["sync_object_site_id"]
     
     parameters.each do |key, value| 
-      unless 'user_site_id user_site_object_id sync_object_site_id sync_object_id collection_site_id collection_origin_id action_taken_at_time'.include? key
+      unless 'user_site_id user_site_object_id sync_object_site_id sync_object_id collection_site_id collection_origin_id action_taken_at'.include? key
         params[key] = value
       end
     end
@@ -156,7 +156,7 @@ class SyncPeerLog < ActiveRecord::Base
     parameters.delete("user_site_object_id")
     parameters.delete("sync_object_id")
     parameters.delete("sync_object_site_id") 
-    parameters.delete("action_taken_at_time") 
+    parameters.delete("action_taken_at") 
     
     user = User.find_by_origin_id_and_site_id(parameters["origin_id"], parameters["site_id"])
     logo_file_name = parameters["logo_file_name"]
@@ -214,7 +214,7 @@ class SyncPeerLog < ActiveRecord::Base
     parameters.delete("user_site_object_id")
     parameters.delete("sync_object_id")
     parameters.delete("sync_object_site_id")
-    parameters.delete("action_taken_at_time")
+    parameters.delete("action_taken_at")
     
     user = User.find_by_origin_id_and_site_id(parameters["origin_id"], parameters["site_id"])
     if (!(user.nil?))
@@ -245,7 +245,7 @@ class SyncPeerLog < ActiveRecord::Base
     base = parameters["base"]  
     ["language", "user_site_id", "user_site_object_id", "user_site_object_id", 
       "sync_object_id", "sync_object_site_id", "item_origin_id", "item_site_id",
-      "item_type", "item_name", "base", "action_taken_at_time"].each { |key| parameters.delete key }
+      "item_type", "item_name", "base", "action_taken_at"].each { |key| parameters.delete key }
     collection = Collection.new(parameters)
     collection.save  
     collection.users = [collection_owner] unless collection_owner.nil?           
@@ -267,7 +267,7 @@ class SyncPeerLog < ActiveRecord::Base
       logo_file_name = parameters["logo_file_name"]
       
       # remove extra parameters which not needed in creating collection
-      ["language", "user_site_id", "user_site_object_id", "sync_object_id", "sync_object_site_id", "updated_at", "action_taken_at_time"].each { |key| parameters.delete key }
+      ["language", "user_site_id", "user_site_object_id", "sync_object_id", "sync_object_site_id", "updated_at", "action_taken_at"].each { |key| parameters.delete key }
       
       if(!(collection.nil?))      
         if !(logo_file_name.nil?)
@@ -411,7 +411,7 @@ class SyncPeerLog < ActiveRecord::Base
       parameters["origin_id"] = parameters["sync_object_id"]
       parameters["parent_id"] = comment_parent.id   
       [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
-        "action_taken_at_time", "language", "comment_parent_origin_id",
+        "action_taken_at", "language", "comment_parent_origin_id",
         "comment_parent_site_id", "parent_comment_origin_id", "parent_comment_site_id"].each { |key| parameters.delete key }
       parameters["user_id"] = user.id
       parameters["reply_to_id"] = parent_comment.id if parent_comment
@@ -426,7 +426,7 @@ class SyncPeerLog < ActiveRecord::Base
     # remove extra parameters which not needed in creating collection 
     unless comment.nil?
       [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
-        "action_taken_at_time", "language"].each { |key| parameters.delete key }
+        "action_taken_at", "language"].each { |key| parameters.delete key }
       comment.update_attributes(parameters)
     end    
   end
@@ -467,7 +467,7 @@ class SyncPeerLog < ActiveRecord::Base
     col_item = CollectionItem.find(:first, :conditions => "collection_id = #{col.id} and collected_item_id = #{item.id}")
     if col_item.updated_at < parameters["updated_at"]
       [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
-          "action_taken_at_time", "collected_item_type", "item_id",
+          "action_taken_at", "collected_item_type", "item_id",
           "item_site_id", "language", "references", "updated_at"].each { |key| parameters.delete key }
       col_item.update_attributes(parameters) 
       col_item.refs.clear    
@@ -513,7 +513,7 @@ class SyncPeerLog < ActiveRecord::Base
     parameters = parameters.reverse_merge("origin_id" => parameters["sync_object_id"],
                                           "site_id" => parameters["sync_object_site_id"])                                                           
     [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
-      "action_taken_at_time", "language", "commit_link",  "taxon_concept_origin_id",
+      "action_taken_at", "language", "commit_link",  "taxon_concept_origin_id",
       "taxon_concept_site_id", "references", "link_type_id", "toc_id",
       "toc_site_id", "link_type_site_id"].each { |key| parameters.delete key }    
     
@@ -558,7 +558,7 @@ class SyncPeerLog < ActiveRecord::Base
     parameters = parameters.reverse_merge("origin_id" => parameters["sync_object_id"],
                                           "site_id" => parameters["sync_object_site_id"])                                                           
     [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
-      "action_taken_at_time", "language", "commit_link",  "taxon_concept_origin_id",
+      "action_taken_at", "language", "commit_link",  "taxon_concept_origin_id",
       "taxon_concept_site_id", "references", "link_type_id", "toc_id",
       "toc_site_id", "link_type_site_id", "new_revision_origin_id",
       "new_revision_site_id"].each { |key| parameters.delete key }    
@@ -633,7 +633,7 @@ class SyncPeerLog < ActiveRecord::Base
     vetted = Vetted.find_or_create_by_view_order(parameters["vetted_view_order"])
     taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
     found = taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: user,
-                                        date: parameters["action_taken_at_time"])
+                                        date: parameters["action_taken_at"])
     if found
       user.log_activity(:vetted_common_name, taxon_concept_id: taxon_concept.id, value: name_id)
       taxon_concept.reindex_in_solr
@@ -651,7 +651,7 @@ class SyncPeerLog < ActiveRecord::Base
                                           preferred: 1,
                                           vetted: Vetted.trusted,
                                           site_id: name.site_id,
-                                          date: parameters["action_taken_at_time"],
+                                          date: parameters["action_taken_at"],
                                           is_preferred: parameters["is_preferred"])
     user.log_activity(:updated_common_names, taxon_concept_id: taxon_concept.id)
   end
@@ -781,7 +781,7 @@ class SyncPeerLog < ActiveRecord::Base
       member = community.add_member(user)
       options = {}
       options[:user] = user
-      options[:annotation] = I18n.t(:user_joined_community_on_date, date: I18n.l(parameters["action_taken_at_time"]),
+      options[:annotation] = I18n.t(:user_joined_community_on_date, date: I18n.l(parameters["action_taken_at"]),
       username: user.full_name)
       options[:without_flash] = true
       auto_collect_helper(community, options)
@@ -846,7 +846,6 @@ class SyncPeerLog < ActiveRecord::Base
     comment = (parameters["curation_comment_origin_id"] && parameters["curation_comment_site_id"]) ? Comment.find_by_origin_id_and_site_id(parameters["curation_comment_origin_id"], parameters["curation_comment_site_id"]) : nil
       
     association = data_object.data_object_taxa.find {|item| item.taxon_concept.origin_id == taxon_concept.origin_id && item.taxon_concept.site_id == taxon_concept.site_id}
-    
     
     
     curation = Curation.new(

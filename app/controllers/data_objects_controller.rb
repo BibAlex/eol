@@ -381,6 +381,7 @@ class DataObjectsController < ApplicationController
     associations = []
     comments = []
     @data_object.data_object_taxa.each do |association|
+      debugger
       associations << association
       comment = curation_comment(params["curation_comment_#{association.id}"]) # Note, this gets saved regardless!
       comments << comment

@@ -95,6 +95,7 @@ namespace :sync do
     
     # Now send the request to the registry
     url = URI.parse(REGISTRY_URL + REGISTRY_PULL_URL + parameters)
+    debugger
     resp=Net::HTTP.get_response(url)
     
     # get the response and do the validation

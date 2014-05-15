@@ -63,6 +63,7 @@ class Sync
   def self.notify_registry(uuid, success, reason)
     parameters = "?auth_code=#{AUTH_CODE}&uuid=#{uuid}&success=#{success}&reason=#{reason}"
     url = URI.parse(REGISTRY_URL + REGISTRY_PULL_REPORT + parameters)
+    debugger
     resp=Net::HTTP.get_response(url)
     # get the response and do the validation
     resp_json = JSON.parse(resp.body)
@@ -78,7 +79,7 @@ class Sync
       peer_log.sync_event_id = sync_event.id
       peer_log.user_site_id = data_element["user_site_id"]
       peer_log.user_site_object_id = data_element["user_site_object_id"]
-      peer_log.action_taken_at_time = data_element["action_taken_at_time"]
+      peer_log.action_taken_at = data_element["action_taken_at"]
       peer_log.sync_object_action_id = SyncObjectAction.find_or_create_by_object_action(data_element["sync_object_action"]).id     
       peer_log.sync_object_type_id = SyncObjectType.find_or_create_by_object_type(data_element["sync_object_type"]).id
       peer_log.sync_object_id = data_element["sync_object_id"]
