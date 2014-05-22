@@ -63,7 +63,6 @@ class Sync
   def self.notify_registry(uuid, success, reason)
     parameters = "?auth_code=#{AUTH_CODE}&uuid=#{uuid}&success=#{success}&reason=#{reason}"
     url = URI.parse(REGISTRY_URL + REGISTRY_PULL_REPORT + parameters)
-    debugger
     resp=Net::HTTP.get_response(url)
     # get the response and do the validation
     resp_json = JSON.parse(resp.body)

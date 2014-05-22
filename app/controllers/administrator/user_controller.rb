@@ -162,17 +162,7 @@ class Administrator::UserController  < AdminController
         end
         @user.add_to_index
         
-          #log update user action action for sync.
-            sync_params = params[:user]      
-            sync_params = sync_params.reverse_merge(:updated_at => @user.updated_at,
-                                                    :curator_approved => @user.curator_approved,                                                   
-                                                    :curator_level_id => @user.curator_level_id,
-                                                    :curator_verdict_by_id => @user.curator_verdict_by_id,
-                                                    :curator_verdict_at => @user.curator_verdict_at)
-           ["email", "email_confirmation", "entered_password", "entered_password_confirmation", "requested_curator_level_id", "requested_curator_at"].each { |key| sync_params.delete key }
-            options = {"user" => admin, "object" =>  @user, "action_id" => SyncObjectAction.get_update_user_by_admin_action.id,
-                    "type_id" =>  SyncObjectType.get_user_type.id, "params" => sync_params}
-            SyncPeerLog.log_action(options)
+        sync_update_user(admin)  
    
         
         flash[:notice] = I18n.t("the_user_was_updatedzzz")
@@ -301,6 +291,22 @@ private
   def set_layout_variables
     @page_title = $ADMIN_CONSOLE_TITLE
     @navigation_partial = '/admin/navigation'
+  end
+  
+  def sync_update_user(admin)
+    #log update user action action for sync.
+    sync_params = params[:user]      
+    sync_params = sync_params.reverse_merge(updated_at: @user.updated_at,
+                                            curator_approved: @user.curator_approved,                                                   
+                                            curator_level_id: @user.curator_level_id,
+                                            curator_verdict_by_id: @user.curator_verdict_by_id,
+                                            curator_verdict_at: @user.curator_verdict_at)
+    sync_params = SyncPeerLog.delete_unwanted_keys([:email, :email_confirmation, :entered_password,
+            :entered_password_confirmation, :requested_curator_level_id, :requested_curator_at], sync_params)
+
+    options = {user: admin, object: @user, action_id: SyncObjectAction.update_by_admin.id,
+            type_id: SyncObjectType.user.id, params: sync_params}
+    SyncPeerLog.log_action(options)
   end
 
 end

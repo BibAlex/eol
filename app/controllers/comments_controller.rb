@@ -12,7 +12,6 @@ class CommentsController < ApplicationController
 
   # POST /comments
   def create
-    debugger
     comment_data = params[:comment] unless params[:comment].blank?
     return_to = params[:return_to] unless params[:return_to].blank?
     if session[:submitted_data]
@@ -56,8 +55,8 @@ class CommentsController < ApplicationController
         sync_params = sync_params.reverse_merge(:parent_comment_origin_id => parent_comment.origin_id,
                                                 :parent_comment_site_id => parent_comment.site_id)
       end
-      options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.get_create_action.id,
-                    "type_id" =>  SyncObjectType.get_comment_type.id, "params" => sync_params} 
+      options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.create.id,
+                    "type_id" =>  SyncObjectType.comment.id, "params" => sync_params} 
       SyncPeerLog.log_action(options)                                 
     else
       flash[:error] = I18n.t(:comment_not_added_error)
@@ -106,8 +105,8 @@ class CommentsController < ApplicationController
     if @comment.update_attributes(params[:comment])
       # sync update comment action
       sync_params = params[:comment]      
-      options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.get_update_action.id,
-                    "type_id" =>  SyncObjectType.get_comment_type.id, "params" => sync_params} 
+      options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.update.id,
+                    "type_id" =>  SyncObjectType.comment.id, "params" => sync_params} 
       SyncPeerLog.log_action(options)
       
       respond_to do |format|
@@ -138,8 +137,8 @@ class CommentsController < ApplicationController
     if @comment.update_attributes(deleted: 1)
       # sync update comment action
       sync_params = {:deleted => 1}     
-      options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.get_delete_action.id,
-                    "type_id" =>  SyncObjectType.get_comment_type.id, "params" => sync_params} 
+      options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.delete.id,
+                    "type_id" =>  SyncObjectType.comment.id, "params" => sync_params} 
       SyncPeerLog.log_action(options)
       
       respond_to do |format|

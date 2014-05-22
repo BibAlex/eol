@@ -33,8 +33,8 @@ class Admins::ContentPagesController < AdminsController
       sync_params = sync_params.merge(params[:translated_content_page])
       sync_params[:language] = params[:translated_content_page][:language_id]
       sync_params.delete("language_id")
-      options = {"user" => current_user, "object" =>  @content_page, "action_id" => SyncObjectAction.get_create_action.id,
-                    "type_id" =>  SyncObjectType.get_content_page_type.id, "params" => sync_params}
+      options = {"user" => current_user, "object" =>  @content_page, "action_id" => SyncObjectAction.create.id,
+                    "type_id" =>  SyncObjectType.content_page.id, "params" => sync_params}
       SyncPeerLog.log_action(options)
       flash[:notice] = I18n.t(:admin_content_page_create_successful_notice,
                               page_name: @content_page.page_name,
@@ -58,8 +58,8 @@ class Admins::ContentPagesController < AdminsController
     @content_page = ContentPage.find(params[:id])
     if @content_page.update_attributes(params[:content_page])
       #Sync Here
-      options = {"user" => current_user, "object" =>  @content_page, "action_id" => SyncObjectAction.get_update_action.id,
-                    "type_id" =>  SyncObjectType.get_content_page_type.id, "params" => params[:content_page]}
+      options = {"user" => current_user, "object" =>  @content_page, "action_id" => SyncObjectAction.update.id,
+                    "type_id" =>  SyncObjectType.content_page.id, "params" => params[:content_page]}
       SyncPeerLog.log_action(options)
       flash[:notice] = I18n.t(:admin_content_page_update_successful_notice,
                               page_name: @content_page.page_name,
@@ -83,8 +83,8 @@ class Admins::ContentPagesController < AdminsController
     content_page.destroy
     ContentPage.update_sort_order_based_on_deleting_page(parent_content_page_id, sort_order)
     #Syncronization
-    options = {"user" => current_user, "object" =>  content_page, "action_id" => SyncObjectAction.get_delete_action.id,
-                  "type_id" =>  SyncObjectType.get_content_page_type.id, "params" => {}}
+    options = {"user" => current_user, "object" =>  content_page, "action_id" => SyncObjectAction.delete.id,
+                  "type_id" =>  SyncObjectType.content_page.id, "params" => {}}
     SyncPeerLog.log_action(options)
     
     flash[:notice] = I18n.t(:admin_content_page_delete_successful_notice, page_name: page_name)
@@ -100,14 +100,14 @@ class Admins::ContentPagesController < AdminsController
     if swap_page = ContentPage.find_by_parent_content_page_id_and_sort_order(content_page.parent_content_page_id, new_sort_order)
       swap_page.update_column(:sort_order, sort_order)
       #Syncronize here
-      options = {"user" => current_user, "object" =>  swap_page, "action_id" => SyncObjectAction.get_swap_action.id,
-                  "type_id" =>  SyncObjectType.get_content_page_type.id, "params" => {:sort_order => sort_order}}
+      options = {"user" => current_user, "object" =>  swap_page, "action_id" => SyncObjectAction.swap.id,
+                  "type_id" =>  SyncObjectType.content_page.id, "params" => {:sort_order => sort_order}}
       SyncPeerLog.log_action(options)
     end
     content_page.update_column(:sort_order, new_sort_order)
     #And syncronize here
-    options = {"user" => current_user, "object" =>  content_page, "action_id" => SyncObjectAction.get_swap_action.id,
-                "type_id" =>  SyncObjectType.get_content_page_type.id, "params" => {:sort_order => new_sort_order}}
+    options = {"user" => current_user, "object" =>  content_page, "action_id" => SyncObjectAction.swap.id,
+                "type_id" =>  SyncObjectType.content_page.id, "params" => {:sort_order => new_sort_order}}
     SyncPeerLog.log_action(options)
     flash[:notice] = I18n.t(:admin_content_page_sort_order_updated)
     redirect_to action: :index, status: :moved_permanently
@@ -122,14 +122,14 @@ class Admins::ContentPagesController < AdminsController
     if swap_page = ContentPage.find_by_parent_content_page_id_and_sort_order(content_page.parent_content_page_id, new_sort_order)
      swap_page.update_column(:sort_order, sort_order)
      #Syncronize here
-      options = {"user" => current_user, "object" =>  swap_page, "action_id" => SyncObjectAction.get_swap_action.id,
-                  "type_id" =>  SyncObjectType.get_content_page_type.id, "params" => {:sort_order => sort_order}}
+      options = {"user" => current_user, "object" =>  swap_page, "action_id" => SyncObjectAction.swap.id,
+                  "type_id" =>  SyncObjectType.content_page.id, "params" => {:sort_order => sort_order}}
       SyncPeerLog.log_action(options)
     end
     content_page.update_column(:sort_order, new_sort_order)
     #And syncronize here
-    options = {"user" => current_user, "object" =>  content_page, "action_id" => SyncObjectAction.get_swap_action.id,
-                "type_id" =>  SyncObjectType.get_content_page_type.id, "params" => {:sort_order => new_sort_order}}
+    options = {"user" => current_user, "object" =>  content_page, "action_id" => SyncObjectAction.swap.id,
+                "type_id" =>  SyncObjectType.content_page.id, "params" => {:sort_order => new_sort_order}}
     SyncPeerLog.log_action(options)
     flash[:notice] = I18n.t(:admin_content_page_sort_order_updated)
     redirect_to action: :index, status: :moved_permanently

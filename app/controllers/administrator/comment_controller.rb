@@ -32,8 +32,8 @@ class Administrator::CommentController  < AdminController
       # sync update comment action
       admin = User.find(session[:user_id])
       sync_params = params[:comment]      
-      options = {"user" => admin, "object" =>  @comment, "action_id" => SyncObjectAction.get_update_action.id,
-                    "type_id" =>  SyncObjectType.get_comment_type.id, "params" => sync_params} 
+      options = {"user" => admin, "object" =>  @comment, "action_id" => SyncObjectAction.update.id,
+                    "type_id" =>  SyncObjectType.comment.id, "params" => sync_params} 
       SyncPeerLog.log_action(options)
       
       flash[:notice] = I18n.t("the_comment_was_successfully_updated")
@@ -55,8 +55,8 @@ class Administrator::CommentController  < AdminController
     # sync update comment action
       admin = User.find(session[:user_id])
       sync_params = {:deleted => 1}      
-      options = {"user" => admin, "object" =>  @comment, "action_id" => SyncObjectAction.get_update_action.id,
-                    "type_id" =>  SyncObjectType.get_comment_type.id, "params" => sync_params} 
+      options = {"user" => admin, "object" =>  @comment, "action_id" => SyncObjectAction.update.id,
+                    "type_id" =>  SyncObjectType.comment.id, "params" => sync_params} 
       SyncPeerLog.log_action(options)
 
     redirect_to referred_url, status: :moved_permanently
@@ -69,8 +69,8 @@ class Administrator::CommentController  < AdminController
     clear_cached_homepage_activity_logs
     
    # sync update comment action
-    options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.get_hide_action.id,
-                  "type_id" =>  SyncObjectType.get_comment_type.id, "params" => {}} 
+    options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.hide.id,
+                  "type_id" =>  SyncObjectType.comment.id, "params" => {}} 
     SyncPeerLog.log_action(options)
     redirect_to referred_url, status: :moved_permanently unless params[:test]
   end
@@ -81,8 +81,8 @@ class Administrator::CommentController  < AdminController
     clear_cached_homepage_activity_logs
     
     #sync update comment action
-    options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.get_show_action.id,
-                  "type_id" =>  SyncObjectType.get_comment_type.id, "params" => {}} 
+    options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.show.id,
+                  "type_id" =>  SyncObjectType.comment.id, "params" => {}} 
     SyncPeerLog.log_action(options)
     redirect_to referred_url, status: :moved_permanently
   end

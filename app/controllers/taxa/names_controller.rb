@@ -66,8 +66,8 @@ class Taxa::NamesController < TaxaController
                        "name_origin_id" => name.origin_id,
                        "name_site_id" => name.site_id,
                        "string" => params[:name][:string]}
-        options = {"user" => current_user, "object" =>  synonym, "action_id" => SyncObjectAction.get_create_action.id,
-              "type_id" =>  SyncObjectType.get_common_name_type.id, "params" => sync_params}
+        options = {"user" => current_user, "object" =>  synonym, "action_id" => SyncObjectAction.create.id,
+              "type_id" =>  SyncObjectType.common_name.id, "params" => sync_params}
         SyncPeerLog.log_action(options)
         @taxon_concept.reindex_in_solr
         log_action(@taxon_concept, synonym, :add_common_name)
@@ -94,8 +94,8 @@ class Taxa::NamesController < TaxaController
                        "taxon_concept_site_id" => @taxon_concept.site_id,
                        "string" => name.string,
                        "is_preferred" => synonym.preferred}
-        options = {"user" => current_user, "object" =>  synonym, "action_id" => SyncObjectAction.get_update_action.id,
-              "type_id" =>  SyncObjectType.get_common_name_type.id, "params" => sync_params}
+        options = {"user" => current_user, "object" =>  synonym, "action_id" => SyncObjectAction.update.id,
+              "type_id" =>  SyncObjectType.common_name.id, "params" => sync_params}
         SyncPeerLog.log_action(options)
       end
       current_user.log_activity(:updated_common_names, taxon_concept_id: @taxon_concept.id)
@@ -119,8 +119,8 @@ class Taxa::NamesController < TaxaController
       # syncronization
       sync_params = {"taxon_concept_origin_id" => @taxon_concept.origin_id,
                      "taxon_concept_site_id" => @taxon_concept.site_id}
-      options = {"user" => current_user, "object" =>  synonym, "action_id" => SyncObjectAction.get_delete_action.id,
-              "type_id" =>  SyncObjectType.get_common_name_type.id, "params" => sync_params}
+      options = {"user" => current_user, "object" =>  synonym, "action_id" => SyncObjectAction.delete.id,
+              "type_id" =>  SyncObjectType.common_name.id, "params" => sync_params}
       SyncPeerLog.log_action(options)
     end
 
@@ -171,8 +171,8 @@ class Taxa::NamesController < TaxaController
                  "string" => name.string,
                  "action_taken_at" => Time.now}
     synonym = Synonym.find_by_name_id(name_id)         
-    options = {"user" => current_user, "object" =>  synonym, "action_id" => SyncObjectAction.get_vet_action.id,
-              "type_id" =>  SyncObjectType.get_common_name_type.id, "params" => sync_params}
+    options = {"user" => current_user, "object" =>  synonym, "action_id" => SyncObjectAction.vet.id,
+              "type_id" =>  SyncObjectType.common_name.id, "params" => sync_params}
     SyncPeerLog.log_action(options)
     
     if synonym

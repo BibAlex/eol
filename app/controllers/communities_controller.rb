@@ -73,8 +73,8 @@ class CommunitiesController < ApplicationController
         count = count + 1
       end
      
-      options = {"user" => current_user, "object" =>  @community, "action_id" => SyncObjectAction.get_create_action.id,
-                 "type_id" =>  SyncObjectType.get_community_type.id, "params" => sync_params}
+      options = {"user" => current_user, "object" =>  @community, "action_id" => SyncObjectAction.create.id,
+                 "type_id" =>  SyncObjectType.community.id, "params" => sync_params}
       SyncPeerLog.log_action(options)
       
       redirect_to(community_newsfeed_path(@community), notice: notice, status: :moved_permanently)
@@ -106,8 +106,8 @@ class CommunitiesController < ApplicationController
                        :name_change => name_change,
                        :description_change => description_change}
        
-        options = {"user" => current_user, "object" =>  @community, "action_id" => SyncObjectAction.get_update_action.id,
-                   "type_id" =>  SyncObjectType.get_community_type.id, "params" => sync_params}
+        options = {"user" => current_user, "object" =>  @community, "action_id" => SyncObjectAction.update.id,
+                   "type_id" =>  SyncObjectType.community.id, "params" => sync_params}
         SyncPeerLog.log_action(options)
             
         log_action(:change_name) if name_change
@@ -135,8 +135,8 @@ class CommunitiesController < ApplicationController
       EOL::GlobalStatistics.decrement('communities')
       log_action(:delete)
       #syncronization
-      options = {"user" => current_user, "object" =>  @community, "action_id" => SyncObjectAction.get_delete_action.id,
-                 "type_id" =>  SyncObjectType.get_community_type.id, "params" => {}}
+      options = {"user" => current_user, "object" =>  @community, "action_id" => SyncObjectAction.delete.id,
+                 "type_id" =>  SyncObjectType.community.id, "params" => {}}
       SyncPeerLog.log_action(options)
       # TODO - it might make sense (?) to remove this community from any collection_items that once pointed to it...
       # that would remove it from watchlists and the like, though, and I don't know if that's wise (since then they
@@ -180,8 +180,8 @@ class CommunitiesController < ApplicationController
       begin
         @community.remove_member(current_user)
         #syncronization
-        options = {"user" => current_user, "object" =>  @community, "action_id" => SyncObjectAction.get_leave_action.id,
-                   "type_id" =>  SyncObjectType.get_community_type.id, "params" => {}}
+        options = {"user" => current_user, "object" =>  @community, "action_id" => SyncObjectAction.leave.id,
+                   "type_id" =>  SyncObjectType.community.id, "params" => {}}
         SyncPeerLog.log_action(options)
         log_action(:leave, community: @community)
       rescue EOL::Exceptions::ObjectNotFound => e

@@ -271,14 +271,7 @@ class User < ActiveRecord::Base
     add_to_index
     collection = build_watch_collection
     #syncronization
-    if collection
-      sync_params = {"collection_origin_id" => collection.origin_id, "collection_site_id" => collection.site_id}
-    else
-      sync_params = {"collection_origin_id" => nil, "collection_site_id" => nil}
-    end
-    options = {"user" => self, "object" =>  self, "action_id" => SyncObjectAction.get_activate_action.id,
-                    "type_id" =>  SyncObjectType.get_user_type.id, "params" => sync_params}
-    SyncPeerLog.log_action(options)
+    sync_activate_user(collection)
   end
 
   # Checks to see if one already exists (DO NOT use #watch_collection to do this, recursive!), and builds one if not:
@@ -1014,6 +1007,19 @@ public
   end
   def join_curator_community_if_curator
     self.join_community(CuratorCommunity.get) if self.is_curator?
+  end
+  
+  
+  # synchronization
+  def sync_activate_user(collection)
+  if collection
+      sync_params = {collection_origin_id: collection.origin_id, collection_site_id: collection.site_id}
+    else
+      sync_params = {collection_origin_id: nil, collection_site_id: nil}
+    end
+    options = {user: self, object: self, action_id: SyncObjectAction.activate.id,
+                    type_id: SyncObjectType.user.id, params: sync_params}
+    SyncPeerLog.log_action(options)
   end
 
 # END CURATOR METHODS

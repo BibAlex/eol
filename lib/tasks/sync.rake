@@ -19,7 +19,6 @@ namespace :sync do
       # Create the push
       sync_event = SyncEvent.create_push_event
       parameters = "?auth_code=#{AUTH_CODE}&current_uuid=#{SyncUuid::get_current_uuid}&file_url=#{SITE_URI}#{sync_event.file_url}&file_md5_hash=#{SITE_URI}#{sync_event.file_md5_hash}"
-      
       # Now send the request to the registry
       url = URI.parse(REGISTRY_URL + REGISTRY_PUSH_URL + parameters)
       resp=Net::HTTP.get_response(url)
@@ -95,7 +94,6 @@ namespace :sync do
     
     # Now send the request to the registry
     url = URI.parse(REGISTRY_URL + REGISTRY_PULL_URL + parameters)
-    debugger
     resp=Net::HTTP.get_response(url)
     
     # get the response and do the validation

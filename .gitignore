@@ -10,7 +10,7 @@
 # Ignore all logfiles and tempfiles.
 /log/*.log
 /tmp
-/public/files
+/public/files/sync_logs
 .sass-cache/
 
 # Ignore guard (which is an auto-tester):

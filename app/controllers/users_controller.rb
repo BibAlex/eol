@@ -71,35 +71,9 @@ class UsersController < ApplicationController
       current_user.log_activity(:updated_user)
       store_location params[:return_to] if params[:return_to]
       provide_feedback
+      # sync update user
+      sync_update_user
       
-      #log update user action action for sync.
-      sync_params = params[:user] 
-       #log update user action action for sync.
-      # user identities
-      if (!sync_params[:user_identity_ids].nil?)
-         if sync_params[:user_identity_ids].count == 1
-           sync_params[:user_identity_ids] = nil
-         else
-           sync_params[:user_identity_ids].reject! { |item| item.empty? }
-        end
-      end    
-      # prepare parameters
-      sync_params[:user_identity_ids] = sync_params[:user_identity_ids].join(',')  if (!(sync_params[:user_identity_ids].nil?))
-      
-      sync_params.delete("curator_level_id") if (!(sync_params["curator_level_id"].nil?))
-      
-      sync_params = sync_params.reverse_merge( :updated_at => @user.updated_at,
-                                               :api_key => @user.api_key,
-                                               :curator_level_id => @user.curator_level_id,
-                                               :logo_cache_url => @user.logo_cache_url,
-                                               :logo_file_name => @user.logo_file_name,
-                                               :logo_content_type => @user.logo_content_type,
-                                               :logo_file_size => @user.logo_file_size,
-                                               :base_url => "#{$CONTENT_SERVER}content/")
-      ["email", "email_confirmation", "entered_password", "entered_password_confirmation", "requested_curator_level_id", "requested_curator_at", "logo"].each { |key| sync_params.delete key }
-      options = {"user" => @user, "object" =>  @user, "action_id" => SyncObjectAction.get_update_action.id,
-                    "type_id" =>  SyncObjectType.get_user_type.id, "params" => sync_params}
-      SyncPeerLog.log_action(options)
       redirect_back_or_default @user
     else
       failed_to_update_user
@@ -179,24 +153,8 @@ class UsersController < ApplicationController
       @user.clear_entered_password
       send_verification_email
       EOL::GlobalStatistics.increment('users')
-      collections = Collection.find_by_sql("SELECT * FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id) 
-      WHERE cu.user_id = #{@user.id} 
-      AND c.special_collection_id = #{SpecialCollection.watch.id}")
-      if collections && collections.count > 0
-        collection = collections[0]
-        #log this action for sync.
-        sync_params = params[:user]
-        sync_params = sync_params.reverse_merge(:language => current_language,
-                                                :validation_code => @user.validation_code,
-                                                :remote_ip => request.remote_ip,
-                                                :created_at => @user.created_at,
-                                                :collection_site_id => collection.site_id,
-                                                :collection_origin_id => collection.origin_id )
-        ["email", "email_confirmation", "entered_password", "entered_password_confirmation"].each { |key| sync_params.delete key }
-        options = {"user" => @user, "object" =>  @user, "action_id" => SyncObjectAction.get_create_action.id,
-                    "type_id" =>  SyncObjectType.get_user_type.id, "params" => sync_params}
-        SyncPeerLog.log_action(options)
-      end
+      
+      sync_create_user
       
       redirect_to pending_user_path(@user), status: :moved_permanently
     else
@@ -597,6 +555,56 @@ private
       flash[:notice] = I18n.t(:user_no_longer_active_message)
       redirect_back_or_default
     end
+  end
+  
+  # synchronization of user actions
+  
+  def sync_create_user
+    collection = @user.watch_collection
+    if collection       
+      #log this action for sync.
+      sync_params = params[:user]
+      sync_params = sync_params.reverse_merge(language: current_language,
+                                              validation_code: @user.validation_code,
+                                              remote_ip: request.remote_ip,
+                                              created_at: @user.created_at,
+                                              collection_site_id: collection.site_id,
+                                              collection_origin_id: collection.origin_id)
+      sync_params = SyncPeerLog.delete_unwanted_keys([:email, :email_confirmation, :entered_password, :entered_password_confirmation], sync_params)
+      options = {user: @user, object: @user, action_id: SyncObjectAction.create.id,
+                  type_id: SyncObjectType.user.id, params: sync_params}
+      SyncPeerLog.log_action(options)
+    end
+  end
+  
+  def sync_update_user
+    sync_params = params[:user]
+    # user identities
+    if (sync_params[:user_identity_ids])
+       if sync_params[:user_identity_ids].count == 1
+         sync_params[:user_identity_ids] = nil
+       else
+         sync_params[:user_identity_ids].reject! { |item| item.empty?}
+      end
+    end 
+    # prepare parameters
+    sync_params[:user_identity_ids] = sync_params[:user_identity_ids].join(',')  if sync_params[:user_identity_ids]
+    sync_params.delete(:curator_level_id) if sync_params[:curator_level_id]
+    
+    sync_params = sync_params.reverse_merge(updated_at: @user.updated_at,
+                                            api_key: @user.api_key,
+                                            curator_level_id: @user.curator_level_id,
+                                            logo_cache_url: @user.logo_cache_url,
+                                            logo_file_name: @user.logo_file_name,
+                                            logo_content_type: @user.logo_content_type,
+                                            logo_file_size: @user.logo_file_size,
+                                            base_url: "#{$CONTENT_SERVER}content/")
+    sync_params = SyncPeerLog.delete_unwanted_keys([:email, :email_confirmation, :entered_password,
+                                                    :entered_password_confirmation, :requested_curator_level_id, 
+                                                    :requested_curator_at, :logo], sync_params)
+    options = {user: @user, object: @user, action_id: SyncObjectAction.update.id,
+                  type_id: SyncObjectType.user.id, params: sync_params}
+    SyncPeerLog.log_action(options)
   end
 
 end

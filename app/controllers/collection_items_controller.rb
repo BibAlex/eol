@@ -49,8 +49,8 @@ class CollectionItemsController < ApplicationController
           create_collection_item(params[:collection_item].merge(collection_id: collection_id))
           # for synchronization
           col = Collection.find(collection_id)
-         options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.get_add_item_to_collection_action.id,
-                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}           
+         options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.add.id,
+                    "type_id" =>  SyncObjectType.collection_item.id, "params" => sync_params}           
           SyncPeerLog.log_action(options)
         end        
         
@@ -58,8 +58,8 @@ class CollectionItemsController < ApplicationController
         create_collection_item(params[:collection_item].merge(collection_id: params[:collection_id]))
         # for synchronization
         col = Collection.find(params[:collection_id])
-        options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.get_add_item_to_collection_action.id,
-                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params} 
+        options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.add.id,
+                    "type_id" =>  SyncObjectType.collection_item.id, "params" => sync_params} 
         SyncPeerLog.log_action(options)
       end
       
@@ -128,8 +128,8 @@ class CollectionItemsController < ApplicationController
                 
                 # sync create ref
                 sync_params = {"reference" => reference}
-                options = {"user" => current_user, "object" =>  nil, "action_id" => SyncObjectAction.get_create_action.id,
-                    "type_id" =>  SyncObjectType.get_ref_type.id, "params" => sync_params}           
+                options = {"user" => current_user, "object" =>  nil, "action_id" => SyncObjectAction.create.id,
+                    "type_id" =>  SyncObjectType.ref.id, "params" => sync_params}           
                 SyncPeerLog.log_action(options)          
               end
             
@@ -149,8 +149,8 @@ class CollectionItemsController < ApplicationController
                        "sort_field" => params[:collection_item][:sort_field],
                        "references" => @references,
                        "updated_at" => last_updated_at}
-        options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.get_update_action.id,
-                      "type_id" =>  SyncObjectType.get_collection_item_type.id, "params" => sync_params}           
+        options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.update.id,
+                      "type_id" =>  SyncObjectType.collection_item.id, "params" => sync_params}           
         SyncPeerLog.log_action(options)
       end
       
