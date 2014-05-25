@@ -293,6 +293,7 @@ private
     @navigation_partial = '/admin/navigation'
   end
   
+  # synchronization
   def sync_update_user(admin)
     #log update user action action for sync.
     sync_params = params[:user]      
@@ -308,5 +309,4 @@ private
             type_id: SyncObjectType.user.id, params: sync_params}
     SyncPeerLog.log_action(options)
   end
-
 end

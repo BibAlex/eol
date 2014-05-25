@@ -70,25 +70,8 @@ class CollectionsController < ApplicationController
       else
         auto_collect(@collection)
         create_collection_from_item
-        
-         # create sync peer log for new collection metadata
-        sync_params = params[:collection] 
-        sync_params = sync_params.reverse_merge(:base => true)
-        options = {"user" => current_user, "object" =>  @collection, "action_id" => SyncObjectAction.create.id,
-                    "type_id" =>  SyncObjectType.collection.id, "params" => sync_params}       
-        SyncPeerLog.log_action(options)
-        
-        # log create collection item
-        sync_params = {}
-        sync_params = sync_params.reverse_merge(:collected_item_type => params[:item_type],
-                                                :collected_item_name => @item.summary_name,                                                
-                                                :item_id => @item.origin_id,
-                                                :item_site_id => @item.site_id,
-                                                :base_item => true) 
-        options = {"user" => current_user, "object" =>  @collection, "action_id" => SyncObjectAction.add.id,
-                    "type_id" =>  SyncObjectType.collection_item.id, "params" => sync_params}                                                                    
-        SyncPeerLog.log_action(options)
-                      
+        sync_create_collection
+        sync_create_collection_item
          return      
       end
     else
@@ -169,9 +152,7 @@ class CollectionsController < ApplicationController
       if @collection.unpublish
         flash[:notice] = I18n.t(:collection_destroyed)
         #syncronization
-        options = {"user" => current_user, "object" =>  @collection, "action_id" => SyncObjectAction.delete.id,
-              "type_id" =>  SyncObjectType.collection.id, "params" => {}}
-        SyncPeerLog.log_action(options)
+        sync_delete_collection
       else
         flash[:error] = I18n.t(:collection_not_destroyed_error)
       end
@@ -754,5 +735,30 @@ private
     EOL::Solr::CollectionItemsCoreRebuilder.reindex_collection_items_by_ids(collection_item_ids_to_reindex.uniq)
   end
   
+  # synchronization
+  def sync_create_collection
+    # create sync peer log for new collection metadata
+    sync_params = params[:collection] 
+    sync_params = sync_params.reverse_merge(:base => true)
+    options = {user: current_user, object: @collection, action_id: SyncObjectAction.create.id,
+                type_id: SyncObjectType.collection.id, params: sync_params}       
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_create_collection_item
+    # log create collection item
+    sync_params = {collected_item_type: params[:item_type], collected_item_name: @item.summary_name,                                                
+                   item_id: @item.origin_id, item_site_id: @item.site_id, base_item: true} 
+                   
+    options = {user: current_user, object: @collection, action_id: SyncObjectAction.add.id,
+               type_id: SyncObjectType.collection_item.id, params: sync_params}                                                               
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_delete_collection
+   options = {user: current_user, object: @collection, action_id: SyncObjectAction.delete.id,
+              type_id: SyncObjectType.collection.id, params: {}}
+   SyncPeerLog.log_action(options)
+  end
 
 end

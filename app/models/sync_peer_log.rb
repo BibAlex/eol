@@ -147,7 +147,6 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.update_user(parameters)
-    # find user want to update using user origin id and user origin site id 
     parameters[:user_identity_ids] = parameters[:user_identity_ids].split(",")  if parameters[:user_identity_ids]
     parameters[:site_id] = parameters[:sync_object_site_id]
     parameters[:origin_id] = parameters[:sync_object_id]
@@ -240,14 +239,14 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle create collection action
   def self.create_collection(parameters)
-    collection_owner = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    collection_owner = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
     # remove extra parameters which not needed in creating collection 
-    parameters["site_id"] = parameters["sync_object_site_id"]
-    parameters["origin_id"] = parameters["sync_object_id"]    
-    base = parameters["base"]  
-    ["language", "user_site_id", "user_site_object_id", "user_site_object_id", 
-      "sync_object_id", "sync_object_site_id", "item_origin_id", "item_site_id",
-      "item_type", "item_name", "base", "action_taken_at"].each { |key| parameters.delete key }
+    parameters[:site_id] = parameters[:sync_object_site_id]
+    parameters[:origin_id] = parameters[:sync_object_id]    
+    base = parameters[:base]  
+    parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                                       :action_taken_at, :language , :base],parameters)
+    
     collection = Collection.new(parameters)
     collection.save  
     collection.users = [collection_owner] unless collection_owner.nil?           
@@ -322,7 +321,7 @@ class SyncPeerLog < ActiveRecord::Base
   end
    
   def self.delete_collection(parameters)
-    collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    collection = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if collection
       collection.unpublish
     end
@@ -373,18 +372,18 @@ class SyncPeerLog < ActiveRecord::Base
   end
  # add item to collection
   def self.add_collection_item(parameters) 
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    item = parameters["collected_item_type"].constantize.find_by_origin_id_and_site_id(parameters["item_id"], parameters["item_site_id"])
-    col = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    item = parameters[:collected_item_type].constantize.find_by_origin_id_and_site_id(parameters[:item_id], parameters[:item_site_id])
+    col = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
     # add item to one collection
     unless col.nil? || item.nil?
-      col_item = CollectionItem.create(:name => parameters["collected_item_name"], :collected_item_type => parameters["collected_item_type"],
-                                 :collection_id => col.id, :collected_item_id => item.id  )
-      if parameters["base_item"]
+      col_item = CollectionItem.create(name: parameters[:collected_item_name], collected_item_type: parameters[:collected_item_type],
+                                       collection_id: col.id, collected_item_id: item.id)
+      if parameters[:base_item]
         EOL::GlobalStatistics.increment('collections')
         CollectionActivityLog.create(collection: col, user_id: user.id,
                            activity: Activity.collect, collection_item: col_item)
-      elsif parameters["add_item"]
+      elsif parameters[:add_item]
         CollectionActivityLog.create(collection: col_item.collection, user: user,
                                  activity: Activity.collect, collection_item: col_item)
       end

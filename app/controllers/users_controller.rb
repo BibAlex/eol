@@ -71,7 +71,7 @@ class UsersController < ApplicationController
       current_user.log_activity(:updated_user)
       store_location params[:return_to] if params[:return_to]
       provide_feedback
-      # sync update user
+      
       sync_update_user
       
       redirect_back_or_default @user
@@ -578,19 +578,9 @@ private
   end
   
   def sync_update_user
-    sync_params = params[:user]
-    # user identities
-    if (sync_params[:user_identity_ids])
-       if sync_params[:user_identity_ids].count == 1
-         sync_params[:user_identity_ids] = nil
-       else
-         sync_params[:user_identity_ids].reject! { |item| item.empty?}
-      end
-    end 
-    # prepare parameters
+    sync_params = params[:user]   
     sync_params[:user_identity_ids] = sync_params[:user_identity_ids].join(',')  if sync_params[:user_identity_ids]
     sync_params.delete(:curator_level_id) if sync_params[:curator_level_id]
-    
     sync_params = sync_params.reverse_merge(updated_at: @user.updated_at,
                                             api_key: @user.api_key,
                                             curator_level_id: @user.curator_level_id,
