@@ -59,16 +59,7 @@ class Taxa::NamesController < TaxaController
       unless synonym.errors.blank?
         flash[:error] = I18n.t(:common_name_exists, name_string: params[:name][:string])
       else
-        # syncronization
-        sync_params = {"language" => language,
-                       "taxon_concept_site_id" => @taxon_concept.site_id,
-                       "taxon_concept_origin_id" => @taxon_concept.origin_id,
-                       "name_origin_id" => name.origin_id,
-                       "name_site_id" => name.site_id,
-                       "string" => params[:name][:string]}
-        options = {"user" => current_user, "object" =>  synonym, "action_id" => SyncObjectAction.create.id,
-              "type_id" =>  SyncObjectType.common_name.id, "params" => sync_params}
-        SyncPeerLog.log_action(options)
+        sync_create_common_name
         @taxon_concept.reindex_in_solr
         log_action(@taxon_concept, synonym, :add_common_name)
         expire_taxa([@taxon_concept.id])

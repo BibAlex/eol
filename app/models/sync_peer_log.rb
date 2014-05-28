@@ -123,7 +123,6 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.create_user(parameters)
-   # params = {}
     parameters[:origin_id] = parameters[:sync_object_id]
     parameters[:site_id] = parameters[:sync_object_site_id]
     collection_site_id = parameters[:collection_site_id]
@@ -157,18 +156,9 @@ class SyncPeerLog < ActiveRecord::Base
     if user
       if logo_file_name
         if handle_object_logo(logo_file_name, "User", user, parameters[:base_url], parameters[:logo_cache_url])
-          parameters.delete(:base_url)
-          user.update_attributes(parameters)
-          # call log activity
-          user.log_activity(:updated_user) 
-          # upload user logo
-          upload_file(user)
+          object_logo_download_success(parameters, user, user, "user")
         else
-          parameters = delete_unwanted_keys([:base_url, :logo_file_name, :logo_cache_url, :logo_content_type,
-                                         :logo_file_size],parameters)
-          user.update_attributes(parameters)
-          # call log activity
-          user.log_activity(:updated_user)
+          object_logo_download_fail(parameters, user, user, "user")
         end
      else
        parameters.delete(:base_url)
@@ -195,9 +185,7 @@ class SyncPeerLog < ActiveRecord::Base
       end
       return true
     else
-       # add failed file record (download failed)
       handle_download_failure(file_url, logo_name, "logo", object_type, object,logo_file_name, parameters[:logo_content_type], parameters[:logo_file_size])
-        #delete redundant parameters 
       return false;
     end
   end
@@ -259,65 +247,65 @@ class SyncPeerLog < ActiveRecord::Base
   
    # how node site handle update collection action
   def self.update_collection(parameters)
-    collection_owner = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    if collection.updated_at < parameters["updated_at"]
-      parameters["site_id"] = parameters["sync_object_site_id"]
-      parameters["origin_id"] = parameters["sync_object_id"]   
-        
-      logo_file_name = parameters["logo_file_name"]
+    collection_owner = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    collection = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    if collection.updated_at < parameters[:updated_at]
+      parameters[:site_id] = parameters[:sync_object_site_id]
+      parameters[:origin_id] = parameters[:sync_object_id]   
+
+      logo_file_name = parameters[:logo_file_name]
       
       # remove extra parameters which not needed in creating collection
-      ["language", "user_site_id", "user_site_object_id", "sync_object_id", "sync_object_site_id", "updated_at", "action_taken_at"].each { |key| parameters.delete key }
-      
+      parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                                       :action_taken_at, :language , :updated_at],parameters)
       if collection    
-        if logo_file_name
-          file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ] 
-          collection_logo_name = "collections_#{collection.id}.#{file_type}"
-          file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
-          if download_file?(file_url, collection_logo_name, "logo")
-            # delete old logo
-            old_logo_name = collection.logo_file_name
-            old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
-            if file_type != old_logo_extension
-              File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}collections_#{collection.id}.#{old_logo_extension}"
-            end
-            parameters.delete("base_url")
-            name_change = parameters[:name] != collection.name
-            description_change = parameters[:description] != collection.description
-            collection.update_attributes(parameters) 
-            # log create collection action
-            CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
-            CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
-            upload_file(collection)   
+        if logo_file_name           
+          if handle_object_logo(logo_file_name, "Collection", collection, parameters[:base_url], parameters[:logo_cache_url])
+            object_logo_download_success(parameters, collection_owner, collection, "collection")
           else
-            # add failed file record
-            failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => collection_logo_name, :file_type => "logo",
-                      :object_type => "Collection" , :object_id => collection.id)
-            FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
-            FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
-            FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])
-            # delete redundant parameters 
-            ["base_url", "logo_file_name", "logo_cache_url", "logo_content_type", "logo_file_size"].each { |key| parameters.delete key }
-            name_change = parameters[:name] != collection.name
-            description_change = parameters[:description] != collection.description
-            collection.update_attributes(parameters) 
-            # log create collection action
-            CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
-            CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
+            object_logo_download_fail(parameters, collection_owner, collection, "collection")
           end
-          
         else
-          parameters.delete("base_url")
-          name_change = parameters[:name] != collection.name
-          description_change = parameters[:description] != collection.description
-          collection.update_attributes(parameters) 
-          # log create collection action
-          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
-          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
+          parameters.delete(:base_url)
+          collection.update_attributes(parameters)
+          log_update_collection(parameters, collection_owner, collection)
         end
       end
     end  
+  end
+  
+  def self.log_update_collection(options)
+    parameters = options[:parameters]
+    collection_owner = options[:user]
+    collection = options[:object]
+    name_change = parameters[:name] != collection.name
+    description_change = parameters[:description] != collection.description
+    # log create collection action
+    CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
+    CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
+  end
+  
+  def self.log_update_user(options)
+    object = options[:object]
+    user.log_activity(:updated_user)
+  end
+  
+  
+  def self.object_logo_download_fail(parameters, user, object, object_type)
+    parameters = delete_unwanted_keys([:base_url, :logo_file_name, :logo_cache_url, :logo_content_type, :logo_file_size],parameters)
+    object.update_attributes(parameters)
+    function_name = "log_update_#{object_type}"
+    options = {user: user, object: object, parameters: parameters}
+    "SyncPeerLog".constantize.send(function_name, options)
+  end
+  
+  def self.object_logo_download_success(parameters, user, object, object_type)
+    parameters.delete(:base_url)
+    object.update_attributes(parameters)
+    function_name = "log_update_#{object_type}"
+    options = {user: user, object: object, parameters: parameters}
+    "SyncPeerLog".constantize.send(function_name, options)
+    upload_file(object)
   end
    
   def self.delete_collection(parameters)
@@ -329,45 +317,41 @@ class SyncPeerLog < ActiveRecord::Base
   
   # create collection job
   def self.create_collection_job(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    origin_collection = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-
-                             
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    origin_collection = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
      # create collection job collections
-     copied_collections_origin_ids = parameters["copied_collections_origin_ids"].split(",")
-     copied_collections_site_ids = parameters["copied_collections_site_ids"].split(",")
+     copied_collections_origin_ids = parameters[:copied_collections_origin_ids].split(",")
+     copied_collections_site_ids = parameters[:copied_collections_site_ids].split(",")
      collections = []
      collection_items = []
      copied_collections_origin_ids.count.times do |i|
        collections << Collection.find_by_origin_id_and_site_id(copied_collections_origin_ids[i], copied_collections_site_ids[i])
      end
     
-     unless origin_collection.nil?
+     if origin_collection
      # remove items
-       collection_items_origin_ids = parameters["collection_items_origin_ids"].split(",")
-       collection_items_site_ids = parameters["collection_items_site_ids"].split(",")
-       collection_items_names = parameters["collection_items_names"].split(",")
-       collection_items_types = parameters["collection_items_types"].split(",")
+       collection_items_origin_ids = parameters[:collection_items_origin_ids].split(",")
+       collection_items_site_ids = parameters[:collection_items_site_ids].split(",")
+       collection_items_names = parameters[:collection_items_names].split(",")
+       collection_items_types = parameters[:collection_items_types].split(",")
        collection_items = []
        unless collection_items_origin_ids.nil?
          collection_items_origin_ids.count.times do |i|
            item = collection_items_types[i].constantize.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i])
-           collected_item = CollectionItem.find(:first, :conditions => "collection_id = #{origin_collection.id} and collected_item_id = #{item.id}")
-           #collected_item = CollectionItem.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i] )
-           collection_items << collected_item.id unless collected_item.nil?
+           result = CollectionItem.where("collection_id = ?  and collected_item_id = ? ", origin_collection.id,  item.id)
+           collected_item = result.first
+           collection_items << collected_item.id  if collected_item
          end
        end 
      end   
-    
      # create collection job                   
-     unless (collection_items.blank? and  parameters["command"] == "remove" )               
-       CollectionJob.create!(:command => parameters["command"], :user => user,
-                            :collection => origin_collection, :item_count => parameters["item_count"],
-                            :all_items => parameters["all_items"],
-                            :overwrite => parameters["overwrite"],
-                            :collection_item_ids =>  collection_items,
-                            :collections => collections )
-                         
+     unless (collection_items.blank? and  parameters["command"] == "remove")
+       CollectionJob.create!(command: parameters[:command], user: user,
+                             collection: origin_collection, item_count: parameters[:item_count],
+                             all_items: parameters[:all_items],
+                             overwrite: parameters[:overwrite],
+                             collection_item_ids: collection_items,
+                             collections: collections)
     end
   end
  # add item to collection
@@ -379,6 +363,8 @@ class SyncPeerLog < ActiveRecord::Base
     unless col.nil? || item.nil?
       col_item = CollectionItem.create(name: parameters[:collected_item_name], collected_item_type: parameters[:collected_item_type],
                                        collection_id: col.id, collected_item_id: item.id)
+     
+     # item added to a newly created collection
       if parameters[:base_item]
         EOL::GlobalStatistics.increment('collections')
         CollectionActivityLog.create(collection: col, user_id: user.id,
@@ -390,33 +376,54 @@ class SyncPeerLog < ActiveRecord::Base
     end        
   end
   
+  # add item to collection
+  def self.copy_collection_item(parameters) 
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    item = parameters[:collected_item_type].constantize.find_by_origin_id_and_site_id(parameters[:item_id], parameters[:item_site_id])
+    col = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    if col && item
+      col_item = CollectionItem.create(name: parameters[:collected_item_name], collected_item_type: parameters[:collected_item_type],
+                                       collection_id: col.id, collected_item_id: item.id, created_at: parameters[:created_at],
+                                       updated_at: parameters[:updated_at], annotation: parameters[:annotation],
+                                       added_by_user_id: parameters[:added_by_user_id], sort_field: parameters[:sort_field])
+      references = parameters[:references]
+      if references
+        references.split(',').each do |reference|
+          ref = Ref.find_by_full_reference(reference)
+          col_item.refs << ref  if (ref && !(col_item.refs.include?(ref)))
+        end
+      end
+    end        
+  end
+
+  
    # remove item from collection
   def self.remove_collection_item(parameters)
-    col = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    item = parameters["collected_item_type"].constantize.find_by_origin_id_and_site_id(parameters["item_id"], parameters["item_site_id"])
-    col_item = CollectionItem.find(:first, :conditions => "collection_id = #{col.id} and collected_item_id = #{item.id}")
-    unless col_item.nil?
-        col_item.destroy           
+    col = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    item = parameters[:collected_item_type].constantize.find_by_origin_id_and_site_id(parameters[:item_id], parameters[:item_site_id])
+    result = CollectionItem.where("collection_id = ?  and collected_item_id = ? ",col.id, item.id)
+    if result
+     col_item = result.first
+     col_item.destroy if col_item           
     end  
   end
    
      # how node site handle create comment action
   def self.create_comment(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    comment_parent = parameters["parent_type"].constantize.find_by_origin_id_and_site_id(parameters["comment_parent_origin_id"], parameters["comment_parent_site_id"])
-    if parameters["parent_comment_origin_id"]
-      parent_comment = Comment.find_by_origin_id_and_site_id(parameters["parent_comment_origin_id"], parameters["parent_comment_site_id"])
-    end
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    comment_parent = parameters[:parent_type].constantize.find_by_origin_id_and_site_id(parameters[:comment_parent_origin_id], parameters[:comment_parent_site_id])
+    
+    parent_comment = Comment.find_by_origin_id_and_site_id(parameters[:parent_comment_origin_id], parameters[:parent_comment_site_id]) if parameters[:parent_comment_origin_id]
     # remove extra parameters which not needed in creating collection 
-    unless user.nil?
-      parameters["site_id"] = parameters["sync_object_site_id"]
-      parameters["origin_id"] = parameters["sync_object_id"]
-      parameters["parent_id"] = comment_parent.id   
-      [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
-        "action_taken_at", "language", "comment_parent_origin_id",
-        "comment_parent_site_id", "parent_comment_origin_id", "parent_comment_site_id"].each { |key| parameters.delete key }
-      parameters["user_id"] = user.id
-      parameters["reply_to_id"] = parent_comment.id if parent_comment
+    if user
+      parameters = parameters.reverse_merge(site_id: parameters[:sync_object_site_id],
+                                            origin_id: parameters[:sync_object_id],
+                                            parent_id: comment_parent.id,
+                                            user_id: user.id)
+      parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, :action_taken_at,
+                                         :language, :comment_parent_origin_id, :comment_parent_site_id, 
+                                         :parent_comment_origin_id, :parent_comment_site_id],parameters)
+      parameters[:reply_to_id] = parent_comment.id if parent_comment
       comment = Comment.new(parameters)       
       comment.save!
     end    
@@ -424,11 +431,10 @@ class SyncPeerLog < ActiveRecord::Base
   
        # how node site handle update comment action
   def self.update_comment(parameters)
-    comment = Comment.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    # remove extra parameters which not needed in creating collection 
-    unless comment.nil?
-      [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
-        "action_taken_at", "language"].each { |key| parameters.delete key }
+    comment = Comment.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    if comment
+      parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
+                                         :action_taken_at, :language],parameters)
       comment.update_attributes(parameters)
     end    
   end
@@ -436,15 +442,14 @@ class SyncPeerLog < ActiveRecord::Base
   # how node site handle destroy comment action
   def self.delete_comment(parameters)   
      # update deleted attribute
-     self.update_comment(parameters)
+     update_comment(parameters)
   end
    
     # how node site handle hide comment action
   def self.hide_comment(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    comment = Comment.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    # remove extra parameters which not needed in creating collection 
-    unless user.nil?
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    comment = Comment.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    if user
      comment.hide(user)
      Rails.cache.delete('homepage/activity_logs_expiration') if Rails.cache
     end    
@@ -452,10 +457,9 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle show comment action
   def self.show_comment(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    comment = Comment.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    # remove extra parameters which not needed in creating collection 
-    unless user.nil?
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    comment = Comment.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    if user
      comment.show(user)
      Rails.cache.delete('homepage/activity_logs_expiration') if Rails.cache
     end    
@@ -463,23 +467,29 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle update collection item action after pull
   def self.update_collection_item(parameters)
-    references = parameters["references"]
-    col = Collection.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    item = parameters["collected_item_type"].constantize.find_by_origin_id_and_site_id(parameters["item_id"], parameters["item_site_id"])    
-    col_item = CollectionItem.find(:first, :conditions => "collection_id = #{col.id} and collected_item_id = #{item.id}")
-    if col_item.updated_at < parameters["updated_at"]
-      [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
-          "action_taken_at", "collected_item_type", "item_id",
-          "item_site_id", "language", "references", "updated_at"].each { |key| parameters.delete key }
+    col = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    item = parameters[:collected_item_type].constantize.find_by_origin_id_and_site_id(parameters[:item_id], parameters[:item_site_id])    
+    col_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", col.id, item.id).first
+    if col_item.updated_at < parameters[:updated_at]
+      parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                                         :action_taken_at, :language , :updated_at, :collected_item_type,
+                                         :item_id, :item_site_id, :references],parameters)
       col_item.update_attributes(parameters) 
-      col_item.refs.clear    
-      references = references.split("\n") unless references.blank?
-      unless references.blank?      
-        references.each do |reference|
-          if reference.strip != ''
-            ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(reference, 1, 1, Visibility.visible.id)
+    end
+  end
+  
+  def self.add_refs_collection_item(parameters)
+    references = parameters[:references]
+    col = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    item = parameters[:collected_item_type].constantize.find_by_origin_id_and_site_id(parameters[:item_id], parameters[:item_site_id])    
+    col_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", col.id, item.id).first
+    col_item.refs.clear    
+    references = references.split("\n") unless references.blank?
+    unless references.blank?      
+      references.each do |reference|
+        if reference.strip != ''
+          ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(reference, 1, 1, Visibility.visible.id)
             col_item.refs << ref unless ref.nil?
-           end
         end
       end
     end
@@ -488,10 +498,12 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle create Ref action after pull
   def self.create_ref(parameters)
-    ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(parameters["reference"],1, 1, Visibility.visible.id)
+    ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(parameters[:reference],1, 1, Visibility.visible.id)
     unless ref
-      ref = Ref.new(full_reference: parameters["reference"], user_submitted: true, published: 1, visibility: Visibility.visible)
-      ref.save
+      if parameters[:reference]
+        ref = Ref.new(full_reference: parameters[:reference], user_submitted: true, published: 1, visibility: Visibility.visible)
+        ref.save
+      end
     end       
   end 
   

@@ -36,28 +36,11 @@ class CommentsController < ApplicationController
         $STATSD.increment 'comments'
       end
       auto_collect(@comment.parent)
-      
-      # sync create comment
-      # add synchronization id
+      # add synchronization ids
       @comment[:origin_id] = @comment.id
       @comment[:site_id] = PEER_SITE_ID
       @comment.save
-      parent_comment = Comment.find(params[:comment][:reply_to_id].to_i)  unless params[:comment][:reply_to_id].blank?      
-      sync_params = params[:comment]
-      sync_params.delete("parent_id")
-      sync_params.delete("reply_to_id")
-      sync_params = sync_params.reverse_merge(:from_curator => @comment.from_curator,
-                                              :visible_at => @comment.visible_at,
-                                              :hidden => @comment.hidden,
-                                              :comment_parent_origin_id => @comment.parent.origin_id,
-                                              :comment_parent_site_id => @comment.parent.site_id)
-      if parent_comment
-        sync_params = sync_params.reverse_merge(:parent_comment_origin_id => parent_comment.origin_id,
-                                                :parent_comment_site_id => parent_comment.site_id)
-      end
-      options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.create.id,
-                    "type_id" =>  SyncObjectType.comment.id, "params" => sync_params} 
-      SyncPeerLog.log_action(options)                                 
+      sync_create_comment
     else
       flash[:error] = I18n.t(:comment_not_added_error)
       flash[:error] << " #{@comment.errors.full_messages.join('; ')}." if @comment.errors.any?
@@ -103,11 +86,7 @@ class CommentsController < ApplicationController
     actual_date = params[:actual_date]
     actual_date ||= false
     if @comment.update_attributes(params[:comment])
-      # sync update comment action
-      sync_params = params[:comment]      
-      options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.update.id,
-                    "type_id" =>  SyncObjectType.comment.id, "params" => sync_params} 
-      SyncPeerLog.log_action(options)
+     sync_update_comment
       
       respond_to do |format|
         format.html do
@@ -135,12 +114,7 @@ class CommentsController < ApplicationController
     actual_date = params[:actual_date]
     actual_date ||= false
     if @comment.update_attributes(deleted: 1)
-      # sync update comment action
-      sync_params = {:deleted => 1}     
-      options = {"user" => current_user, "object" =>  @comment, "action_id" => SyncObjectAction.delete.id,
-                    "type_id" =>  SyncObjectType.comment.id, "params" => sync_params} 
-      SyncPeerLog.log_action(options)
-      
+      sync_destroy_comment      
       respond_to do |format|
         format.html do
           flash[:notice] = I18n.t(:the_comment_was_successfully_deleted)
@@ -183,6 +157,39 @@ private
     when 'destroy'
       return access_denied unless current_user.can_delete?(@comment)
     end
+  end
+  
+  def sync_create_comment
+    parent_comment = Comment.find(params[:comment][:reply_to_id].to_i)  unless params[:comment][:reply_to_id].blank?
+    sync_params = params[:comment]
+    sync_params.delete("parent_id")
+    sync_params.delete("reply_to_id")
+    sync_params = sync_params.reverse_merge(from_curator: @comment.from_curator,
+                                            visible_at: @comment.visible_at,
+                                            hidden: @comment.hidden,
+                                            comment_parent_origin_id: @comment.parent.origin_id,
+                                            comment_parent_site_id: @comment.parent.site_id)
+    if parent_comment
+      sync_params = sync_params.reverse_merge(parent_comment_origin_id: parent_comment.origin_id,
+                                              parent_comment_site_id: parent_comment.site_id)
+    end
+    options = {user: current_user, object: @comment, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.comment.id, params: sync_params} 
+    SyncPeerLog.log_action(options)   
+  end
+  
+  def sync_update_comment
+    sync_params = params[:comment]      
+    options = {user: current_user, object: @comment, action_id: SyncObjectAction.update.id,
+               type_id: SyncObjectType.comment.id, params: sync_params} 
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_destroy_comment
+    sync_params = {deleted: 1}     
+    options = {user: current_user, object: @comment, action_id: SyncObjectAction.delete.id,
+               type_id: SyncObjectType.comment.id, params: sync_params} 
+    SyncPeerLog.log_action(options)
   end
 
 end

@@ -28,99 +28,7 @@ class CollectionJobsController < ApplicationController
         Collection.with_master do
           Collection.uncached { @collection_job.run }
         end
-        
-        # sync collection jobs (copy items- delete items- move items)
-        # prepare sync peer log  
-        sync_params = {}       
-        new_collection = nil
-        copied_collections_origin_ids = ""
-        copied_collections_site_ids = ""
-        collection_items_origin_ids = ""
-        collection_items_site_ids = ""
-        collection_items_names = ""
-        collection_items_types = ""
-        all_collections = []
-        
-        @collection_job.collections.each do |col|
-          unless col.nil? 
-            all_collections << col
-            if col.name == params[:collection_name]
-              new_collection = col              
-            else           
-              copied_collections_origin_ids += col.origin_id.to_s + ","
-              copied_collections_site_ids += col.site_id.to_s + ","                
-            end
-          end
-        end
-        
-         if new_collection
-          params = {}
-          new_collection.origin_id = new_collection.id
-          new_collection.site_id = PEER_SITE_ID
-          new_collection.save
-          #sync_params["new_collection_origin_id"] = new_collection.origin_id
-          params["name"] = new_collection.name
-          options = {"user" => current_user, "object" =>  new_collection, "action_id" => SyncObjectAction.create.id,
-                    "type_id" =>  SyncObjectType.collection.id, "params" => params} 
-          SyncPeerLog.log_action(options)
-        end
-        
-        
-         copied_collections_origin_ids += new_collection.origin_id.to_s + "," unless new_collection.nil?
-         copied_collections_site_ids += new_collection.site_id.to_s + "," unless new_collection.nil?
-       
-        
-        
-        collection_items.each do |collected_item|        
-           item = collected_item.collected_item_type.constantize.find(collected_item.collected_item_id)
-            collection_items_origin_ids += item.origin_id.to_s + "," unless item.origin_id.nil? || item.origin_id.to_s.nil?
-            collection_items_site_ids += item.site_id.to_s + "," unless item.site_id.nil? || item.site_id.to_s.nil?
-            collection_items_names += collected_item.name + "," unless collected_item.nil? || collected_item.name.nil?
-            collection_items_types += collected_item.collected_item_type + "," unless collected_item.nil? || collected_item.collected_item_type.nil?
-        end 
-        
-       
-        
-        # sync collection job
-        sync_params["command"] = @collection_job.command
-        sync_params["item_count"] = @collection_job.item_count
-        sync_params["all_items"] = @collection_job.all_items
-        sync_params["overwrite"] = @collection_job.overwrite
-        sync_params["copied_collections_origin_ids"] = copied_collections_origin_ids
-        sync_params["copied_collections_site_ids"] = copied_collections_site_ids 
-        sync_params["collection_items_origin_ids"] = collection_items_origin_ids 
-        sync_params["collection_items_site_ids"] = collection_items_site_ids
-        sync_params["collection_items_names"] = collection_items_names
-        sync_params["collection_items_types"] = collection_items_types        
-        
-        options = {"user" => current_user, "object" =>  @collection_job.collection, "action_id" => SyncObjectAction.create.id,
-                    "type_id" =>  SyncObjectType.collection_job.id, "params" => sync_params} 
-        SyncPeerLog.log_action(options)
-
-        collection_items.each do |collected_item| 
-          item = collected_item.collected_item_type.constantize.find(collected_item.collected_item_id)
-          params = {}             
-               
-          if @collection_job.command == "remove"  
-            params["item_id"] = item.origin_id   
-            params["item_site_id"] = item.site_id 
-            params["collected_item_type"] = collected_item.collected_item_type
-            options = {"user" => current_user, "object" =>  @collection_job.collection, "action_id" => SyncObjectAction.remove.id,
-              "type_id" =>  SyncObjectType.collection_item.id, "params" => params}              
-             SyncPeerLog.log_action(options)
-          elsif @collection_job.command == "copy"
-             params["collected_item_name"] = collected_item.name
-             params["collected_item_type"] = collected_item.collected_item_type          
-             params["item_id"] = item.origin_id
-             params["item_site_id"] = item.site_id
-             all_collections.each do |col|
-               options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.add.id,
-              "type_id" =>  SyncObjectType.collection_item.id, "params" => params}                              
-                SyncPeerLog.log_action(options)
-             end
-          end
-        end
-        
+        sync_collection_job(collection_items)
         redirect_to job_should_redirect_to, notice: complete_notice
       else
         redirect_to @collection_job.collection # TODO - errors are lost because we redirect rather than render...  fix.
@@ -180,4 +88,118 @@ class CollectionJobsController < ApplicationController
       end     
     end
   end
+  
+  # synchronization
+  
+  def sync_collection_job(collection_items)
+    new_collection = nil
+    copied_collections_origin_ids = ""
+    copied_collections_site_ids = ""
+    collection_items_origin_ids = ""
+    collection_items_site_ids = ""
+    collection_items_names = ""
+    collection_items_types = ""
+    all_collections = []
+    
+    @collection_job.collections.each do |col|
+      unless col.nil? 
+        all_collections << col
+        if col.name == params[:collection_name]
+          new_collection = col              
+        else           
+          copied_collections_origin_ids += col.origin_id.to_s + ","
+          copied_collections_site_ids += col.site_id.to_s + ","                
+        end
+      end
+    end
+    
+    if new_collection
+      new_collection.origin_id = new_collection.id
+      new_collection.site_id = PEER_SITE_ID
+      new_collection.save
+      sync_create_collection(new_collection)
+    end
+    
+    copied_collections_origin_ids += new_collection.origin_id.to_s + "," unless new_collection.nil?
+    copied_collections_site_ids += new_collection.site_id.to_s + "," unless new_collection.nil?
+    
+    collection_items.each do |collected_item|        
+      item = collected_item.collected_item_type.constantize.find(collected_item.collected_item_id)
+      collection_items_origin_ids += item.origin_id.to_s + "," unless item.origin_id.nil? || item.origin_id.to_s.nil?
+      collection_items_site_ids += item.site_id.to_s + "," unless item.site_id.nil? || item.site_id.to_s.nil?
+      collection_items_names += collected_item.name + "," unless collected_item.nil? || collected_item.name.nil?
+      collection_items_types += collected_item.collected_item_type + "," unless collected_item.nil? || collected_item.collected_item_type.nil?
+    end 
+    # sync create collection job
+    sync_create_collection_job(copied_collections_origin_ids, copied_collections_site_ids,
+    collection_items_origin_ids, collection_items_site_ids, collection_items_names, collection_items_types)
+   
+    handle_collection_job_items(collection_items, all_collections)
+  end
+  
+  def sync_create_collection_job(copied_collections_origin_ids, copied_collections_site_ids,
+    collection_items_origin_ids, collection_items_site_ids, collection_items_names, collection_items_types)
+    sync_params = {command: @collection_job.command, item_count: @collection_job.item_count,
+                   all_items: @collection_job.all_items, overwrite: @collection_job.overwrite,
+                   copied_collections_origin_ids: copied_collections_origin_ids, 
+                   copied_collections_site_ids: copied_collections_site_ids,
+                   collection_items_origin_ids: collection_items_origin_ids,
+                   collection_items_site_ids: collection_items_site_ids,
+                   collection_items_names: collection_items_names, collection_items_types: collection_items_types}
+    options = {user: current_user, object: @collection_job.collection, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.collection_job.id, params: sync_params} 
+    SyncPeerLog.log_action(options)
+  end
+  
+  def handle_collection_job_items(collection_items, all_collections)
+    collection_items.each do |collected_item| 
+      item = collected_item.collected_item_type.constantize.find(collected_item.collected_item_id)
+      if @collection_job.command == "remove"  
+        sync_remove_collection_item(collected_item, item)      
+      elsif @collection_job.command == "copy"
+        sync_copy_collection_item(collected_item, item, all_collections)
+      end
+    end
+  end
+  
+  def sync_remove_collection_item(collected_item, item)
+    sync_params = {item_id: item.origin_id, item_site_id: item.site_id,
+                  collected_item_type: collected_item.collected_item_type}
+    options = {user: current_user, object: @collection_job.collection, action_id: SyncObjectAction.remove.id,
+              type_id: SyncObjectType.collection_item.id, params: sync_params}              
+     SyncPeerLog.log_action(options)
+  end
+  
+  def sync_copy_collection_item(collected_item, item, all_collections)
+    sync_params = {item_id: item.origin_id, item_site_id: item.site_id,
+                  collected_item_type: collected_item.collected_item_type,
+                  collected_item_name: collected_item.name}
+
+    if @collection_job.overwrite
+      sync_params = sync_params.reverse_merge(annotation: collected_item.annotation, added_by_user_id: collected_item.added_by_user_id,
+                                created_at: collected_item.created_at, updated_at: collected_item.updated_at)
+    end
+    
+    if current_user.can_edit_collection?(@collection_job.collection)
+      refs = ""
+      collected_item.refs.each do |reference|
+        refs += reference.full_reference + ","
+      end
+      sync_params = sync_params.reverse_merge(references: refs)
+    end
+         
+    all_collections.each do |col|
+     options = {user: current_user, object: col, action_id: SyncObjectAction.copy.id,
+                type_id: SyncObjectType.collection_item.id, params: sync_params}                              
+      SyncPeerLog.log_action(options)
+    end
+  end
+  
+  def sync_create_collection(new_collection)
+    sync_params = {name: new_collection.name}
+    options = {user: current_user, object: new_collection, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.collection.id, params: sync_params} 
+    SyncPeerLog.log_action(options)
+  end
+  
 end

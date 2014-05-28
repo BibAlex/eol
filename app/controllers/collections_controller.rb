@@ -118,21 +118,8 @@ class CollectionsController < ApplicationController
       
       CollectionActivityLog.create({ collection: @collection, user_id: current_user.id, activity: Activity.change_name }) if name_change
       CollectionActivityLog.create({ collection: @collection, user_id: current_user.id, activity: Activity.change_description }) if description_change
-      
-       # create sync peer log for updating collection metadata
-       sync_params = params[:collection] 
-       sync_params.delete("logo")
-       sync_params = sync_params.reverse_merge(  :logo_cache_url => @collection.logo_cache_url,
-                                                 :logo_file_name => @collection.logo_file_name,
-                                                 :logo_content_type => @collection.logo_content_type,
-                                                 :logo_file_size => @collection.logo_file_size,
-                                                 :base_url => "#{$CONTENT_SERVER}content/",
-                                                 :updated_at => @collection.updated_at)                                                                               
-        options = {"user" => current_user, "object" =>  @collection, "action_id" => SyncObjectAction.update.id,
-              "type_id" =>  SyncObjectType.collection.id, "params" => sync_params}
-        SyncPeerLog.log_action(options) 
-               
-                              
+       
+       sync_update_collection
     else
       set_edit_vars
       render action: :edit
@@ -746,13 +733,28 @@ private
   end
   
   def sync_create_collection_item
-    # log create collection item
     sync_params = {collected_item_type: params[:item_type], collected_item_name: @item.summary_name,                                                
                    item_id: @item.origin_id, item_site_id: @item.site_id, base_item: true} 
                    
     options = {user: current_user, object: @collection, action_id: SyncObjectAction.add.id,
                type_id: SyncObjectType.collection_item.id, params: sync_params}                                                               
     SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_collection
+   # create sync peer log for updating collection metadata
+   sync_params = params[:collection] 
+   sync_params.delete("logo")
+   sync_params = sync_params.reverse_merge(logo_cache_url: @collection.logo_cache_url,
+                                           logo_file_name: @collection.logo_file_name,
+                                           logo_content_type: @collection.logo_content_type,
+                                           logo_file_size: @collection.logo_file_size,
+                                           base_url: "#{$CONTENT_SERVER}content/",
+                                           updated_at: @collection.updated_at)    
+    # send updated_at attribute to solve conflict if found                                                                           
+    options = {user: current_user, object: @collection, action_id: SyncObjectAction.update.id,
+              type_id: SyncObjectType.collection.id, params: sync_params}
+    SyncPeerLog.log_action(options) 
   end
   
   def sync_delete_collection
