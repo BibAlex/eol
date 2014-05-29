@@ -59,7 +59,7 @@ class Taxa::NamesController < TaxaController
       unless synonym.errors.blank?
         flash[:error] = I18n.t(:common_name_exists, name_string: params[:name][:string])
       else
-        sync_create_common_name
+        sync_create_common_name(language, name, synonym)
         @taxon_concept.reindex_in_solr
         log_action(@taxon_concept, synonym, :add_common_name)
         expire_taxa([@taxon_concept.id])
@@ -79,15 +79,7 @@ class Taxa::NamesController < TaxaController
           preferred: 1, vetted: Vetted.trusted, new_flag: true, site_id: PEER_SITE_ID)
         synonym = arr["synonym"]
         expire_taxa([@taxon_concept.id])
-        #syncronization
-        sync_params = {"language" => language.id,
-                       "taxon_concept_origin_id" => @taxon_concept.origin_id,
-                       "taxon_concept_site_id" => @taxon_concept.site_id,
-                       "string" => name.string,
-                       "is_preferred" => synonym.preferred}
-        options = {"user" => current_user, "object" =>  synonym, "action_id" => SyncObjectAction.update.id,
-              "type_id" =>  SyncObjectType.common_name.id, "params" => sync_params}
-        SyncPeerLog.log_action(options)
+        sync_update_common_name(language, name, synonym)
       end
       current_user.log_activity(:updated_common_names, taxon_concept_id: @taxon_concept.id)
     end
@@ -107,12 +99,7 @@ class Taxa::NamesController < TaxaController
       tcn = TaxonConceptName.find_by_synonym_id_and_taxon_concept_id(synonym_id, @taxon_concept.id)
       @taxon_concept.delete_common_name(tcn)
       @taxon_concept.reindex_in_solr
-      # syncronization
-      sync_params = {"taxon_concept_origin_id" => @taxon_concept.origin_id,
-                     "taxon_concept_site_id" => @taxon_concept.site_id}
-      options = {"user" => current_user, "object" =>  synonym, "action_id" => SyncObjectAction.delete.id,
-              "type_id" =>  SyncObjectType.common_name.id, "params" => sync_params}
-      SyncPeerLog.log_action(options)
+      sync_destroy_common_name(synonym)
     end
 
     if !params[:hierarchy_entry_id].blank?
@@ -152,20 +139,9 @@ class Taxa::NamesController < TaxaController
     vetted = Vetted.find(params[:vetted_id])
     @taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: current_user)
     current_user.log_activity(:vetted_common_name, taxon_concept_id: @taxon_concept.id, value: name_id)
-    
-    #syncronization
     name = Name.find_by_id(name_id)
-    sync_params={"language" => language_id,
-                 "vetted_view_order" => vetted.view_order,
-                 "taxon_concept_origin_id" => @taxon_concept.origin_id,
-                 "taxon_concept_site_id" => @taxon_concept.site_id,
-                 "string" => name.string,
-                 "action_taken_at" => Time.now}
-    synonym = Synonym.find_by_name_id(name_id)         
-    options = {"user" => current_user, "object" =>  synonym, "action_id" => SyncObjectAction.vet.id,
-              "type_id" =>  SyncObjectType.common_name.id, "params" => sync_params}
-    SyncPeerLog.log_action(options)
-    
+    synonym = Synonym.find_by_name_id(name_id)
+    sync_vet_common_name(language_id, name, synonym, vetted)
     if synonym
       case vetted.label
       when "Trusted"
@@ -229,6 +205,50 @@ private
     @exemplar = params[:exemplar]
     @additional_confirm = params[:additional_confirm]
     @move_to = params[:move_to]
+  end
+  
+  # synchronization
+  def sync_create_common_name(language, name, synonym)
+    sync_params = {language: language,
+                   taxon_concept_site_id: @taxon_concept.site_id,
+                   taxon_concept_origin_id: @taxon_concept.origin_id,
+                   name_origin_id: name.origin_id,
+                   name_site_id: name.site_id,
+                   string: params[:name][:string]}
+    options = {user: current_user, object: synonym, action_id: SyncObjectAction.create.id,
+              type_id: SyncObjectType.common_name.id, params: sync_params}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_common_name(language, name, synonym)
+    sync_params = {language: language.id,
+                   taxon_concept_origin_id: @taxon_concept.origin_id,
+                   taxon_concept_site_id: @taxon_concept.site_id,
+                   string: name.string,
+                   is_preferred: synonym.preferred}
+    options = {user: current_user, object: synonym, action_id: SyncObjectAction.update.id,
+              type_id: SyncObjectType.common_name.id, params: sync_params}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_vet_common_name(language_id, name, synonym, vetted)
+    sync_params={language: language_id,
+                 vetted_view_order: vetted.view_order,
+                 taxon_concept_origin_id: @taxon_concept.origin_id,
+                 taxon_concept_site_id: @taxon_concept.site_id,
+                 string: name.string,
+                 action_taken_at: Time.now}
+    options = {user: current_user, object: synonym, action_id: SyncObjectAction.vet.id,
+              type_id: SyncObjectType.common_name.id, params: sync_params}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_destroy_common_name(synonym)
+    sync_params = {taxon_concept_origin_id: @taxon_concept.origin_id,
+                   taxon_concept_site_id: @taxon_concept.site_id}
+    options = {user: current_user, object: synonym, action_id: SyncObjectAction.delete.id,
+              type_id: SyncObjectType.common_name.id, params: sync_params}
+    SyncPeerLog.log_action(options)
   end
 
 end

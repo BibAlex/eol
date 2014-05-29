@@ -149,51 +149,53 @@ class SyncPeerLog < ActiveRecord::Base
     parameters[:user_identity_ids] = parameters[:user_identity_ids].split(",")  if parameters[:user_identity_ids]
     parameters[:site_id] = parameters[:sync_object_site_id]
     parameters[:origin_id] = parameters[:sync_object_id]
+    base_url = parameters[:base_url]
     parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
-                                       :action_taken_at],parameters)
+                                       :action_taken_at, :base_url],parameters)
     user = User.find_by_origin_id_and_site_id(parameters[:origin_id], parameters[:site_id])
-    logo_file_name = parameters[:logo_file_name]
+    
     if user
-      if logo_file_name
-        if handle_object_logo(logo_file_name, "User", user, parameters[:base_url], parameters[:logo_cache_url])
-          object_logo_download_success(parameters, user, user, "user")
-        else
-          object_logo_download_fail(parameters, user, user, "user")
-        end
-     else
-       parameters.delete(:base_url)
-       user.update_attributes(parameters)
-       # call log activity
-       user.log_activity(:updated_user) 
-    end
+      user.update_attributes(parameters)
+      # call log activity
+      user.log_activity(:updated_user)
+      
+      parameters[:base_url] = base_url
+      handle_object_logo("User", user, parameters)
    end
   end
   
-  def self.handle_object_logo(logo_file_name, object_type, object, base_url, logo_cache_url)
-    directory_name = object_type.downcase.pluralize
-    file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ]
-    logo_name = "#{directory_name}_#{object.id}.#{file_type}"
-    file_url = self.get_url(base_url, logo_cache_url,file_type)
-    if download_file?(file_url, logo_name, "logo")    
-      # delete old logo
-      old_logo_name = object.logo_file_name
-      if old_logo_name
-        old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
-        if file_type != old_logo_extension
-          File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}#{directory_name}_#{object.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}#{directory_name}_#{object.id}.#{old_logo_extension}"
+  def self.handle_object_logo(object_type, object, parameters)
+    logo_file_name = parameters[:logo_file_name]
+    if logo_file_name
+      base_url = parameters[:base_url]
+      logo_cache_url = parameters[:logo_cache_url]
+      directory_name = object_type.downcase.pluralize
+      file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ]
+      logo_name = "#{directory_name}_#{object.id}.#{file_type}"
+      file_url = self.get_url(base_url, logo_cache_url,file_type)
+      if download_file?(file_url, logo_name, "logo")    
+        # delete old logo
+        old_logo_name = object.logo_file_name
+        if old_logo_name
+          old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
+          if file_type != old_logo_extension
+            File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}#{directory_name}_#{object.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}#{directory_name}_#{object.id}.#{old_logo_extension}"
+          end
         end
+        object.update_column(:logo_file_name, logo_name)
+        object.update_column(:logo_content_type, parameters[:logo_content_type])
+        object.update_column(:logo_file_size, parameters[:logo_file_size])
+        upload_file(object)
+      else
+        handle_download_failure(file_url, logo_name, "logo", object_type, object, parameters)
       end
-      return true
-    else
-      handle_download_failure(file_url, logo_name, "logo", object_type, object,logo_file_name, parameters[:logo_content_type], parameters[:logo_file_size])
-      return false;
     end
   end
   
-  def self.handle_download_failure(file_url, logo_name, file_type, object_type, object, logo_file_name, logo_content_type, logo_file_size)
+  def self.handle_download_failure(file_url, logo_name, file_type, object_type, object, parameters)
     failed_file = FailedFiles.create(file_url: file_url, output_file_name: logo_name, file_type: file_type ,
                 object_type: object_type , object_id: object.id)
-    FailedFilesParameters.create(failed_files_id: failed_file.id, parameter: "logo_file_name", value: logo_file_name)
+    FailedFilesParameters.create(failed_files_id: failed_file.id, parameter: "logo_file_name", value: parameters[:logo_file_name])
     FailedFilesParameters.create(failed_files_id: failed_file.id, parameter: "logo_content_type", value: parameters[:logo_content_type])
     FailedFilesParameters.create(failed_files_id: failed_file.id, parameter: "logo_file_size", value: parameters[:logo_file_size])
   end
@@ -251,62 +253,58 @@ class SyncPeerLog < ActiveRecord::Base
     collection = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if collection.updated_at < parameters[:updated_at]
       parameters[:site_id] = parameters[:sync_object_site_id]
-      parameters[:origin_id] = parameters[:sync_object_id]   
-
-      logo_file_name = parameters[:logo_file_name]
-      
+      parameters[:origin_id] = parameters[:sync_object_id] 
+      base_url = parameters[:base_url]  
       # remove extra parameters which not needed in creating collection
       parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
-                                       :action_taken_at, :language , :updated_at],parameters)
-      if collection    
-        if logo_file_name           
-          if handle_object_logo(logo_file_name, "Collection", collection, parameters[:base_url], parameters[:logo_cache_url])
-            object_logo_download_success(parameters, collection_owner, collection, "collection")
-          else
-            object_logo_download_fail(parameters, collection_owner, collection, "collection")
-          end
-        else
-          parameters.delete(:base_url)
-          collection.update_attributes(parameters)
-          log_update_collection(parameters, collection_owner, collection)
-        end
+                                       :action_taken_at, :language , :updated_at, :base_url],parameters)
+      if collection
+        collection.update_attributes(parameters)
+        name_change = parameters[:name] != collection.name
+        description_change = parameters[:description] != collection.description
+        # log create collection action
+        CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
+        CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
+         
+        parameters[:base_url] = base_url
+        handle_object_logo("Collection", collection, parameters)        
       end
     end  
   end
   
-  def self.log_update_collection(options)
-    parameters = options[:parameters]
-    collection_owner = options[:user]
-    collection = options[:object]
-    name_change = parameters[:name] != collection.name
-    description_change = parameters[:description] != collection.description
-    # log create collection action
-    CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
-    CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
-  end
+  # def self.log_update_collection(options)
+    # parameters = options[:parameters]
+    # collection_owner = options[:user]
+    # collection = options[:object]
+    # name_change = parameters[:name] != collection.name
+    # description_change = parameters[:description] != collection.description
+    # # log create collection action
+    # CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
+    # CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
+  # end
   
-  def self.log_update_user(options)
-    object = options[:object]
-    user.log_activity(:updated_user)
-  end
-  
-  
-  def self.object_logo_download_fail(parameters, user, object, object_type)
-    parameters = delete_unwanted_keys([:base_url, :logo_file_name, :logo_cache_url, :logo_content_type, :logo_file_size],parameters)
-    object.update_attributes(parameters)
-    function_name = "log_update_#{object_type}"
-    options = {user: user, object: object, parameters: parameters}
-    "SyncPeerLog".constantize.send(function_name, options)
-  end
-  
-  def self.object_logo_download_success(parameters, user, object, object_type)
-    parameters.delete(:base_url)
-    object.update_attributes(parameters)
-    function_name = "log_update_#{object_type}"
-    options = {user: user, object: object, parameters: parameters}
-    "SyncPeerLog".constantize.send(function_name, options)
-    upload_file(object)
-  end
+  # def self.log_update_user(options)
+    # object = options[:object]
+    # user.log_activity(:updated_user)
+  # end
+#   
+#   
+  # def self.object_logo_download_fail(parameters, user, object, object_type)
+    # parameters = delete_unwanted_keys([:base_url, :logo_file_name, :logo_cache_url, :logo_content_type, :logo_file_size],parameters)
+    # object.update_attributes(parameters)
+    # function_name = "log_update_#{object_type}"
+    # options = {user: user, object: object, parameters: parameters}
+    # "SyncPeerLog".constantize.send(function_name, options)
+  # end
+#   
+  # def self.object_logo_download_success(parameters, user, object, object_type)
+    # parameters.delete(:base_url)
+    # object.update_attributes(parameters)
+    # function_name = "log_update_#{object_type}"
+    # options = {user: user, object: object, parameters: parameters}
+    # "SyncPeerLog".constantize.send(function_name, options)
+    # upload_file(object)
+  # end
    
   def self.delete_collection(parameters)
     collection = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
@@ -509,27 +507,32 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle create data object action after pull
   def self.create_data_object(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
-    references = parameters["references"]
-    commit_link = parameters["commit_link"]
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
+    references = parameters[:references]
+    commit_link = parameters[:commit_link]
     toc_id = nil
-    unless parameters["toc_site_id"].nil?
-      toc = TocItem.find(:first, :conditions => "site_id = #{parameters["toc_site_id"]} and origin_id = #{parameters["toc_id"]}")
-      toc_id = toc.id unless toc.nil?
+    if parameters[:toc_site_id]
+      toc = TocItem.where("site_id = ? and origin_id = ?", parameters[:toc_site_id], parameters[:toc_id]).first
+      toc_id = toc.id if toc
     end
     link_type_id = nil
-    unless parameters["link_type_site_id"].nil?
-      link_type = LinkType.find(:first, :conditions => "site_id = #{parameters["link_type_site_id"]} and origin_id = #{parameters["link_type_id"]}")
-      link_type_id = link_type.id  unless link_type.nil?
+    if parameters[:link_type_site_id]
+      link_type = LinkType.find("site_id = ? and origin_id = ?", parameters[:link_type_site_id], parameters[:link_type_id]).first
+      link_type_id = link_type.id  if link_type
     end
     
-    parameters = parameters.reverse_merge("origin_id" => parameters["sync_object_id"],
-                                          "site_id" => parameters["sync_object_site_id"])                                                           
-    [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
-      "action_taken_at", "language", "commit_link",  "taxon_concept_origin_id",
-      "taxon_concept_site_id", "references", "link_type_id", "toc_id",
-      "toc_site_id", "link_type_site_id"].each { |key| parameters.delete key }    
+    parameters = parameters.reverse_merge(origin_id: parameters[:sync_object_id],
+                                          site_id: parameters[:sync_object_site_id])
+    parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                                       :action_taken_at, :language , :commit_link,
+                                       :taxon_concept_origin_id, :taxon_concept_site_id,
+                                       :references, :link_type_id, :toc_id, :toc_site_id,
+                                       :link_type_site_id],parameters)                                                         
+    # [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
+      # "action_taken_at", "language", "commit_link",  "taxon_concept_origin_id",
+      # "taxon_concept_site_id", "references", "link_type_id", "toc_id",
+      # "toc_site_id", "link_type_site_id"].each { |key| parameters.delete key }    
     
     data_object = DataObject.create_user_text(parameters, user: user,
                                                taxon_concept: taxon_concept, toc_id: toc_id,
@@ -552,30 +555,36 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle update data object action after pull
   def self.update_data_object(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    data_object = DataObject.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    references = parameters["references"]
-    commit_link = parameters["commit_link"]
-    new_revision_origin_id = parameters["new_revision_origin_id"]
-    new_revision_site_id = parameters["new_revision_site_id"]
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    references = parameters[:references]
+    commit_link = parameters[:commit_link]
+    new_revision_origin_id = parameters[:new_revision_origin_id]
+    new_revision_site_id = parameters[:new_revision_site_id]
     toc_id = nil
-    unless parameters["toc_site_id"].nil?
-      toc = TocItem.find(:first, :conditions => "site_id = #{parameters["toc_site_id"]} and origin_id = #{parameters["toc_id"]}")
-      toc_id = toc.id unless toc.nil?
+    if parameters[:toc_site_id]
+      toc = TocItem.where("site_id = ? and origin_id = ?", parameters[:toc_site_id], parameters[:toc_id]).first
+      toc_id = toc.id if toc
     end
     link_type_id = nil
-    unless parameters["link_type_site_id"].nil?
-      link_type = LinkType.find(:first, :conditions => "site_id = #{parameters["link_type_site_id"]} and origin_id = #{parameters["link_type_id"]}")
-      link_type_id = link_type.id  unless link_type.nil?
+    if parameters[:link_type_site_id]
+      link_type = LinkType.find("site_id = ? and origin_id = ?", parameters[:link_type_site_id], parameters[:link_type_id]).first
+      link_type_id = link_type.id  if link_type
     end
     
-    parameters = parameters.reverse_merge("origin_id" => parameters["sync_object_id"],
-                                          "site_id" => parameters["sync_object_site_id"])                                                           
-    [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
-      "action_taken_at", "language", "commit_link",  "taxon_concept_origin_id",
-      "taxon_concept_site_id", "references", "link_type_id", "toc_id",
-      "toc_site_id", "link_type_site_id", "new_revision_origin_id",
-      "new_revision_site_id"].each { |key| parameters.delete key }    
+    parameters = parameters.reverse_merge(origin_id: parameters[:sync_object_id],
+                                          site_id: parameters[:sync_object_site_id]) 
+    parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                                       :action_taken_at, :language , :commit_link,
+                                       :taxon_concept_origin_id, :taxon_concept_site_id,
+                                       :references, :link_type_id, :toc_id, :toc_site_id,
+                                       :link_type_site_id, :new_revision_origin_id,
+                                       :new_revision_site_id],parameters)                                                          
+    # [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
+      # "action_taken_at", "language", "commit_link",  "taxon_concept_origin_id",
+      # "taxon_concept_site_id", "references", "link_type_id", "toc_id",
+      # "toc_site_id", "link_type_site_id", "new_revision_origin_id",
+      # "new_revision_site_id"].each { |key| parameters.delete key }    
     
     new_data_object = data_object.replicate(parameters, user: user, toc_id: toc_id,
                                              link_type_id: link_type_id, link_object: commit_link)
@@ -598,9 +607,9 @@ class SyncPeerLog < ActiveRecord::Base
   end
  
    def self.rate_data_object(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    data_object = DataObject.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    stars = parameters["stars"]
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    stars = parameters[:stars]
     rated_successfully = data_object.rate(user, stars.to_i)
     user.log_activity(:rated_data_object_id, value: data_object.id)
     data_object.update_solr_index if rated_successfully
@@ -614,25 +623,23 @@ class SyncPeerLog < ActiveRecord::Base
   
   
   def self.create_common_name(parameters)
-    taxon_concept = TaxonConcept.where(:site_id => parameters["taxon_concept_site_id"], :origin_id => parameters["taxon_concept_origin_id"])
-    if taxon_concept && taxon_concept.count > 0
-      taxon_concept = taxon_concept[0]     
-      user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"],parameters["user_site_id"])
-      taxon_concept.add_common_name_synonym(parameters["string"], agent: user.agent,
-                                            language: parameters["language"],
+    taxon_concept = TaxonConcept.find_by_site_id_and_origin_id(parameters[:taxon_concept_site_id], parameters[:taxon_concept_origin_id])
+    if taxon_concept 
+      user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id],parameters[:user_site_id])
+      taxon_concept.add_common_name_synonym(parameters[:string], agent: user.agent,
+                                            language: parameters[:language],
                                             vetted: Vetted.trusted,
-                                            site_id: parameters["name_site_id"],
-                                            name_origin_id: parameters["name_origin_id"],
-                                            synonym_site_id: parameters["sync_object_site_id"],
-                                            synonym_origin_id: parameters["sync_object_id"])
+                                            site_id: parameters[:name_site_id],
+                                            name_origin_id: parameters[:name_origin_id],
+                                            synonym_site_id: parameters[:sync_object_site_id],
+                                            synonym_origin_id: parameters[:sync_object_id])
       taxon_concept.reindex_in_solr
-      # expire_taxa([taxon_concept.id])
     end
   end
  
   def self.delete_common_name(parameters)
-    synonym = Synonym.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
+    synonym = Synonym.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
     if synonym && taxon_concept
       tcn = TaxonConceptName.find_by_synonym_id_and_taxon_concept_id(synonym.id, taxon_concept.id)
       taxon_concept.delete_common_name(tcn)
@@ -641,13 +648,13 @@ class SyncPeerLog < ActiveRecord::Base
   end
  
   def self.vet_common_name(parameters)
-    language_id = parameters["language"].id
-    name_id = Name.find_by_string(parameters["string"]).id
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    vetted = Vetted.find_or_create_by_view_order(parameters["vetted_view_order"])
-    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
+    language_id = parameters[:language].id
+    name_id = Name.find_by_string(parameters[:string]).id
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    vetted = Vetted.find_or_create_by_view_order(parameters[:vetted_view_order])
+    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
     found = taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: user,
-                                        date: parameters["action_taken_at"])
+                                        date: parameters[:action_taken_at])
     if found
       user.log_activity(:vetted_common_name, taxon_concept_id: taxon_concept.id, value: name_id)
       taxon_concept.reindex_in_solr
@@ -655,18 +662,18 @@ class SyncPeerLog < ActiveRecord::Base
   end
  
   def self.update_common_name(parameters)
-    name = Name.find_by_string(parameters["string"])
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    language = parameters["language"]
-    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
+    name = Name.find_by_string(parameters[:string])
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    language = parameters[:language]
+    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
     taxon_concept.add_common_name_synonym(name.string,
                                           agent: user.agent,
                                           language: language,
                                           preferred: 1,
                                           vetted: Vetted.trusted,
                                           site_id: name.site_id,
-                                          date: parameters["action_taken_at"],
-                                          is_preferred: parameters["is_preferred"])
+                                          date: parameters[:action_taken_at],
+                                          is_preferred: parameters[:is_preferred])
     user.log_activity(:updated_common_names, taxon_concept_id: taxon_concept.id)
   end
   
@@ -721,58 +728,45 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.create_community(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    collection = Collection.find_by_origin_id_and_site_id(parameters["collection_origin_id"], parameters["collection_site_id"])
-    community = Community.create(:name => parameters["community_name"], 
-                               :description => parameters["community_description"], 
-                               :origin_id => parameters["sync_object_id"], 
-                               :site_id => parameters["sync_object_site_id"])
-    if collection
-      collection.communities << community
-    end
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    collection = Collection.find_by_origin_id_and_site_id(parameters[:collection_origin_id], parameters[:collection_site_id])
+    community = Community.create(name: parameters[:community_name], 
+                                 description: parameters[:community_description], 
+                                 origin_id: parameters[:sync_object_id], 
+                                 site_id: parameters[:sync_object_site_id])
+    
+    collection.communities << community if collection    
     community.initialize_as_created_by(user)
     EOL::GlobalStatistics.increment('communities') if community.published?
     #add logo
-    self.handle_community_logo(community, parameters)
-    options = {}
-    options[:user] = user
-    options[:without_flash] = true
+    handle_object_logo("Community", community, parameters)
+    options = {user: user, without_flash: true}
     auto_collect_helper(community, options)
     community.collections.each do |focus|
       auto_collect_helper(focus, options)
     end
-    opts = {}
-    opts["user"] = user
-    opts["community"] = community
+    opts = {user: user, community: community}
     log_community_action(:create, opts)
   end
   
   def self.update_community(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    community = Community.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    community = Community.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if community
-      community.update_column(:name, parameters["community_name"]) if parameters["name_change"]
-      community.update_column(:description, parameters["community_description"]) if parameters["description_change"]
+      community.update_column(:name, parameters[:community_name]) if parameters[:name_change]
+      community.update_column(:description, parameters[:community_description]) if parameters[:description_change]
       #UPDATE logo
-      self.handle_community_logo(community, parameters)
-      opts = {}
-      opts["user"] = user
-      opts["community"] = community
-      if parameters["name_change"] == "1"
-        log_community_action(:change_name, opts)
-      end 
-      opts = {}
-      opts["user"] = user
-      opts["community"] = community
-      if parameters["description_change"] == "1"
-        log_community_action(:change_description, opts)
-      end 
+      handle_object_logo("Community", community, parameters)
+      opts = {user: user, community: community}
+      log_community_action(:change_name, opts) if parameters[:name_change] == "1"
+      opts = {user: user, community: community}
+      log_community_action(:change_description, opts) if parameters[:description_change] == "1"
     end
   end
   
   def self.delete_community(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    community = Community.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    community = Community.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if community
       community.update_column(:published, false)
       community.collection.update_column(:published, false) rescue nil
@@ -781,100 +775,80 @@ class SyncPeerLog < ActiveRecord::Base
         community.save
       end
       EOL::GlobalStatistics.decrement('communities')
-      opts = {}
-      opts["user"] = user
-      opts["community"] = community
+      opts = {user: user, community: community}
       log_community_action(:delete, opts)
     end
   end
   
   def self.join_community(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    community = Community.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    community = Community.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if community && user
       member = community.add_member(user)
       options = {}
       options[:user] = user
-      options[:annotation] = I18n.t(:user_joined_community_on_date, date: I18n.l(parameters["action_taken_at"]),
+      options[:annotation] = I18n.t(:user_joined_community_on_date, date: I18n.l(parameters[:action_taken_at]),
       username: user.full_name)
       options[:without_flash] = true
       auto_collect_helper(community, options)
       community.collections.each do |focus|
         auto_collect_helper(focus,options)
       end
-      opts = {}
-      opts["user"] = user
-      opts["community"] = community
-      opts["member_id"] = user.id
+      opts = {user: user, community: community, member_id: user.id}
       log_community_action(:join, opts)
     end
-    
   end
   
   def self.leave_community(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    community = Community.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    community = Community.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if community && user
       community.remove_member(user)
-      opts = {}
-      opts["user"] = user
-      opts["community"] = community
-      opts["member_id"] = user.id
+      opts = {user: user, community: community, member_id: user.id}
       log_community_action(:leave, opts)
     end
   end
   
   def self.save_association_data_object(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    data_object = DataObject.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    he = HierarchyEntry.find_by_origin_id_and_site_id(parameters["hierarchy_entry_origin_id"], parameters["hierarchy_entry_site_id"])
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    he = HierarchyEntry.find_by_origin_id_and_site_id(parameters[:hierarchy_entry_origin_id], parameters[:hierarchy_entry_site_id])
     cdohe = data_object.add_curated_association(user, he)
     data_object.update_solr_index
-    options = {}
-    options["data_object"] = data_object
-    options["user"] = user
+    options = {data_object: data_object, user: user}
     log_data_object_action(cdohe, :add_association, options)
   end
   
   def self.remove_association_data_object(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    data_object = DataObject.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    he = HierarchyEntry.find_by_origin_id_and_site_id(parameters["hierarchy_entry_origin_id"], parameters["hierarchy_entry_site_id"])
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    he = HierarchyEntry.find_by_origin_id_and_site_id(parameters[:hierarchy_entry_origin_id], parameters[:hierarchy_entry_site_id])
     cdohe = data_object.remove_curated_association(user, he)
     data_object.update_solr_index
-    options = {}
-    options["data_object"] = data_object
-    options["user"] = user
+    options = {data_object: data_object, user: user}
     log_data_object_action(cdohe, :remove_association, options)
   end
   
   def self.curate_associations_data_object(parameters)
-    
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    data_object = DataObject.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters["taxon_concept_origin_id"], parameters["taxon_concept_site_id"])
-    
-    visibility = parameters["visibility_label"] ? Visibility.find(TranslatedVisibility.find_by_language_id_and_label(parameters["language"].id, parameters["visibility_label"]).visibility_id) : nil
-    untrust_reasons = parameters["untrust_reasons"] ? get_objects_ids(parameters["untrust_reasons"], "UntrustReason") : nil
-    hide_reasons = parameters["hide_reasons"] ? get_objects_ids(parameters["hide_reasons"], "UntrustReason"): nil
-    comment = (parameters["curation_comment_origin_id"] && parameters["curation_comment_site_id"]) ? Comment.find_by_origin_id_and_site_id(parameters["curation_comment_origin_id"], parameters["curation_comment_site_id"]) : nil
-      
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
+    visibility = parameters[:visibility_label] ? Visibility.find(TranslatedVisibility.find_by_language_id_and_label(parameters[:language].id, parameters[:visibility_label]).visibility_id) : nil
+    untrust_reasons = parameters[:untrust_reasons] ? get_objects_ids(parameters[:untrust_reasons], "UntrustReason") : nil
+    hide_reasons = parameters[:hide_reasons] ? get_objects_ids(parameters[:hide_reasons], "UntrustReason"): nil
+    comment = (parameters[:curation_comment_origin_id] && parameters[:curation_comment_site_id]) ? Comment.find_by_origin_id_and_site_id(parameters[:curation_comment_origin_id], parameters[:curation_comment_site_id]) : nil
     association = data_object.data_object_taxa.find {|item| item.taxon_concept.origin_id == taxon_concept.origin_id && item.taxon_concept.site_id == taxon_concept.site_id}
-    
-    
     curation = Curation.new(
         association: association,
         user: user,
-        vetted: Vetted.find_by_view_order(parameters["vetted_view_order"]),
+        vetted: Vetted.find_by_view_order(parameters[:vetted_view_order]),
         visibility: visibility,
         comment: comment, 
         untrust_reason_ids: untrust_reasons,
         hide_reason_ids: hide_reasons)
     curation.curate
     DataObjectCaching.clear(data_object)
-    options = {}
-    options[:user] = user
-    options[:without_flash] = true
+    options = {user: user, without_flash: true}
     auto_collect_helper(data_object, options) 
     data_object.reindex
   end
@@ -891,28 +865,28 @@ class SyncPeerLog < ActiveRecord::Base
     objects_ids  
   end
   
-  def self.handle_community_logo(community, parameters)
-    logo_file_name = parameters["logo_file_name"]
-    if !(logo_file_name.nil?)
-      file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ]
-      community_logo_name = "communities_#{community.id}.#{file_type}"
-      file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
-      if download_file?(file_url, community_logo_name, "logo")
-        community.update_column(:logo_file_name, community_logo_name)
-        community.update_column(:logo_content_type, parameters["logo_content_type"])
-        community.update_column(:logo_file_size, parameters["logo_file_size"])
-        # upload logo
-        upload_file(community)
-      else
-         # add failed file record
-        failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => community_logo_name, :file_type => "logo",
-                  :object_type => "Community" , :object_id => community.id)
-        FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
-        FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
-        FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])
-      end
-    end
-  end
+  # def self.handle_community_logo(community, parameters)
+    # logo_file_name = parameters["logo_file_name"]
+    # if !(logo_file_name.nil?)
+      # file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ]
+      # community_logo_name = "communities_#{community.id}.#{file_type}"
+      # file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
+      # if download_file?(file_url, community_logo_name, "logo")
+        # community.update_column(:logo_file_name, community_logo_name)
+        # community.update_column(:logo_content_type, parameters["logo_content_type"])
+        # community.update_column(:logo_file_size, parameters["logo_file_size"])
+        # # upload logo
+        # upload_file(community)
+      # else
+         # # add failed file record
+        # failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => community_logo_name, :file_type => "logo",
+                  # :object_type => "Community" , :object_id => community.id)
+        # FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
+        # FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
+        # FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])
+      # end
+    # end
+  # end
 #  def self.find_invitees(parameters)
 #    invitees = []
 #    parameters.each do |key,value|

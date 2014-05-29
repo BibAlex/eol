@@ -43,8 +43,8 @@ module SyncPeerLogHelper
     end
     
     def log_community_action(act, opts = {})
-      user = opts["user"]
-      community = opts["community"]
+      user = opts[:user]
+      community = opts[:community]
       opts.delete("community")
       opts.delete("user")
       CommunityActivityLog.create(
