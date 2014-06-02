@@ -570,7 +570,7 @@ private
                                               created_at: @user.created_at,
                                               collection_site_id: collection.site_id,
                                               collection_origin_id: collection.origin_id)
-      sync_params = SyncPeerLog.delete_unwanted_keys([:email, :email_confirmation, :entered_password, :entered_password_confirmation], sync_params)
+      sync_params = SyncPeerLog.delete_keys([:email, :email_confirmation, :entered_password, :entered_password_confirmation], sync_params)
       options = {user: @user, object: @user, action_id: SyncObjectAction.create.id,
                   type_id: SyncObjectType.user.id, params: sync_params}
       SyncPeerLog.log_action(options)
@@ -589,7 +589,7 @@ private
                                             logo_content_type: @user.logo_content_type,
                                             logo_file_size: @user.logo_file_size,
                                             base_url: "#{$CONTENT_SERVER}content/")
-    sync_params = SyncPeerLog.delete_unwanted_keys([:email, :email_confirmation, :entered_password,
+    sync_params = SyncPeerLog.delete_keys([:email, :email_confirmation, :entered_password,
                                                     :entered_password_confirmation, :requested_curator_level_id, 
                                                     :requested_curator_at, :logo], sync_params)
     options = {user: @user, object: @user, action_id: SyncObjectAction.update.id,

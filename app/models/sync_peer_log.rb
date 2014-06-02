@@ -60,7 +60,7 @@ class SyncPeerLog < ActiveRecord::Base
     "SyncPeerLog".constantize.send(function_name, parameters)
   end
   
-  def self.delete_unwanted_keys(keys, hash)
+  def self.delete_keys(keys, hash)
     keys.each { |key| hash.delete key}
     hash
   end
@@ -128,7 +128,7 @@ class SyncPeerLog < ActiveRecord::Base
     collection_site_id = parameters[:collection_site_id]
     collection_origin_id = parameters[:collection_origin_id]
     
-    parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                                        :collection_site_id, :collection_origin_id, :action_taken_at],parameters)
     
     user = User.create(parameters)
@@ -150,7 +150,7 @@ class SyncPeerLog < ActiveRecord::Base
     parameters[:site_id] = parameters[:sync_object_site_id]
     parameters[:origin_id] = parameters[:sync_object_id]
     base_url = parameters[:base_url]
-    parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                                        :action_taken_at, :base_url],parameters)
     user = User.find_by_origin_id_and_site_id(parameters[:origin_id], parameters[:site_id])
     
@@ -160,11 +160,11 @@ class SyncPeerLog < ActiveRecord::Base
       user.log_activity(:updated_user)
       
       parameters[:base_url] = base_url
-      handle_object_logo("User", user, parameters)
+      download_object_logo("User", user, parameters)
    end
   end
   
-  def self.handle_object_logo(object_type, object, parameters)
+  def self.download_object_logo(object_type, object, parameters)
     logo_file_name = parameters[:logo_file_name]
     if logo_file_name
       base_url = parameters[:base_url]
@@ -173,26 +173,31 @@ class SyncPeerLog < ActiveRecord::Base
       file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ]
       logo_name = "#{directory_name}_#{object.id}.#{file_type}"
       file_url = self.get_url(base_url, logo_cache_url,file_type)
-      if download_file?(file_url, logo_name, "logo")    
-        # delete old logo
-        old_logo_name = object.logo_file_name
-        if old_logo_name
-          old_logo_extension = old_logo_name[old_logo_name.rindex(".") + 1, old_logo_name.length]
-          if file_type != old_logo_extension
-            File.delete("#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}#{directory_name}_#{object.id}.#{old_logo_extension}") if File.file? "#{Rails.root}/public/#{$LOGO_UPLOAD_PATH}#{directory_name}_#{object.id}.#{old_logo_extension}"
-          end
-        end
+      if download_file?(file_url, logo_name, "logo")   
+         
+        delete_logo(object, directory_name, file_type)
+        
+        # update logo parameters
         object.update_column(:logo_file_name, logo_name)
         object.update_column(:logo_content_type, parameters[:logo_content_type])
         object.update_column(:logo_file_size, parameters[:logo_file_size])
-        upload_file(object)
+        
+        upload_object_logo(object)
       else
-        handle_download_failure(file_url, logo_name, "logo", object_type, object, parameters)
+        log_failed_download(file_url, logo_name, "logo", object_type, object, parameters)
       end
     end
   end
   
-  def self.handle_download_failure(file_url, logo_name, file_type, object_type, object, parameters)
+  def self.upload_object_logo(object)
+    upload_file(object)
+  end
+  
+  def self.delete_logo(object, directory_name, file_type)
+    delete_file(object, directory_name, file_type)
+  end
+  
+  def self.log_failed_download(file_url, logo_name, file_type, object_type, object, parameters)
     failed_file = FailedFiles.create(file_url: file_url, output_file_name: logo_name, file_type: file_type ,
                 object_type: object_type , object_id: object.id)
     FailedFilesParameters.create(failed_files_id: failed_file.id, parameter: "logo_file_name", value: parameters[:logo_file_name])
@@ -205,7 +210,7 @@ class SyncPeerLog < ActiveRecord::Base
     # find user want to update using user origin id and user origin site id 
     parameters[:site_id] = parameters[:sync_object_site_id]
     parameters[:origin_id] = parameters[:sync_object_id]
-    parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                                        :action_taken_at],parameters)
     
     user = User.find_by_origin_id_and_site_id(parameters[:origin_id], parameters[:site_id])
@@ -234,7 +239,7 @@ class SyncPeerLog < ActiveRecord::Base
     parameters[:site_id] = parameters[:sync_object_site_id]
     parameters[:origin_id] = parameters[:sync_object_id]    
     base = parameters[:base]  
-    parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                                        :action_taken_at, :language , :base],parameters)
     
     collection = Collection.new(parameters)
@@ -256,7 +261,7 @@ class SyncPeerLog < ActiveRecord::Base
       parameters[:origin_id] = parameters[:sync_object_id] 
       base_url = parameters[:base_url]  
       # remove extra parameters which not needed in creating collection
-      parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+      parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                                        :action_taken_at, :language , :updated_at, :base_url],parameters)
       if collection
         collection.update_attributes(parameters)
@@ -267,44 +272,11 @@ class SyncPeerLog < ActiveRecord::Base
         CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
          
         parameters[:base_url] = base_url
-        handle_object_logo("Collection", collection, parameters)        
+        download_object_logo("Collection", collection, parameters)        
       end
     end  
   end
   
-  # def self.log_update_collection(options)
-    # parameters = options[:parameters]
-    # collection_owner = options[:user]
-    # collection = options[:object]
-    # name_change = parameters[:name] != collection.name
-    # description_change = parameters[:description] != collection.description
-    # # log create collection action
-    # CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
-    # CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
-  # end
-  
-  # def self.log_update_user(options)
-    # object = options[:object]
-    # user.log_activity(:updated_user)
-  # end
-#   
-#   
-  # def self.object_logo_download_fail(parameters, user, object, object_type)
-    # parameters = delete_unwanted_keys([:base_url, :logo_file_name, :logo_cache_url, :logo_content_type, :logo_file_size],parameters)
-    # object.update_attributes(parameters)
-    # function_name = "log_update_#{object_type}"
-    # options = {user: user, object: object, parameters: parameters}
-    # "SyncPeerLog".constantize.send(function_name, options)
-  # end
-#   
-  # def self.object_logo_download_success(parameters, user, object, object_type)
-    # parameters.delete(:base_url)
-    # object.update_attributes(parameters)
-    # function_name = "log_update_#{object_type}"
-    # options = {user: user, object: object, parameters: parameters}
-    # "SyncPeerLog".constantize.send(function_name, options)
-    # upload_file(object)
-  # end
    
   def self.delete_collection(parameters)
     collection = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
@@ -418,7 +390,7 @@ class SyncPeerLog < ActiveRecord::Base
                                             origin_id: parameters[:sync_object_id],
                                             parent_id: comment_parent.id,
                                             user_id: user.id)
-      parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, :action_taken_at,
+      parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, :action_taken_at,
                                          :language, :comment_parent_origin_id, :comment_parent_site_id, 
                                          :parent_comment_origin_id, :parent_comment_site_id],parameters)
       parameters[:reply_to_id] = parent_comment.id if parent_comment
@@ -431,7 +403,7 @@ class SyncPeerLog < ActiveRecord::Base
   def self.update_comment(parameters)
     comment = Comment.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if comment
-      parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
+      parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
                                          :action_taken_at, :language],parameters)
       comment.update_attributes(parameters)
     end    
@@ -469,7 +441,7 @@ class SyncPeerLog < ActiveRecord::Base
     item = parameters[:collected_item_type].constantize.find_by_origin_id_and_site_id(parameters[:item_id], parameters[:item_site_id])    
     col_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", col.id, item.id).first
     if col_item.updated_at < parameters[:updated_at]
-      parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+      parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                                          :action_taken_at, :language , :updated_at, :collected_item_type,
                                          :item_id, :item_site_id, :references],parameters)
       col_item.update_attributes(parameters) 
@@ -524,7 +496,7 @@ class SyncPeerLog < ActiveRecord::Base
     
     parameters = parameters.reverse_merge(origin_id: parameters[:sync_object_id],
                                           site_id: parameters[:sync_object_site_id])
-    parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                                        :action_taken_at, :language , :commit_link,
                                        :taxon_concept_origin_id, :taxon_concept_site_id,
                                        :references, :link_type_id, :toc_id, :toc_site_id,
@@ -574,7 +546,7 @@ class SyncPeerLog < ActiveRecord::Base
     
     parameters = parameters.reverse_merge(origin_id: parameters[:sync_object_id],
                                           site_id: parameters[:sync_object_site_id]) 
-    parameters = delete_unwanted_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                                        :action_taken_at, :language , :commit_link,
                                        :taxon_concept_origin_id, :taxon_concept_site_id,
                                        :references, :link_type_id, :toc_id, :toc_site_id,
@@ -678,32 +650,27 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.create_content_page(parameters)
-    params = {}
-    params["parent_content_page_id"] = parameters["parent_content_page_id"]
-    params["page_name"] = parameters["page_name"]
-    params["active"] = parameters["active"]
-    params["sort_order"] = parameters["sort_order"]
-    content_page = ContentPage.new(params)
-    translated_params = {}
-    translated_params["language_id"] = parameters["language"].id
-    translated_params["title"] = parameters["title"]
-    translated_params["main_content"] = parameters["main_content"]
-    translated_params["left_content"] = parameters["left_content"]
-    translated_params["meta_keywords"] = parameters["meta_keywords"]
-    translated_params["meta_description"] = parameters["meta_description"]
-    translated_params["active_translation"] = parameters["active_translation"]
-    content_page.translations.build(translated_params) 
+    content_page = ContentPage.new(parent_content_page_id: parameters[:parent_content_page_id],
+                                   page_name: parameters[:page_name], active: parameters[:active],
+                                   sort_order: parameters[:sort_order])
+                                   
+    content_page.translations.build(language_id: parameters[:language].id,
+                         title: parameters[:title], main_content: parameters[:main_content],
+                         left_content: parameters[:left_content], 
+                         meta_keywords: parameters[:meta_keywords],
+                         meta_description: parameters[:meta_description],
+                         active_translation: parameters[:active_translation])
     content_page.save
-    content_page.update_column(:origin_id, parameters["sync_object_id"])
-    content_page.update_column(:site_id, parameters["sync_object_site_id"])
+    content_page.update_column(:origin_id, parameters[:sync_object_id])
+    content_page.update_column(:site_id, parameters[:sync_object_site_id])
     
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
     content_page.last_update_user_id = user.id unless content_page.blank?
   end
   
   def self.delete_content_page(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    content_page = ContentPage.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"], include: [:translations, :children])
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id], include: [:translations, :children])
     page_name = content_page.page_name
     content_page.last_update_user_id = user.id
     parent_content_page_id = content_page.parent_content_page_id
@@ -713,18 +680,16 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.swap_content_page(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters["user_site_object_id"], parameters["user_site_id"])
-    content_page = ContentPage.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    content_page.update_column(:sort_order, parameters["sort_order"])
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    swap_page = ContentPage.find_by_origin_id_and_site_id(parameters[:swap_page_origin_id], parameters[:swap_page_site_id])
+    content_page.update_column(:sort_order, parameters[:content_page_sort_order]) if content_page
+    swap_page.update_column(:sort_order, parameters[:swap_page_sort_order]) if swap_page
   end
   
   def self.update_content_page(parameters)
-    params = {}
-    params["parent_content_page_id"] = parameters["parent_content_page_id"]
-    params["page_name"] = parameters["page_name"]
-    params["active"] = parameters["active"]
-    content_page = ContentPage.find_by_origin_id_and_site_id(parameters["sync_object_id"], parameters["sync_object_site_id"])
-    content_page.update_attributes(params)
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    content_page.update_attributes(parent_content_page_id: parameters[:parent_content_page_id],
+                                   page_name: parameters[:page_name], active: parameters[:active])
   end
   
   def self.create_community(parameters)
@@ -739,7 +704,7 @@ class SyncPeerLog < ActiveRecord::Base
     community.initialize_as_created_by(user)
     EOL::GlobalStatistics.increment('communities') if community.published?
     #add logo
-    handle_object_logo("Community", community, parameters)
+    download_object_logo("Community", community, parameters)
     options = {user: user, without_flash: true}
     auto_collect_helper(community, options)
     community.collections.each do |focus|
@@ -756,7 +721,7 @@ class SyncPeerLog < ActiveRecord::Base
       community.update_column(:name, parameters[:community_name]) if parameters[:name_change]
       community.update_column(:description, parameters[:community_description]) if parameters[:description_change]
       #UPDATE logo
-      handle_object_logo("Community", community, parameters)
+      download_object_logo("Community", community, parameters)
       opts = {user: user, community: community}
       log_community_action(:change_name, opts) if parameters[:name_change] == "1"
       opts = {user: user, community: community}
@@ -865,35 +830,4 @@ class SyncPeerLog < ActiveRecord::Base
     objects_ids  
   end
   
-  # def self.handle_community_logo(community, parameters)
-    # logo_file_name = parameters["logo_file_name"]
-    # if !(logo_file_name.nil?)
-      # file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ]
-      # community_logo_name = "communities_#{community.id}.#{file_type}"
-      # file_url = self.get_url(parameters["base_url"], parameters["logo_cache_url"],file_type)
-      # if download_file?(file_url, community_logo_name, "logo")
-        # community.update_column(:logo_file_name, community_logo_name)
-        # community.update_column(:logo_content_type, parameters["logo_content_type"])
-        # community.update_column(:logo_file_size, parameters["logo_file_size"])
-        # # upload logo
-        # upload_file(community)
-      # else
-         # # add failed file record
-        # failed_file = FailedFiles.create(:file_url => file_url, :output_file_name => community_logo_name, :file_type => "logo",
-                  # :object_type => "Community" , :object_id => community.id)
-        # FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_name", :value => logo_file_name)
-        # FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_content_type", :value => parameters["logo_content_type"])
-        # FailedFilesParameters.create(:failed_files_id => failed_file.id, :parameter => "logo_file_size", :value => parameters["logo_file_size"])
-      # end
-    # end
-  # end
-#  def self.find_invitees(parameters)
-#    invitees = []
-#    parameters.each do |key,value|
-#      if key.include? "invitee_"
-#        invitees << value
-#      end
-#    end
-#    invitees
-#  end
 end

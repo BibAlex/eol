@@ -302,7 +302,7 @@ private
                                             curator_level_id: @user.curator_level_id,
                                             curator_verdict_by_id: @user.curator_verdict_by_id,
                                             curator_verdict_at: @user.curator_verdict_at)
-    sync_params = SyncPeerLog.delete_unwanted_keys([:email, :email_confirmation, :entered_password,
+    sync_params = SyncPeerLog.delete_keys([:email, :email_confirmation, :entered_password,
             :entered_password_confirmation, :requested_curator_level_id, :requested_curator_at], sync_params)
 
     options = {user: admin, object: @user, action_id: SyncObjectAction.update_by_admin.id,
