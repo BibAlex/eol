@@ -57,8 +57,8 @@ module SyncPeerLogHelper
     # Methods for Community
     #######################
     def log_data_object_action(object, action, options={})
-      if options && options["user"]
-        user = options["user"]
+      if options && options[:user]
+        user = options[:user]
       else
         user = current_user
       end
@@ -66,19 +66,19 @@ module SyncPeerLogHelper
         $STATSD.increment 'all_curations'
         $STATSD.increment "curations.#{action}"
         if options["data_object"].curator_activity_logs.count == 0
-          $STATSD.timing 'time_to_first_curation', Time.now.utc - options["data_object"].created_at
+          $STATSD.timing 'time_to_first_curation', Time.now.utc - options[:data_object].created_at
         end
       end
       CuratorActivityLog.factory(
         action: action,
         association: object,
-        data_object: options["data_object"],
+        data_object: options[:data_object],
         user: user
       )
       params = {}
-      params[:user] = options["user"]
+      params[:user] = options[:user]
       params[:without_flash] = true
-      auto_collect_helper( options["data_object"], params) unless options[:collect] === false # SPG asks for all curation to add the item to their watchlist.
+      auto_collect_helper( options[:data_object], params) unless options[:collect] === false # SPG asks for all curation to add the item to their watchlist.
     end
     
   end

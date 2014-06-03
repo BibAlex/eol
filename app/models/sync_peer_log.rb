@@ -129,7 +129,7 @@ class SyncPeerLog < ActiveRecord::Base
     collection_origin_id = parameters[:collection_origin_id]
     
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
-                                       :collection_site_id, :collection_origin_id, :action_taken_at],parameters)
+                              :collection_site_id, :collection_origin_id, :action_taken_at],parameters)
     
     user = User.create(parameters)
     #we may remove this part as it always not yet created
@@ -501,10 +501,6 @@ class SyncPeerLog < ActiveRecord::Base
                                        :taxon_concept_origin_id, :taxon_concept_site_id,
                                        :references, :link_type_id, :toc_id, :toc_site_id,
                                        :link_type_site_id],parameters)                                                         
-    # [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
-      # "action_taken_at", "language", "commit_link",  "taxon_concept_origin_id",
-      # "taxon_concept_site_id", "references", "link_type_id", "toc_id",
-      # "toc_site_id", "link_type_site_id"].each { |key| parameters.delete key }    
     
     data_object = DataObject.create_user_text(parameters, user: user,
                                                taxon_concept: taxon_concept, toc_id: toc_id,
@@ -552,11 +548,6 @@ class SyncPeerLog < ActiveRecord::Base
                                        :references, :link_type_id, :toc_id, :toc_site_id,
                                        :link_type_site_id, :new_revision_origin_id,
                                        :new_revision_site_id],parameters)                                                          
-    # [ "user_site_id", "user_site_object_id",  "sync_object_id", "sync_object_site_id", 
-      # "action_taken_at", "language", "commit_link",  "taxon_concept_origin_id",
-      # "taxon_concept_site_id", "references", "link_type_id", "toc_id",
-      # "toc_site_id", "link_type_site_id", "new_revision_origin_id",
-      # "new_revision_site_id"].each { |key| parameters.delete key }    
     
     new_data_object = data_object.replicate(parameters, user: user, toc_id: toc_id,
                                              link_type_id: link_type_id, link_object: commit_link)
@@ -803,19 +794,21 @@ class SyncPeerLog < ActiveRecord::Base
     hide_reasons = parameters[:hide_reasons] ? get_objects_ids(parameters[:hide_reasons], "UntrustReason"): nil
     comment = (parameters[:curation_comment_origin_id] && parameters[:curation_comment_site_id]) ? Comment.find_by_origin_id_and_site_id(parameters[:curation_comment_origin_id], parameters[:curation_comment_site_id]) : nil
     association = data_object.data_object_taxa.find {|item| item.taxon_concept.origin_id == taxon_concept.origin_id && item.taxon_concept.site_id == taxon_concept.site_id}
-    curation = Curation.new(
-        association: association,
-        user: user,
-        vetted: Vetted.find_by_view_order(parameters[:vetted_view_order]),
-        visibility: visibility,
-        comment: comment, 
-        untrust_reason_ids: untrust_reasons,
-        hide_reason_ids: hide_reasons)
-    curation.curate
-    DataObjectCaching.clear(data_object)
-    options = {user: user, without_flash: true}
-    auto_collect_helper(data_object, options) 
-    data_object.reindex
+    if association
+      curation = Curation.new(
+          association: association,
+          user: user,
+          vetted: Vetted.find_by_view_order(parameters[:vetted_view_order]),
+          visibility: visibility,
+          comment: comment, 
+          untrust_reason_ids: untrust_reasons,
+          hide_reason_ids: hide_reasons)
+      curation.curate
+      DataObjectCaching.clear(data_object)
+      options = {user: user, without_flash: true}
+      auto_collect_helper(data_object, options) 
+      data_object.reindex
+    end
   end
   
   def self.get_objects_ids(objects_labels, object_type)

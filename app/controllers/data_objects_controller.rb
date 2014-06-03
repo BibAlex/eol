@@ -330,7 +330,7 @@ class DataObjectsController < ApplicationController
       flash[:notice] = I18n.t(:object_curated)
       @data_object.reindex
       
-      sync_curate_association(associations)
+      sync_curate_association(associations, comments)
     end
     redirect_back_or_default data_object_path(@data_object.latest_published_version_in_same_language)
   end
@@ -584,8 +584,8 @@ private
   
   # synchronization
   def sync_create_data_object(toc_id, link_type_id)
-    toc_sync_ids = get_object_sync_ids(toc_id, "toc")
-    link_type_sync_ids = get_object_sync_ids(link_type_id, "link_type")
+    toc_sync_ids = get_object_sync_ids(toc_id, "TocItem")
+    link_type_sync_ids = get_object_sync_ids(link_type_id, "LinkType")
     sync_params = params[:data_object]
     sync_params = sync_params.reverse_merge(taxon_concept_origin_id: @taxon_concept.origin_id,
                                             taxon_concept_site_id: @taxon_concept.site_id,
@@ -613,8 +613,8 @@ private
   end
   
   def sync_update_data_object(new_data_object, toc_id, link_type_id)
-    toc_sync_ids = get_object_sync_ids(toc_id, "toc")
-    link_type_sync_ids = get_object_sync_ids(link_type_id, "link_type")
+    toc_sync_ids = get_object_sync_ids(toc_id, "TocItem")
+    link_type_sync_ids = get_object_sync_ids(link_type_id, "LinkType")
     sync_params = params[:data_object]
     sync_params = sync_params.reverse_merge(new_revision_origin_id: new_data_object.origin_id,
                                             new_revision_site_id: new_data_object.site_id,
@@ -686,8 +686,8 @@ private
     SyncPeerLog.log_action(options)  
   end
   
-  def sync_curate_association(associations)
-      associations.each do |association, index|
+  def sync_curate_association(associations, comments)
+      associations.each_with_index do |association, index|
         untrust_reasons = params["untrust_reasons_#{association.id}"]? get_objects_labels(params["untrust_reasons_#{association.id}"], "UntrustReason"): nil
         hide_reasons = params["hide_reasons_#{association.id}"]? get_objects_labels(params["hide_reasons_#{association.id}"], "UntrustReason"): nil
         visibility = TranslatedVisibility.find_by_visibility_id_and_language_id(

@@ -560,9 +560,8 @@ private
   # synchronization of user actions
   
   def sync_create_user
-    collection = @user.watch_collection
+     collection = @user.watch_collection
     if collection       
-      #log this action for sync.
       sync_params = params[:user]
       sync_params = sync_params.reverse_merge(language: current_language,
                                               validation_code: @user.validation_code,
@@ -572,10 +571,11 @@ private
                                               collection_origin_id: collection.origin_id)
       sync_params = SyncPeerLog.delete_keys([:email, :email_confirmation, :entered_password, :entered_password_confirmation], sync_params)
       options = {user: @user, object: @user, action_id: SyncObjectAction.create.id,
-                  type_id: SyncObjectType.user.id, params: sync_params}
+                 type_id: SyncObjectType.user.id, params: sync_params}
       SyncPeerLog.log_action(options)
-    end
+     end
   end
+  
   
   def sync_update_user
     sync_params = params[:user]   

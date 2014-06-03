@@ -344,7 +344,7 @@ private
                    logo_content_type: @community.logo_content_type,
                    logo_file_size: @community.logo_file_size,
                    base_url: "#{$CONTENT_SERVER}content/"}
-    invitees.each do |invitee, index|
+    invitees.each_with_index do |invitee, index|
       sync_params["invitee_#{index}"] = invitee
     end
     options = {user: current_user, object: @community, action_id: SyncObjectAction.create.id,

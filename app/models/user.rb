@@ -50,8 +50,8 @@ class User < ActiveRecord::Base
   before_save :encrypt_password, if: :is_local?
   before_save :remove_blank_username, unless: :eol_authentication?
   before_save :instantly_approve_curator_level, if: :curator_level_can_be_instantly_approved?
-  after_save :update_watch_collection_name, if: :is_local?
-  after_save :clear_cache
+  after_save  :update_watch_collection_name, if: :is_local?
+  after_save  :clear_cache
 
   after_create :add_agent
 
