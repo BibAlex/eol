@@ -25,6 +25,7 @@ class CollectionJob < ActiveRecord::Base
   validate :user_can_edit_targets, unless: :remove?
 
   def run
+    debugger
     raise EOL::Exceptions::SecurityViolation unless valid?
     affected = method(command).call # Call the method with the name in the 'command' value.
     count = affected.respond_to?(:length) ? affected.length : affected

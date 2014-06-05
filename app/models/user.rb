@@ -270,7 +270,6 @@ class User < ActiveRecord::Base
     update_column(:validation_code, nil)
     add_to_index
     collection = build_watch_collection
-    #syncronization
     sync_activate_user(collection)
   end
 

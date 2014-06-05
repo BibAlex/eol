@@ -1,4 +1,7 @@
 # NOTE - we use these commit_* button names because we don't want to parse the I18n of the button name (hard).
+require "#{Rails.root}/app/helpers/sync_peer_log_helper"
+include SyncPeerLogHelper::ClassMethods
+
 class CollectionsController < ApplicationController
 
   before_filter :login_with_open_authentication, only: :show
@@ -54,12 +57,13 @@ class CollectionsController < ApplicationController
     @collection = Collection.new(params[:collection])
     if @collection.save
       @collection.users = [current_user]
-      #log_activity(activity: Activity.create)
+      log_activity(activity: Activity.create)
       
         # set collection origin id and collection site id
         @collection[:origin_id] = @collection.id
         @collection[:site_id] =  PEER_SITE_ID
-        @collection.save                    
+        @collection.save 
+        sync_create_collection                   
         flash[:notice] = I18n.t(:collection_created_with_count_notice,
                               collection_name: link_to_name(@collection),
                               count: @collection.collection_items.count)   
@@ -70,9 +74,8 @@ class CollectionsController < ApplicationController
       else
         auto_collect(@collection)
         create_collection_from_item
-        sync_create_collection
         sync_create_collection_item
-         return      
+        return      
       end
     else
       flash[:error] = I18n.t(:collection_not_created_error, collection_name: @collection.name)
@@ -648,8 +651,9 @@ private
   end
 
   def create_collection_from_item
-    @collection.add(@item)
-    EOL::GlobalStatistics.increment('collections')
+    # @collection.add(@item)
+    # EOL::GlobalStatistics.increment('collections')
+    add_item_to_collection(@collection, @item)
     flash[:notice] = I18n.t(:collection_created_notice, collection_name: link_to_name(@collection))
     respond_to do |format|
       format.html { redirect_to link_to_item(@item), status: :moved_permanently }
@@ -724,7 +728,6 @@ private
   
   # synchronization
   def sync_create_collection
-    # create sync peer log for new collection metadata
     sync_params = params[:collection] 
     sync_params = sync_params.reverse_merge(:base => true)
     options = {user: current_user, object: @collection, action_id: SyncObjectAction.create.id,

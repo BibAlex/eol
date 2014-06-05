@@ -41,7 +41,9 @@ class Sync
     peer_logs = SyncPeerLog.find_all_by_sync_event_id(sync_event.id)
     
     peer_logs.each do |peer_log|
-      peer_log.process_entry
+      # to handle dummy types
+      object_type = SyncObjectType.find(peer_log.sync_object_type_id)
+      peer_log.process_entry unless object_type.is_dummy?
     end    
   end
   

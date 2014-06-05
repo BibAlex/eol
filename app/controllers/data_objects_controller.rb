@@ -61,7 +61,9 @@ class DataObjectsController < ApplicationController
       @data_object[:origin_id] = @data_object.id
       @data_object[:site_id] = PEER_SITE_ID
       @data_object.save
+      sync_create_data_object(toc_id, link_type_id)
       add_references(@data_object)
+      sync_add_refs_to_data_object(@data_object)
       
       current_user.log_activity(:created_data_object_id, value: @data_object.id,
                                 taxon_concept_id: @taxon_concept.id)
@@ -69,7 +71,7 @@ class DataObjectsController < ApplicationController
       @data_object.log_activity_in_solr(keyword: 'create', user: current_user, taxon_concept: @taxon_concept)
       
       
-      sync_create_data_object(toc_id, link_type_id)
+      
       
        # add this new object to the user's watch collection
       collection_item = CollectionItem.create(
@@ -172,10 +174,12 @@ class DataObjectsController < ApplicationController
       new_data_object[:origin_id] = new_data_object.id
       new_data_object[:site_id] = PEER_SITE_ID
       new_data_object.save
+      sync_update_data_object(new_data_object, toc_id, link_type_id)
       add_references(new_data_object)
+      sync_add_refs_to_data_object(new_data_object)
       current_user.log_activity(:updated_data_object_id, value: new_data_object.id,
                                 taxon_concept_id: new_data_object.taxon_concept_for_users_text.id)
-      sync_update_data_object(new_data_object, toc_id, link_type_id)
+      
                                 
       redirect_to data_object_path(new_data_object), status: :moved_permanently
     end
@@ -590,12 +594,19 @@ private
     sync_params = sync_params.reverse_merge(taxon_concept_origin_id: @taxon_concept.origin_id,
                                             taxon_concept_site_id: @taxon_concept.site_id,
                                             commit_link: params[:commit_link],                                              
-                                            references: @references,
                                             toc_id: toc_sync_ids[:origin_id],
                                             toc_site_id: toc_sync_ids[:site_id],
                                             link_type_id: link_type_sync_ids[:origin_id],
-                                            link_type_site_id: link_type_sync_ids[:site_id])
+                                            link_type_site_id: link_type_sync_ids[:site_id],
+                                            guid: @data_object.guid)
     options = {user: current_user, object: @data_object, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.data_object.id, params: sync_params}           
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_add_refs_to_data_object(data_object)
+    sync_params = {references: @references}
+    options = {user: current_user, object: data_object, action_id: SyncObjectAction.add_refs.id,
                type_id: SyncObjectType.data_object.id, params: sync_params}           
     SyncPeerLog.log_action(options)
   end
@@ -619,7 +630,6 @@ private
     sync_params = sync_params.reverse_merge(new_revision_origin_id: new_data_object.origin_id,
                                             new_revision_site_id: new_data_object.site_id,
                                             commit_link: params[:commit_link],                                              
-                                            references: @references,
                                             toc_id: toc_sync_ids[:origin_id],
                                             toc_site_id: toc_sync_ids[:site_id],
                                             link_type_id: link_type_sync_ids[:origin_id],

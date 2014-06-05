@@ -289,61 +289,104 @@ class SyncPeerLog < ActiveRecord::Base
   def self.create_collection_job(parameters)
     user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
     origin_collection = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
-     # create collection job collections
-     copied_collections_origin_ids = parameters[:copied_collections_origin_ids].split(",")
-     copied_collections_site_ids = parameters[:copied_collections_site_ids].split(",")
-     collections = []
-     collection_items = []
-     copied_collections_origin_ids.count.times do |i|
-       collections << Collection.find_by_origin_id_and_site_id(copied_collections_origin_ids[i], copied_collections_site_ids[i])
-     end
-    
-     if origin_collection
-     # remove items
-       collection_items_origin_ids = parameters[:collection_items_origin_ids].split(",")
-       collection_items_site_ids = parameters[:collection_items_site_ids].split(",")
-       collection_items_names = parameters[:collection_items_names].split(",")
-       collection_items_types = parameters[:collection_items_types].split(",")
-       collection_items = []
-       unless collection_items_origin_ids.nil?
-         collection_items_origin_ids.count.times do |i|
-           item = collection_items_types[i].constantize.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i])
-           result = CollectionItem.where("collection_id = ?  and collected_item_id = ? ", origin_collection.id,  item.id)
-           collected_item = result.first
-           collection_items << collected_item.id  if collected_item
-         end
-       end 
-     end   
+    unique_job_id = parameters[:unique_job_id]
+    dummy_type_id = SyncObjectType.dummy_type.id
+    # find copied items
+    peer_logs = SyncPeerLog.joins(:sync_log_action_parameter).where("sync_object_type_id = ?  and parameter = ? and value = ?", 
+               dummy_type_id, "unique_job_id", unique_job_id)
+               debugger
+     collection_items = get_collection_items_ids(peer_logs, origin_collection)
+     collections = get_collections_ids(peer_logs) unless parameters[:command] == "remove"
+     
+     # # create collection job collections
+     # copied_collections_origin_ids = parameters[:copied_collections_origin_ids].split(",")
+     # copied_collections_site_ids = parameters[:copied_collections_site_ids].split(",")
+     # collections = []
+     # collection_items = []
+     # copied_collections_origin_ids.count.times do |i|
+       # collections << Collection.find_by_origin_id_and_site_id(copied_collections_origin_ids[i], copied_collections_site_ids[i])
+     # end
+#     
+     # if origin_collection
+     # # remove items
+       # collection_items_origin_ids = parameters[:collection_items_origin_ids].split(",")
+       # collection_items_site_ids = parameters[:collection_items_site_ids].split(",")
+       # collection_items_names = parameters[:collection_items_names].split(",")
+       # collection_items_types = parameters[:collection_items_types].split(",")
+       # collection_items = []
+       # unless collection_items_origin_ids.nil?
+         # collection_items_origin_ids.count.times do |i|
+           # item = collection_items_types[i].constantize.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i])
+           # result = CollectionItem.where("collection_id = ?  and collected_item_id = ? ", origin_collection.id,  item.id)
+           # collected_item = result.first
+           # collection_items << collected_item.id  if collected_item
+         # end
+       # end 
+     # end   
      # create collection job                   
      unless (collection_items.blank? and  parameters["command"] == "remove")
-       CollectionJob.create!(command: parameters[:command], user: user,
+       collection_job = CollectionJob.create!(command: parameters[:command], user: user,
                              collection: origin_collection, item_count: parameters[:item_count],
                              all_items: parameters[:all_items],
                              overwrite: parameters[:overwrite],
                              collection_item_ids: collection_items,
-                             collections: collections)
+                             collection_ids: collections)
+       if collection_job
+         collection_job.run
+          # Collection.with_master do
+            # Collection.uncached {collection_job.run}
+          # end
+       end
     end
   end
+  
+  def self.get_collection_items_ids(peer_logs, origin_col)
+    collected_items_ids = []
+    peer_logs.each do |peer_log|
+      item_type_action_parameter = SyncLogActionParameter.where("peer_log_id = ? and parameter = ? ", peer_log.id, "collected_item_type").first
+      item_type = item_type_action_parameter.value if item_type_action_parameter
+      item_origin_id_action_parameter = SyncLogActionParameter.where("peer_log_id = ? and parameter = ? ", peer_log.id, "item_id").first
+      item_origin_id = item_origin_id_action_parameter.value if item_origin_id_action_parameter
+      item_site_id_action_parameter = SyncLogActionParameter.where("peer_log_id = ? and parameter = ? ", peer_log.id, "item_site_id").first
+      item_site_id = item_site_id_action_parameter.value if item_site_id_action_parameter
+      item = item_type.constantize.find_by_origin_id_and_site_id(item_origin_id, item_site_id)
+      collected_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", origin_col.id, item.id).first
+      collected_items_ids << collected_item.id if collected_item
+    end
+    collected_items_ids = collected_items_ids.uniq
+    collected_items_ids.map(&:to_s)
+  end
+  
+  def self.get_collections_ids(peer_logs)
+    collections_ids = []
+    peer_logs.each do |peer_log|
+      collection = Collection.find_by_origin_id_and_site_id(peer_log.sync_object_id, peer_log.sync_object_site_id)
+      collections_ids << collection.id if collection
+    end
+    collections_ids = collections_ids.uniq
+    collections_ids.map(&:to_s)
+  end
+  
  # add item to collection
   def self.add_collection_item(parameters) 
     user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
     item = parameters[:collected_item_type].constantize.find_by_origin_id_and_site_id(parameters[:item_id], parameters[:item_site_id])
     col = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
     # add item to one collection
-    unless col.nil? || item.nil?
-      col_item = CollectionItem.create(name: parameters[:collected_item_name], collected_item_type: parameters[:collected_item_type],
-                                       collection_id: col.id, collected_item_id: item.id)
-     
-     # item added to a newly created collection
+    if col && item
       if parameters[:base_item]
-        EOL::GlobalStatistics.increment('collections')
-        CollectionActivityLog.create(collection: col, user_id: user.id,
-                           activity: Activity.collect, collection_item: col_item)
+        options = {user: user}
+        auto_collect_helper(col, options)
+        add_item_to_collection(col, item)
       elsif parameters[:add_item]
+        col_item = CollectionItem.create(name: parameters[:collected_item_name], collected_item_type: parameters[:collected_item_type],
+                                         collection_id: col.id, collected_item_id: item.id)
         CollectionActivityLog.create(collection: col_item.collection, user: user,
-                                 activity: Activity.collect, collection_item: col_item)
+                                  activity: Activity.collect, collection_item: col_item)
+        col.updated_at = parameters[:collection_updated_at]
+        col.save
       end
-    end        
+    end
   end
   
   # add item to collection
@@ -453,13 +496,17 @@ class SyncPeerLog < ActiveRecord::Base
     col = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
     item = parameters[:collected_item_type].constantize.find_by_origin_id_and_site_id(parameters[:item_id], parameters[:item_site_id])    
     col_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", col.id, item.id).first
-    col_item.refs.clear    
+    col_item.refs.clear
+    add_refs(col_item, references)    
+  end
+  
+  def self.add_refs(object, references)
     references = references.split("\n") unless references.blank?
     unless references.blank?      
       references.each do |reference|
         if reference.strip != ''
           ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(reference, 1, 1, Visibility.visible.id)
-            col_item.refs << ref unless ref.nil?
+            object.refs << ref unless ref.nil?
         end
       end
     end
@@ -481,7 +528,7 @@ class SyncPeerLog < ActiveRecord::Base
   def self.create_data_object(parameters)
     user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
     taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
-    references = parameters[:references]
+    #references = parameters[:references]
     commit_link = parameters[:commit_link]
     toc_id = nil
     if parameters[:toc_site_id]
@@ -506,26 +553,23 @@ class SyncPeerLog < ActiveRecord::Base
                                                taxon_concept: taxon_concept, toc_id: toc_id,
                                                link_type_id: link_type_id, link_object: commit_link)
      
-    references = references.split("\r\n") unless references.blank?
-      unless references.blank?      
-        references.each do |reference|
-          if reference.strip != ''
-            ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(reference, 1, 1, Visibility.visible.id)
-            data_object.refs << ref unless ref.nil?
-           end
-        end
-      end
-                                                 
     user.log_activity(:created_data_object_id, value: data_object.id,
                                 taxon_concept_id: taxon_concept.id)     
     data_object.log_activity_in_solr(keyword: 'create', user: user, taxon_concept: taxon_concept) 
   end 
   
-  # how node site handle update data object action after pull
-  def self.update_data_object(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+  def self.add_refs_data_object(parameters)
     data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
     references = parameters[:references]
+    add_refs(data_object, references)
+  end
+  
+  # how node site handle update data object action after pull
+  def self.update_data_object(parameters)
+    debugger
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    #references = parameters[:references]
     commit_link = parameters[:commit_link]
     new_revision_origin_id = parameters[:new_revision_origin_id]
     new_revision_site_id = parameters[:new_revision_site_id]
@@ -555,15 +599,15 @@ class SyncPeerLog < ActiveRecord::Base
     new_data_object[:origin_id] = new_revision_origin_id
     new_data_object[:site_id] = new_revision_site_id
     new_data_object.save                                        
-    references = references.split("\r\n") unless references.blank?
-      unless references.blank?      
-        references.each do |reference|
-          if reference.strip != ''
-            ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(reference, 1, 1, Visibility.visible.id)
-            new_data_object.refs << ref unless ref.nil?
-           end
-        end
-      end
+    # references = references.split("\r\n") unless references.blank?
+      # unless references.blank?      
+        # references.each do |reference|
+          # if reference.strip != ''
+            # ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(reference, 1, 1, Visibility.visible.id)
+            # new_data_object.refs << ref unless ref.nil?
+           # end
+        # end
+      # end
      
     user.log_activity(:updated_data_object_id, value: new_data_object.id,
                                 taxon_concept_id: new_data_object.taxon_concept_for_users_text.id)                                             

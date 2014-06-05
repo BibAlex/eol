@@ -86,12 +86,12 @@ class CollectionItemsController < ApplicationController
 
   # PUT /collection_items/:id
   def update
-    last_updated_at = @collection_item.updated_at
     # Update method is called when JS off by submit of /collection_items/:id/edit. When JS is on collection item
     # updates are handled by the Collections update method and specifically the annotate method in Collections controller.
     return access_denied unless current_user.can_update?(@collection_item)
     if @collection_item.update_attributes(params[:collection_item])
       sync_update_collection_item
+
       # update collection item references
       if @collection_item.collection.show_references?
         @collection_item.refs.clear
@@ -193,6 +193,7 @@ private
   end
   
   def sync_create_collection_item(col, sync_params)
+    sync_params =  sync_params.reverse_merge(collection_updated_at: col.updated_at)
     options = {user: current_user, object: col, action_id: SyncObjectAction.add.id,
                type_id: SyncObjectType.collection_item.id, params: sync_params}           
     SyncPeerLog.log_action(options)

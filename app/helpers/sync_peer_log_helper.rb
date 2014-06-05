@@ -81,9 +81,17 @@ module SyncPeerLogHelper
       auto_collect_helper( options[:data_object], params) unless options[:collect] === false # SPG asks for all curation to add the item to their watchlist.
     end
     
+     # methods for collections
+  def add_item_to_collection(collection, item)
+    collection.add(item)
+    EOL::GlobalStatistics.increment('collections')
+  end
+    
   end
    
   def self.included(receiver)
     receiver.extend ClassMethods
   end 
+  
+ 
 end
