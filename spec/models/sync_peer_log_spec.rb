@@ -141,6 +141,7 @@ describe SyncPeerLog do
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
         SpecialCollection.create(:name => "watch")
         
+      
         user = User.first
         user.origin_id = user.id
         user.site_id = 1
@@ -188,6 +189,79 @@ describe SyncPeerLog do
         Community.first.description.should == "community_description"
         Community.first.origin_id.should == 80
         Community.first.site_id.should == 2
+      end
+    end
+    
+    describe "pulling add collection to community action" do
+      before(:each) do
+        load_scenario_with_caching(:communities)
+        truncate_table(ActiveRecord::Base.connection, "communities", {})
+        truncate_table(ActiveRecord::Base.connection, "collections", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        SpecialCollection.create(:name => "watch")
+        SyncObjectAction.create_enumerated
+        SyncObjectType.create_enumerated
+        
+        user = User.first
+        user.origin_id = user.id
+        user.site_id = 1
+        user.save
+        
+        @community = Community.gen
+        @community.name = "name"
+        @community.description = "desc"
+        @community.origin_id = @community.id
+        @community.site_id = 1
+        @community.save
+        @community.add_member(user)
+        @community.members[0].update_column(:manager, 1)
+        
+        @collection = Collection.gen
+        @collection.origin_id = @collection.id
+        @collection.site_id = 1
+        @collection.save
+        
+        # #create sync_object_action
+        # SyncObjectAction.create(:object_action => 'create')
+#         
+        # #create sync_object_type
+        # SyncObjectType.create(:object_type => 'Community')
+        
+        #create sync_peer_log
+        @peer_log = SyncPeerLog.new
+        @peer_log.sync_event_id = 4 #pull event
+        @peer_log.user_site_id = user.origin_id
+        @peer_log.user_site_object_id = user.site_id
+        @peer_log.action_taken_at = Time.now
+        @peer_log.sync_object_action_id = SyncObjectAction.add.id
+        @peer_log.sync_object_type_id = SyncObjectType.community.id
+        @peer_log.sync_object_id = @community.origin_id
+        @peer_log.sync_object_site_id = @community.site_id
+        @peer_log.save
+          
+        parameters = ["collection_origin_id", "collection_site_id"]
+        values = [@collection.origin_id, @collection.site_id]
+ 
+        for i in 0..parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = parameters[i]
+          lap.value = values[i]
+          lap.save
+        end
+        
+        #call process entery
+        @peer_log.process_entry
+      end
+      
+      it "should add collection to community" do
+        @collection.communities.count.should == 1
       end
     end
     

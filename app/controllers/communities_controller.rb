@@ -222,6 +222,7 @@ class CommunitiesController < ApplicationController
           log_action(:add_collection, community: community, collection_id: collection.id)
           @notices << I18n.t(:community_can_now_manage_this_collection,
                              community: link_to_name(community))
+           sync_add_collection_to_community(community, collection)
         else
           @errors << I18n.t(:error_couldnt_find_community_by_id, id: id)
         end
@@ -382,6 +383,14 @@ private
   def sync_leave_community
     options = {user: current_user, object: @community, action_id: SyncObjectAction.leave.id,
                type_id: SyncObjectType.community.id, params: {}}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_add_collection_to_community(community, collection)
+    sync_params = {collection_origin_id: collection.origin_id,
+                   collection_site_id: collection.site_id}
+    options = {user: current_user, object: community, action_id: SyncObjectAction.add.id,
+               type_id: SyncObjectType.community.id, params: sync_params}
     SyncPeerLog.log_action(options)
   end
 

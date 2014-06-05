@@ -21,6 +21,8 @@ describe CommunitiesController do
       truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
       truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
       truncate_table(ActiveRecord::Base.connection, "special_collections", {})
+      SyncObjectAction.create_enumerated
+      SyncObjectType.create_enumerated
     end
     
     it "should syncronize create community action" do
@@ -75,6 +77,51 @@ describe CommunitiesController do
       community_description_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "community_description")
       community_description_parameter[0][:value].should == "desc"
         
+      collection_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collection_origin_id")
+      collection_origin_id_parameter[0][:value].should == "#{collection.origin_id}"
+          
+      collection_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collection_site_id")
+      collection_site_id_parameter[0][:value].should == "#{collection.site_id}"
+    end
+    
+    it "should syncronize add collection to community action" do
+           SpecialCollection.create(:name => "watch")
+            
+      user = User.gen
+      user.origin_id = user.id
+      user.site_id = 1
+      user.save
+      
+      collection = Collection.gen
+      collection.origin_id = collection.id
+      collection.site_id = 1
+      collection.save
+      
+      community = Community.gen
+      community.name = "name"
+      community.description = "desc"
+      community.origin_id = community.id
+      community.site_id = 1
+      community.save
+      community.add_member(user)
+      community.members[0].update_column(:manager, 1)
+      
+      allow(controller).to receive(:current_user) { user }
+      log_in_for_controller(controller, user)
+      post :make_editors, {collection_id: collection.id,
+                    community_id: [community.id] }
+      
+      # check peer log for creating new collection
+      peer_log = SyncPeerLog.first
+      peer_log.should_not be_nil
+      peer_log.sync_object_action_id.should == SyncObjectAction.add.id
+      peer_log.sync_object_type_id.should == SyncObjectType.community.id
+      peer_log.user_site_id.should == user.site_id
+      peer_log.user_site_object_id.should == user.origin_id
+      peer_log.sync_object_id.should == community.origin_id
+      peer_log.sync_object_site_id.should == community.site_id
+
+      # check log action parameters
       collection_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collection_origin_id")
       collection_origin_id_parameter[0][:value].should == "#{collection.origin_id}"
           

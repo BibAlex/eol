@@ -749,6 +749,17 @@ class SyncPeerLog < ActiveRecord::Base
     log_community_action(:create, opts)
   end
   
+  def self.add_community(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    collection = Collection.find_by_origin_id_and_site_id(parameters[:collection_origin_id], parameters[:collection_site_id])
+    community = Community.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    if collection && community
+      collection.communities << community
+      opts = {user: user, community: community, collection_id: collection.id}
+      log_community_action(:add_collection, opts)
+    end
+  end
+  
   def self.update_community(parameters)
     user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
     community = Community.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
