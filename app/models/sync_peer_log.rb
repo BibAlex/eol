@@ -174,7 +174,6 @@ class SyncPeerLog < ActiveRecord::Base
       logo_name = "#{directory_name}_#{object.id}.#{file_type}"
       file_url = self.get_url(base_url, logo_cache_url,file_type)
       if download_file?(file_url, logo_name, "logo")   
-         
         delete_logo(object, directory_name, file_type)
         
         # update logo parameters
@@ -294,35 +293,9 @@ class SyncPeerLog < ActiveRecord::Base
     # find copied items
     peer_logs = SyncPeerLog.joins(:sync_log_action_parameter).where("sync_object_type_id = ?  and parameter = ? and value = ?", 
                dummy_type_id, "unique_job_id", unique_job_id)
-               debugger
      collection_items = get_collection_items_ids(peer_logs, origin_collection)
      collections = get_collections_ids(peer_logs) unless parameters[:command] == "remove"
      
-     # # create collection job collections
-     # copied_collections_origin_ids = parameters[:copied_collections_origin_ids].split(",")
-     # copied_collections_site_ids = parameters[:copied_collections_site_ids].split(",")
-     # collections = []
-     # collection_items = []
-     # copied_collections_origin_ids.count.times do |i|
-       # collections << Collection.find_by_origin_id_and_site_id(copied_collections_origin_ids[i], copied_collections_site_ids[i])
-     # end
-#     
-     # if origin_collection
-     # # remove items
-       # collection_items_origin_ids = parameters[:collection_items_origin_ids].split(",")
-       # collection_items_site_ids = parameters[:collection_items_site_ids].split(",")
-       # collection_items_names = parameters[:collection_items_names].split(",")
-       # collection_items_types = parameters[:collection_items_types].split(",")
-       # collection_items = []
-       # unless collection_items_origin_ids.nil?
-         # collection_items_origin_ids.count.times do |i|
-           # item = collection_items_types[i].constantize.find_by_origin_id_and_site_id(collection_items_origin_ids[i], collection_items_site_ids[i])
-           # result = CollectionItem.where("collection_id = ?  and collected_item_id = ? ", origin_collection.id,  item.id)
-           # collected_item = result.first
-           # collection_items << collected_item.id  if collected_item
-         # end
-       # end 
-     # end   
      # create collection job                   
      unless (collection_items.blank? and  parameters["command"] == "remove")
        collection_job = CollectionJob.create!(command: parameters[:command], user: user,
@@ -333,9 +306,6 @@ class SyncPeerLog < ActiveRecord::Base
                              collection_ids: collections)
        if collection_job
          collection_job.run
-          # Collection.with_master do
-            # Collection.uncached {collection_job.run}
-          # end
        end
     end
   end
@@ -566,7 +536,6 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle update data object action after pull
   def self.update_data_object(parameters)
-    debugger
     user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
     data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
     #references = parameters[:references]
@@ -599,16 +568,6 @@ class SyncPeerLog < ActiveRecord::Base
     new_data_object[:origin_id] = new_revision_origin_id
     new_data_object[:site_id] = new_revision_site_id
     new_data_object.save                                        
-    # references = references.split("\r\n") unless references.blank?
-      # unless references.blank?      
-        # references.each do |reference|
-          # if reference.strip != ''
-            # ref = Ref.find_by_full_reference_and_user_submitted_and_published_and_visibility_id(reference, 1, 1, Visibility.visible.id)
-            # new_data_object.refs << ref unless ref.nil?
-           # end
-        # end
-      # end
-     
     user.log_activity(:updated_data_object_id, value: new_data_object.id,
                                 taxon_concept_id: new_data_object.taxon_concept_for_users_text.id)                                             
   end
@@ -685,7 +644,8 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.create_content_page(parameters)
-    content_page = ContentPage.new(parent_content_page_id: parameters[:parent_content_page_id],
+    parent_content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:parent_content_page_origin_id], parameters[:parent_content_page_site_id])
+    content_page = ContentPage.new(parent_content_page_id: parent_content_page.id,
                                    page_name: parameters[:page_name], active: parameters[:active],
                                    sort_order: parameters[:sort_order])
                                    
@@ -725,6 +685,38 @@ class SyncPeerLog < ActiveRecord::Base
     content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
     content_page.update_attributes(parent_content_page_id: parameters[:parent_content_page_id],
                                    page_name: parameters[:page_name], active: parameters[:active])
+  end
+  
+  def self.add_translation_content_page(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                              :action_taken_at, :language],parameters)
+    translated_content_page = content_page.translations.build(parameters)
+    content_page.last_update_user_id = user.id unless content_page.blank?
+    content_page.save 
+  end
+  
+  def self.update_translated_content_page(parameters)
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    translated_content_page = TranslatedContentPage.find_by_content_page_id_and_language_id(content_page.id, parameters[:language_id])
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                              :action_taken_at, :language, :language_id],parameters)
+    older_version = translated_content_page.dup
+    if translated_content_page.update_attributes(parameters)
+      content_page.last_update_user_id = user.id
+      content_page.save
+      archive_fields = older_version.attributes.delete_if{ |k,v| [ 'id', 'active_translation' ].include?(k) }.
+        merge(translated_content_page_id: older_version.id, original_creation_date: older_version.created_at)
+      TranslatedContentPageArchive.create(archive_fields)
+    end 
+  end
+  
+  def self.delete_translated_content_page(parameters)
+    content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    translated_content_page = TranslatedContentPage.find_by_content_page_id_and_language_id(content_page.id, parameters[:language_id])
+    translated_content_page.destroy if translated_content_page
   end
   
   def self.create_community(parameters)

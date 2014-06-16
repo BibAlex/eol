@@ -11,6 +11,7 @@
 /log/*.log
 /tmp
 /public/files/sync_logs
+/solr2/solr/data/activity_logs
 .sass-cache/
 
 # Ignore guard (which is an auto-tester):
