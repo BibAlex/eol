@@ -69,6 +69,8 @@ public/uploads/Image/*
 public/uploads/images/collection_icons/*
 solr/logs/*.*
 solr/solr/data/*
+solr2/logs/*.*
+solr2/solr/data/*
 vendor/eol_org
 tags
 public/files/solr_import_file.csv
