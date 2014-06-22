@@ -12,7 +12,7 @@ class SyncEvent < ActiveRecord::Base
 
     # update all peer_log_actions with the new sync_event.id
     sync_peer_logs = SyncPeerLog.find(:all, :conditions => "sync_event_id is null", 
-                                            :select => 'id, user_site_id, user_site_object_id, action_taken_at_time, 
+                                            :select => 'id, user_site_id, user_site_object_id, action_taken_at, 
                                                         sync_object_action_id, sync_object_type_id, 
                                                         sync_object_id, sync_object_site_id')
     

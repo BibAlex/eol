@@ -118,7 +118,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 4 #pull event
         @peer_log.user_site_id = user.origin_id
         @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('save_association').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
         @peer_log.sync_object_id = @data_object.origin_id
@@ -183,7 +183,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 4 #pull event
         @peer_log.user_site_id = user.origin_id
         @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('remove_association').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
         @peer_log.sync_object_id = @data_object.origin_id
@@ -226,6 +226,7 @@ describe SyncPeerLog do
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
         SpecialCollection.create(:name => "watch")
         
+      
         user = User.first
         user.origin_id = user.id
         user.site_id = 1
@@ -242,7 +243,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 4 #pull event
         @peer_log.user_site_id = user.origin_id
         @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
         @peer_log.sync_object_id = 80
@@ -273,6 +274,79 @@ describe SyncPeerLog do
         Community.first.description.should == "community_description"
         Community.first.origin_id.should == 80
         Community.first.site_id.should == 2
+      end
+    end
+    
+    describe "pulling add collection to community action" do
+      before(:each) do
+        load_scenario_with_caching(:communities)
+        truncate_table(ActiveRecord::Base.connection, "communities", {})
+        truncate_table(ActiveRecord::Base.connection, "collections", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        SpecialCollection.create(:name => "watch")
+        SyncObjectAction.create_enumerated
+        SyncObjectType.create_enumerated
+        
+        user = User.first
+        user.origin_id = user.id
+        user.site_id = 1
+        user.save
+        
+        @community = Community.gen
+        @community.name = "name"
+        @community.description = "desc"
+        @community.origin_id = @community.id
+        @community.site_id = 1
+        @community.save
+        @community.add_member(user)
+        @community.members[0].update_column(:manager, 1)
+        
+        @collection = Collection.gen
+        @collection.origin_id = @collection.id
+        @collection.site_id = 1
+        @collection.save
+        
+        # #create sync_object_action
+        # SyncObjectAction.create(:object_action => 'create')
+#         
+        # #create sync_object_type
+        # SyncObjectType.create(:object_type => 'Community')
+        
+        #create sync_peer_log
+        @peer_log = SyncPeerLog.new
+        @peer_log.sync_event_id = 4 #pull event
+        @peer_log.user_site_id = user.origin_id
+        @peer_log.user_site_object_id = user.site_id
+        @peer_log.action_taken_at = Time.now
+        @peer_log.sync_object_action_id = SyncObjectAction.add.id
+        @peer_log.sync_object_type_id = SyncObjectType.community.id
+        @peer_log.sync_object_id = @community.origin_id
+        @peer_log.sync_object_site_id = @community.site_id
+        @peer_log.save
+          
+        parameters = ["collection_origin_id", "collection_site_id"]
+        values = [@collection.origin_id, @collection.site_id]
+ 
+        for i in 0..parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = parameters[i]
+          lap.value = values[i]
+          lap.save
+        end
+        
+        #call process entery
+        @peer_log.process_entry
+      end
+      
+      it "should add collection to community" do
+        @collection.communities.count.should == 1
       end
     end
     
@@ -309,7 +383,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 4 #pull event
         @peer_log.user_site_id = user.origin_id
         @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
         @peer_log.sync_object_id = community.origin_id
@@ -373,7 +447,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 4 #pull event
         @peer_log.user_site_id = user.origin_id
         @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('delete').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
         @peer_log.sync_object_id = community.origin_id
@@ -420,7 +494,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 4 #pull event
         @peer_log.user_site_id = @user.origin_id
         @peer_log.user_site_object_id = @user.site_id
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('join').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
         @peer_log.sync_object_id = community.origin_id
@@ -469,7 +543,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 4 #pull event
         @peer_log.user_site_id = user.origin_id
         @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('leave').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
         @peer_log.sync_object_id = community.origin_id
@@ -508,7 +582,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 4 #pull event
         @peer_log.user_site_id = 2
         @peer_log.user_site_object_id = 80
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('User').id
         @peer_log.sync_object_id = 80
@@ -576,7 +650,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 5 #pull event
         @peer_log.user_site_id = 2
         @peer_log.user_site_object_id = user.origin_id
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('User').id
         @peer_log.sync_object_id = user.origin_id
@@ -637,7 +711,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 6 #pull event
         @peer_log.user_site_id = 2
         @peer_log.user_site_object_id = 81
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update_by_admin').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('User').id
         @peer_log.sync_object_id = user.origin_id
@@ -699,7 +773,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 4 #pull event
         @peer_log.user_site_id = 2
         @peer_log.user_site_object_id = @user.id
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('activate').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('User').id
         @peer_log.sync_object_id = @user.id
@@ -797,7 +871,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 4 #pull event
         @peer_log.user_site_id = @user.site_id
         @peer_log.user_site_object_id = @user.id
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('common_name').id
         @peer_log.sync_object_id = @name.id
@@ -919,7 +993,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 4 #pull event
         @peer_log.user_site_id = @user.site_id
         @peer_log.user_site_object_id = @user.id
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('common_name').id
         @peer_log.sync_object_id = @name.id
@@ -990,7 +1064,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 4 #pull event
         @peer_log.user_site_id = @user.site_id
         @peer_log.user_site_object_id = @user.id
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_or_create_by_object_action('delete').id
         @peer_log.sync_object_type_id = SyncObjectType.find_or_create_by_object_type('common_name').id
         @peer_log.sync_object_id = @synonym.id
@@ -1061,7 +1135,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 4 #pull event
         @peer_log.user_site_id = @user.site_id
         @peer_log.user_site_object_id = @user.id
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_or_create_by_object_action('vet').id
         @peer_log.sync_object_type_id = SyncObjectType.find_or_create_by_object_type('common_name').id
         @peer_log.sync_object_id = @name.id
@@ -1120,7 +1194,7 @@ describe SyncPeerLog do
         @peer_log.sync_event_id = 7 #pull event
         @peer_log.user_site_id = 2
         @peer_log.user_site_object_id = 83
-        @peer_log.action_taken_at_time = Time.now
+        @peer_log.action_taken_at = Time.now
         @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update_by_admin').id
         @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('User').id
         @peer_log.sync_object_id = user.origin_id
@@ -1190,7 +1264,7 @@ describe SyncPeerLog do
           @peer_log.sync_event_id = 5 #pull event
           @peer_log.user_site_id = 2
           @peer_log.user_site_object_id = @user.origin_id
-          @peer_log.action_taken_at_time = Time.now
+          @peer_log.action_taken_at = Time.now
           @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
           @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
           @peer_log.sync_object_id = 30
@@ -1220,7 +1294,7 @@ describe SyncPeerLog do
           @peer_log_for_add_item.sync_event_id = 5 #pull event
           @peer_log_for_add_item.user_site_id = 2
           @peer_log_for_add_item.user_site_object_id = @user.origin_id
-          @peer_log_for_add_item.action_taken_at_time = Time.now
+          @peer_log_for_add_item.action_taken_at = Time.now
           @peer_log_for_add_item.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
           @peer_log_for_add_item.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
           @peer_log_for_add_item.sync_object_id = 30
@@ -1295,7 +1369,7 @@ describe SyncPeerLog do
           @peer_log.sync_event_id = 5 #pull event
           @peer_log.user_site_id = 2
           @peer_log.user_site_object_id = @user.origin_id
-          @peer_log.action_taken_at_time = Time.now
+          @peer_log.action_taken_at = Time.now
           @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
           @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
           @peer_log.sync_object_id = @collection.origin_id
@@ -1351,7 +1425,7 @@ describe SyncPeerLog do
           @peer_log.sync_event_id = 5 #pull event
           @peer_log.user_site_id = 2
           @peer_log.user_site_object_id = @user.origin_id
-          @peer_log.action_taken_at_time = Time.now
+          @peer_log.action_taken_at = Time.now
           @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('delete').id
           @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
           @peer_log.sync_object_id = @collection.origin_id
@@ -1404,7 +1478,7 @@ describe SyncPeerLog do
           @peer_log_craeting_new_collection.sync_event_id = 5 #pull event
           @peer_log_craeting_new_collection.user_site_id = 2
           @peer_log_craeting_new_collection.user_site_object_id = @user.origin_id
-          @peer_log_craeting_new_collection.action_taken_at_time = Time.now
+          @peer_log_craeting_new_collection.action_taken_at = Time.now
           @peer_log_craeting_new_collection.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
           @peer_log_craeting_new_collection.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
           @peer_log_craeting_new_collection.sync_object_id = 31
@@ -1434,7 +1508,7 @@ describe SyncPeerLog do
           @peer_log_collection_job.sync_event_id = 5 #pull event
           @peer_log_collection_job.user_site_id = 2
           @peer_log_collection_job.user_site_object_id = @user.origin_id
-          @peer_log_collection_job.action_taken_at_time = Time.now
+          @peer_log_collection_job.action_taken_at = Time.now
           @peer_log_collection_job.sync_object_action_id = SyncObjectAction.find_by_object_action('create_job').id
           @peer_log_collection_job.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
           @peer_log_collection_job.sync_object_id = @collection.origin_id
@@ -1466,7 +1540,7 @@ describe SyncPeerLog do
           @peer_log_add_item.sync_event_id = 5 #pull event
           @peer_log_add_item.user_site_id = 2
           @peer_log_add_item.user_site_object_id = @user.origin_id
-          @peer_log_add_item.action_taken_at_time = Time.now
+          @peer_log_add_item.action_taken_at = Time.now
           @peer_log_add_item.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
           @peer_log_add_item.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
           @peer_log_add_item.sync_object_id = 31
@@ -1494,7 +1568,7 @@ describe SyncPeerLog do
           @peer_log_add_item_second.sync_event_id = 5 #pull event
           @peer_log_add_item_second.user_site_id = 2
           @peer_log_add_item_second.user_site_object_id = @user.origin_id
-          @peer_log_add_item_second.action_taken_at_time = Time.now
+          @peer_log_add_item_second.action_taken_at = Time.now
           @peer_log_add_item_second.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
           @peer_log_add_item_second.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
           @peer_log_add_item_second.sync_object_id = 29
@@ -1574,7 +1648,7 @@ describe SyncPeerLog do
           @peer_log_add_item_first.sync_event_id = 5 #pull event
           @peer_log_add_item_first.user_site_id = 2
           @peer_log_add_item_first.user_site_object_id = @user.origin_id
-          @peer_log_add_item_first.action_taken_at_time = Time.now
+          @peer_log_add_item_first.action_taken_at = Time.now
           @peer_log_add_item_first.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
           @peer_log_add_item_first.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
           @peer_log_add_item_first.sync_object_id = @first_collection.origin_id
@@ -1602,7 +1676,7 @@ describe SyncPeerLog do
           @peer_log_add_item_second.sync_event_id = 5 #pull event
           @peer_log_add_item_second.user_site_id = 2
           @peer_log_add_item_second.user_site_object_id = @user.origin_id
-          @peer_log_add_item_second.action_taken_at_time = Time.now
+          @peer_log_add_item_second.action_taken_at = Time.now
           @peer_log_add_item_second.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
           @peer_log_add_item_second.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
           @peer_log_add_item_second.sync_object_id = @second_collection.origin_id
@@ -1674,7 +1748,7 @@ describe SyncPeerLog do
           @peer_log_create_ref.sync_event_id = 5 #pull event
           @peer_log_create_ref.user_site_id = 2
           @peer_log_create_ref.user_site_object_id = @user.origin_id
-          @peer_log_create_ref.action_taken_at_time = Time.now
+          @peer_log_create_ref.action_taken_at = Time.now
           @peer_log_create_ref.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
           @peer_log_create_ref.sync_object_type_id = SyncObjectType.find_by_object_type('Ref').id
           @peer_log_create_ref.save
@@ -1700,7 +1774,7 @@ describe SyncPeerLog do
           @peer_log_update_collection_item.sync_event_id = 5 #pull event
           @peer_log_update_collection_item.user_site_id = 2
           @peer_log_update_collection_item.user_site_object_id = @user.origin_id
-          @peer_log_update_collection_item.action_taken_at_time = Time.now
+          @peer_log_update_collection_item.action_taken_at = Time.now
           @peer_log_update_collection_item.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
           @peer_log_update_collection_item.sync_object_type_id = SyncObjectType.find_by_object_type('collection_item').id
           @peer_log_update_collection_item.sync_object_id = @collection.origin_id
@@ -1776,7 +1850,7 @@ describe SyncPeerLog do
           @peer_log_create_job.sync_event_id = 5 #pull event
           @peer_log_create_job.user_site_id = 2
           @peer_log_create_job.user_site_object_id = @user.origin_id
-          @peer_log_create_job.action_taken_at_time = Time.now
+          @peer_log_create_job.action_taken_at = Time.now
           @peer_log_create_job.sync_object_action_id = SyncObjectAction.find_by_object_action('create_job').id
           @peer_log_create_job.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
           @peer_log_create_job.sync_object_id = @collection.origin_id
@@ -1807,7 +1881,7 @@ describe SyncPeerLog do
           @peer_log_remove_item.sync_event_id = 5 #pull event
           @peer_log_remove_item.user_site_id = 2
           @peer_log_remove_item.user_site_object_id = @user.origin_id
-          @peer_log_remove_item.action_taken_at_time = Time.now
+          @peer_log_remove_item.action_taken_at = Time.now
           @peer_log_remove_item.sync_object_action_id = SyncObjectAction.find_by_object_action('remove_item').id
           @peer_log_remove_item.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
           @peer_log_remove_item.sync_object_id = @collection.origin_id
@@ -1870,7 +1944,7 @@ describe SyncPeerLog do
           @peer_log.sync_event_id = 5 #pull event
           @peer_log.user_site_id = @user.site_id
           @peer_log.user_site_object_id = @user.origin_id
-          @peer_log.action_taken_at_time = Time.now
+          @peer_log.action_taken_at = Time.now
           @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
           @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Comment').id
           @peer_log.sync_object_id = 20
@@ -1932,7 +2006,7 @@ describe SyncPeerLog do
           @peer_log.sync_event_id = 5 #pull event
           @peer_log.user_site_id = @user.site_id
           @peer_log.user_site_object_id = @user.origin_id
-          @peer_log.action_taken_at_time = Time.now
+          @peer_log.action_taken_at = Time.now
           @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
           @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Comment').id
           @peer_log.sync_object_id = @comment.origin_id
@@ -1996,7 +2070,7 @@ describe SyncPeerLog do
           @peer_log.sync_event_id = 5 #pull event
           @peer_log.user_site_id = @admin.site_id
           @peer_log.user_site_object_id = @admin.origin_id
-          @peer_log.action_taken_at_time = Time.now
+          @peer_log.action_taken_at = Time.now
           @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
           @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Comment').id
           @peer_log.sync_object_id = @comment.origin_id
@@ -2060,7 +2134,7 @@ describe SyncPeerLog do
           @peer_log.sync_event_id = 5 #pull event
           @peer_log.user_site_id = @admin.site_id
           @peer_log.user_site_object_id = @admin.origin_id
-          @peer_log.action_taken_at_time = Time.now
+          @peer_log.action_taken_at = Time.now
           @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('hide').id
           @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Comment').id
           @peer_log.sync_object_id = @comment.origin_id
@@ -2111,7 +2185,7 @@ describe SyncPeerLog do
           @peer_log.sync_event_id = 5 #pull event
           @peer_log.user_site_id = @admin.site_id
           @peer_log.user_site_object_id = @admin.origin_id
-          @peer_log.action_taken_at_time = Time.now
+          @peer_log.action_taken_at = Time.now
           @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('show').id
           @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Comment').id
           @peer_log.sync_object_id = @comment.origin_id
@@ -2157,7 +2231,7 @@ describe SyncPeerLog do
           @peer_log.sync_event_id = 5 #pull event
           @peer_log.user_site_id = @user.site_id
           @peer_log.user_site_object_id = @user.origin_id
-          @peer_log.action_taken_at_time = Time.now
+          @peer_log.action_taken_at = Time.now
           @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('delete').id
           @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Comment').id
           @peer_log.sync_object_id = @comment.origin_id
@@ -2209,7 +2283,7 @@ describe SyncPeerLog do
           @peer_log.sync_event_id = 4 #pull event
           @peer_log.user_site_id = @admin.site_id
           @peer_log.user_site_object_id = @admin.origin_id
-          @peer_log.action_taken_at_time = Time.now
+          @peer_log.action_taken_at = Time.now
           @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
           @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('content_page').id
           @peer_log.sync_object_id = 80
@@ -2277,7 +2351,7 @@ describe SyncPeerLog do
           @peer_log.sync_event_id = 4 #pull event (random number)
           @peer_log.user_site_id = @admin.site_id
           @peer_log.user_site_object_id = @admin.origin_id
-          @peer_log.action_taken_at_time = Time.now
+          @peer_log.action_taken_at = Time.now
           @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('delete').id
           @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('content_page').id
           @peer_log.sync_object_id = content_page.origin_id
@@ -2321,7 +2395,7 @@ describe SyncPeerLog do
           @peer_log.sync_event_id = 4 #pull event (random number)
           @peer_log.user_site_id = @admin.site_id
           @peer_log.user_site_object_id = @admin.origin_id
-          @peer_log.action_taken_at_time = Time.now
+          @peer_log.action_taken_at = Time.now
           @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('swap').id
           @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('content_page').id
           @peer_log.sync_object_id = lower_page.origin_id
@@ -2345,7 +2419,7 @@ describe SyncPeerLog do
           @peer_log1.sync_event_id = 4 #pull event (random number)
           @peer_log1.user_site_id = @admin.site_id
           @peer_log1.user_site_object_id = @admin.origin_id
-          @peer_log1.action_taken_at_time = Time.now
+          @peer_log1.action_taken_at = Time.now
           @peer_log1.sync_object_action_id = SyncObjectAction.find_by_object_action('swap').id
           @peer_log1.sync_object_type_id = SyncObjectType.find_by_object_type('content_page').id
           @peer_log1.sync_object_id = upper_page.origin_id
@@ -2396,7 +2470,7 @@ describe SyncPeerLog do
           @peer_log.sync_event_id = 4 #pull event (random number)
           @peer_log.user_site_id = @admin.site_id
           @peer_log.user_site_object_id = @admin.origin_id
-          @peer_log.action_taken_at_time = Time.now
+          @peer_log.action_taken_at = Time.now
           @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
           @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('content_page').id
           @peer_log.sync_object_id = content_page.origin_id
@@ -2467,7 +2541,7 @@ describe SyncPeerLog do
         @create_ref_peer_log.sync_event_id = 5 #pull event
         @create_ref_peer_log.user_site_id = @user.site_id
         @create_ref_peer_log.user_site_object_id = @user.origin_id
-        @create_ref_peer_log.action_taken_at_time = Time.now
+        @create_ref_peer_log.action_taken_at = Time.now
         @create_ref_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
         @create_ref_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Ref').id
         @create_ref_peer_log.save
@@ -2492,7 +2566,7 @@ describe SyncPeerLog do
         @create_data_object_peer_log.sync_event_id = 5 #pull event
         @create_data_object_peer_log.user_site_id = @user.site_id
         @create_data_object_peer_log.user_site_object_id = @user.origin_id
-        @create_data_object_peer_log.action_taken_at_time = Time.now
+        @create_data_object_peer_log.action_taken_at = Time.now
         @create_data_object_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
         @create_data_object_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
         @create_data_object_peer_log.sync_object_id = 1
@@ -2524,7 +2598,7 @@ describe SyncPeerLog do
           @create_data_object_peer_log.sync_event_id = 5 #pull event
           @create_data_object_peer_log.user_site_id = @user.site_id
           @create_data_object_peer_log.user_site_object_id = @user.origin_id
-          @create_data_object_peer_log.action_taken_at_time = Time.now
+          @create_data_object_peer_log.action_taken_at = Time.now
           @create_data_object_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
           @create_data_object_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
           @create_data_object_peer_log.sync_object_id = 1
@@ -2555,7 +2629,7 @@ describe SyncPeerLog do
           @create_collection_item_peer_log.sync_event_id = 5 #pull event
           @create_collection_item_peer_log.user_site_id = @user.site_id
           @create_collection_item_peer_log.user_site_object_id = @user.origin_id
-          @create_collection_item_peer_log.action_taken_at_time = Time.now
+          @create_collection_item_peer_log.action_taken_at = Time.now
           @create_collection_item_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
           @create_collection_item_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
           @create_collection_item_peer_log.sync_object_id = @user.watch_collection.origin_id
@@ -2648,7 +2722,7 @@ describe SyncPeerLog do
           @create_ref_peer_log.sync_event_id = 5 #pull event
           @create_ref_peer_log.user_site_id = @user.site_id
           @create_ref_peer_log.user_site_object_id = @user.origin_id
-          @create_ref_peer_log.action_taken_at_time = Time.now
+          @create_ref_peer_log.action_taken_at = Time.now
           @create_ref_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
           @create_ref_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Ref').id
           @create_ref_peer_log.save
@@ -2673,7 +2747,7 @@ describe SyncPeerLog do
           @update_data_object_peer_log.sync_event_id = 5 #pull event
           @update_data_object_peer_log.user_site_id = @user.site_id
           @update_data_object_peer_log.user_site_object_id = @user.origin_id
-          @update_data_object_peer_log.action_taken_at_time = Time.now
+          @update_data_object_peer_log.action_taken_at = Time.now
           @update_data_object_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
           @update_data_object_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
           @update_data_object_peer_log.sync_object_id = @data_object.origin_id
@@ -2761,7 +2835,7 @@ describe SyncPeerLog do
           @rate_data_object_peer_log.sync_event_id = 5 #pull event
           @rate_data_object_peer_log.user_site_id = @user.site_id
           @rate_data_object_peer_log.user_site_object_id = @user.origin_id
-          @rate_data_object_peer_log.action_taken_at_time = Time.now
+          @rate_data_object_peer_log.action_taken_at = Time.now
           @rate_data_object_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('rate').id
           @rate_data_object_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
           @rate_data_object_peer_log.sync_object_id = @data_object.origin_id

@@ -57,25 +57,7 @@ class CommunitiesController < ApplicationController
       @community.collections.each do |focus|
         auto_collect(focus)
       end
-      #synchronization
-      sync_params = {:community_name => @community.name,
-                     :community_description => @community.description,
-                     :collection_origin_id => @collection.origin_id,
-                     :collection_site_id => @collection.site_id,
-                     :logo_cache_url => @community.logo_cache_url,
-                     :logo_file_name => @community.logo_file_name,
-                     :logo_content_type => @community.logo_content_type,
-                     :logo_file_size => @community.logo_file_size,
-                     :base_url => "#{$CONTENT_SERVER}content/"}
-      count = 0
-      invitees.each do |invitee|
-        sync_params["invitee_#{count}"] = invitee
-        count = count + 1
-      end
-     
-      options = {"user" => current_user, "object" =>  @community, "action_id" => SyncObjectAction.get_create_action.id,
-                 "type_id" =>  SyncObjectType.get_community_type.id, "params" => sync_params}
-      SyncPeerLog.log_action(options)
+      sync_create_community(invitees)
       
       redirect_to(community_newsfeed_path(@community), notice: notice, status: :moved_permanently)
     else
@@ -95,20 +77,7 @@ class CommunitiesController < ApplicationController
         notice += " #{I18n.t(:sent_invitations_to_users, users: sent_to.to_sentence, count: sent_to.count)}" unless sent_to.empty?
         upload_logo(@community) unless params[:community][:logo].blank?
         
-        #syncronization
-        sync_params = {:community_name => @community.name,
-                       :community_description => @community.description,
-                       :logo_cache_url => @community.logo_cache_url,
-                       :logo_file_name => @community.logo_file_name,
-                       :logo_content_type => @community.logo_content_type,
-                       :logo_file_size => @community.logo_file_size,
-                       :base_url => "#{$CONTENT_SERVER}content/",
-                       :name_change => name_change,
-                       :description_change => description_change}
-       
-        options = {"user" => current_user, "object" =>  @community, "action_id" => SyncObjectAction.get_update_action.id,
-                   "type_id" =>  SyncObjectType.get_community_type.id, "params" => sync_params}
-        SyncPeerLog.log_action(options)
+        sync_update_community(name_change, description_change)
             
         log_action(:change_name) if name_change
         log_action(:change_description) if description_change
@@ -134,10 +103,7 @@ class CommunitiesController < ApplicationController
       end
       EOL::GlobalStatistics.decrement('communities')
       log_action(:delete)
-      #syncronization
-      options = {"user" => current_user, "object" =>  @community, "action_id" => SyncObjectAction.get_delete_action.id,
-                 "type_id" =>  SyncObjectType.get_community_type.id, "params" => {}}
-      SyncPeerLog.log_action(options)
+      sync_delete_community
       # TODO - it might make sense (?) to remove this community from any collection_items that once pointed to it...
       # that would remove it from watchlists and the like, though, and I don't know if that's wise (since then they
       # wouldn't see the delete log item).
@@ -154,10 +120,7 @@ class CommunitiesController < ApplicationController
     else
       member = @community.add_member(current_user)
       
-      #syncronization
-      options = {"user" => current_user, "object" =>  @community, "action_id" => SyncObjectAction.get_join_action.id,
-                 "type_id" =>  SyncObjectType.get_community_type.id, "params" => {}}
-      SyncPeerLog.log_action(options)
+      sync_join_community
       
       if @community.is_curator_community? && ! current_user.is_curator?
         flash[:notice] = I18n.t(:would_you_like_to_become_a_curator_notice,
@@ -179,10 +142,7 @@ class CommunitiesController < ApplicationController
     respond_to do |format|
       begin
         @community.remove_member(current_user)
-        #syncronization
-        options = {"user" => current_user, "object" =>  @community, "action_id" => SyncObjectAction.get_leave_action.id,
-                   "type_id" =>  SyncObjectType.get_community_type.id, "params" => {}}
-        SyncPeerLog.log_action(options)
+        sync_leave_community
         log_action(:leave, community: @community)
       rescue EOL::Exceptions::ObjectNotFound => e
         format.html { redirect_to(community_newsfeed_path(@community), notice: I18n.t(:could_not_find_user)) }
@@ -262,6 +222,7 @@ class CommunitiesController < ApplicationController
           log_action(:add_collection, community: community, collection_id: collection.id)
           @notices << I18n.t(:community_can_now_manage_this_collection,
                              community: link_to_name(community))
+           sync_add_collection_to_community(community, collection)
         else
           @errors << I18n.t(:error_couldnt_find_community_by_id, id: id)
         end
@@ -371,6 +332,66 @@ private
 
   def link_to_collection(collection)
    self.class.helpers.link_to(collection.name, collection_path(collection))
+  end
+  
+  # synchronization
+  def sync_create_community(invitees)
+    sync_params = {community_name: @community.name,
+                   community_description: @community.description,
+                   collection_origin_id: @collection.origin_id,
+                   collection_site_id: @collection.site_id,
+                   logo_cache_url: @community.logo_cache_url,
+                   logo_file_name: @community.logo_file_name,
+                   logo_content_type: @community.logo_content_type,
+                   logo_file_size: @community.logo_file_size,
+                   base_url: "#{$CONTENT_SERVER}content/"}
+    invitees.each_with_index do |invitee, index|
+      sync_params["invitee_#{index}"] = invitee
+    end
+    options = {user: current_user, object: @community, action_id: SyncObjectAction.create.id,
+                 type_id: SyncObjectType.community.id, params: sync_params}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_community(name_change, description_change)
+    sync_params = {community_name: @community.name,
+                   community_description: @community.description,
+                   logo_cache_url: @community.logo_cache_url,
+                   logo_file_name: @community.logo_file_name,
+                   logo_content_type: @community.logo_content_type,
+                   logo_file_size: @community.logo_file_size,
+                   base_url: "#{$CONTENT_SERVER}content/",
+                   name_change: name_change,
+                   description_change: description_change}
+    options = {user: current_user, object:  @community, action_id: SyncObjectAction.update.id,
+               type_id: SyncObjectType.community.id, params: sync_params}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_delete_community
+    options = {user: current_user, object: @community, action_id: SyncObjectAction.delete.id,
+               type_id: SyncObjectType.community.id, params: {}}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_join_community
+    options = {user: current_user, object: @community, action_id: SyncObjectAction.join.id,
+               type_id: SyncObjectType.community.id, params: {}}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_leave_community
+    options = {user: current_user, object: @community, action_id: SyncObjectAction.leave.id,
+               type_id: SyncObjectType.community.id, params: {}}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_add_collection_to_community(community, collection)
+    sync_params = {collection_origin_id: collection.origin_id,
+                   collection_site_id: collection.site_id}
+    options = {user: current_user, object: community, action_id: SyncObjectAction.add.id,
+               type_id: SyncObjectType.community.id, params: sync_params}
+    SyncPeerLog.log_action(options)
   end
 
 end

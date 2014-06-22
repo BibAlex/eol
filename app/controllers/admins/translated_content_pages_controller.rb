@@ -16,6 +16,7 @@ class Admins::TranslatedContentPagesController < AdminsController
     @translated_content_page = @content_page.translations.build(params[:translated_content_page])
     @content_page.last_update_user_id = current_user.id unless @content_page.blank?
     if @content_page.save
+      sync_create_translated_content_page
       flash[:notice] = I18n.t(:admin_translated_content_page_create_successful_notice,
                               page_name: @content_page.page_name,
                               anchor: @content_page.page_name.gsub(' ', '_').downcase)
@@ -45,6 +46,7 @@ class Admins::TranslatedContentPagesController < AdminsController
         archive_fields = older_version.attributes.delete_if{ |k,v| [ 'id', 'active_translation' ].include?(k) }.
           merge(translated_content_page_id: older_version.id, original_creation_date: older_version.created_at)
         TranslatedContentPageArchive.create(archive_fields)
+        sync_update_translated_content_page
         flash[:notice] = I18n.t(:admin_translated_content_page_update_successful_notice,
                                 page_name: @content_page.page_name,
                                 language: @translated_content_page.language.label,
@@ -67,6 +69,7 @@ class Admins::TranslatedContentPagesController < AdminsController
     translated_content_page = TranslatedContentPage.find(params[:id], include: :language)
     language = translated_content_page.language
     translated_content_page.destroy
+    sync_update_translated_content_page(content_page, language.id)
     flash[:notice] = I18n.t(:admin_translated_content_page_delete_successful_notice,
                             page_name: page_name, language: language.label)
     redirect_to admin_content_pages_path, status: :moved_permanently
@@ -92,6 +95,28 @@ private
                              page_name: @content_page.page_name,
                              language: @translated_content_page.language.label.downcase)
     @navigation_tree = ContentPage.get_navigation_tree(@content_page.id)
+  end
+  
+  def sync_create_translated_content_page
+   sync_params = params[:translated_content_page]
+   options = {user: current_user, object: @content_page, action_id: SyncObjectAction.add_translation.id,
+               type_id: SyncObjectType.content_page.id, params: sync_params}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_translated_content_page
+    sync_params = params[:translated_content_page]
+    sync_params = sync_params.reverse_merge(language_id: @translated_content_page.language_id)
+    options = {user: current_user, object: @content_page, action_id: SyncObjectAction.update.id,
+               type_id: SyncObjectType.translated_content_page.id, params: sync_params}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_translated_content_page(content_page, language)
+    sync_params = {language_id: language}
+    options = {user: current_user, object: content_page, action_id: SyncObjectAction.delete.id,
+               type_id: SyncObjectType.translated_content_page.id, params: sync_params}
+    SyncPeerLog.log_action(options)
   end
 
 end

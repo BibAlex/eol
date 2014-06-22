@@ -46,39 +46,39 @@ class User < ActiveRecord::Base
   scope :admins, conditions: ['admin IS NOT NULL']
   scope :curators, conditions: 'curator_level_id is not null'
 
-  before_save :check_credentials, if: "site_id == PEER_SITE_ID"
-  before_save :encrypt_password, if: "site_id == PEER_SITE_ID"
+  before_save :check_credentials, if: :is_local?
+  before_save :encrypt_password, if: :is_local?
   before_save :remove_blank_username, unless: :eol_authentication?
   before_save :instantly_approve_curator_level, if: :curator_level_can_be_instantly_approved?
-  after_save :update_watch_collection_name, if: "site_id == PEER_SITE_ID"
-  after_save :clear_cache
+  after_save  :update_watch_collection_name, if: :is_local?
+  after_save  :clear_cache
 
   after_create :add_agent
 
   before_destroy :destroy_comments
   # TODO: before_destroy :destroy_data_objects
 
-  after_create :add_email_notification, if: "site_id == PEER_SITE_ID"
+  after_create :add_email_notification, if: :is_local?
 
   accepts_nested_attributes_for :user_info, :notification, :open_authentications
 
   @email_format_re = %r{^(?:[_\+a-z0-9-]+)(\.[_\+a-z0-9-]+)*@([a-z0-9-]+)(\.[a-zA-Z0-9\-\.]+)*(\.[a-z]{2,4})$}i
 
-  validate :ensure_unique_username_against_master, :if => :eol_authentication? && "site_id == PEER_SITE_ID"
+  validate :ensure_unique_username_against_master, :if => :eol_authentication? && :is_local?
   
   validates_presence_of :given_name, :if => :given_name_required?
   validates_presence_of :family_name, :if => :first_last_names_required?
-  validates_presence_of :username, :if => :eol_authentication? && "site_id == PEER_SITE_ID"
+  validates_presence_of :username, :if => :eol_authentication? && :is_local?
 
   validates_length_of :username, :within => 4..32, :if => :eol_authentication?
   validates_length_of :entered_password, :within => 4..16, :if => :password_validation_required?  
 
-  validates_confirmation_of :entered_password, :if => :password_validation_required? && "site_id == PEER_SITE_ID"
+  validates_confirmation_of :entered_password, :if => :password_validation_required? && :is_local?
 
-  validates_format_of :email, :with => @email_format_re, :if => "site_id == PEER_SITE_ID"
-  validates_confirmation_of :email, :if => :email_confirmation_required? && "site_id == PEER_SITE_ID"
+  validates_format_of :email, :with => @email_format_re, :if => :is_local?
+  validates_confirmation_of :email, :if => :email_confirmation_required? && :is_local?
 
-  validates_acceptance_of :agreed_with_terms, :accept => true, :if => "site_id == PEER_SITE_ID"
+  validates_acceptance_of :agreed_with_terms, :accept => true, :if => :is_local?
 
 # CURATOR CLASS DECLARATIONS - TODO - extract:
 
@@ -270,15 +270,7 @@ class User < ActiveRecord::Base
     update_column(:validation_code, nil)
     add_to_index
     collection = build_watch_collection
-    #syncronization
-    if collection
-      sync_params = {"collection_origin_id" => collection.origin_id, "collection_site_id" => collection.site_id}
-    else
-      sync_params = {"collection_origin_id" => nil, "collection_site_id" => nil}
-    end
-    options = {"user" => self, "object" =>  self, "action_id" => SyncObjectAction.get_activate_action.id,
-                    "type_id" =>  SyncObjectType.get_user_type.id, "params" => sync_params}
-    SyncPeerLog.log_action(options)
+    sync_activate_user(collection)
   end
 
   # Checks to see if one already exists (DO NOT use #watch_collection to do this, recursive!), and builds one if not:
@@ -787,7 +779,7 @@ class User < ActiveRecord::Base
 private
 
   
-  def sync_validation?
+  def is_local?
     site_id == PEER_SITE_ID  
   end
   
@@ -800,7 +792,7 @@ private
   # i.e. on user#create, or if someone is trying to change it i.e. user#update
   # Don't need password when user authenticates with open authentication e.g. Facebook
   def password_validation_required?
-    eol_authentication? && (hashed_password.blank? || hashed_password.nil? || ! self.entered_password.blank?) && sync_validation?
+    eol_authentication? && (hashed_password.blank? || hashed_password.nil? || ! self.entered_password.blank?) && is_local?
   end
 
   # Callback before_save and before_update we only encrypt password if someone has entered a valid password
@@ -1014,6 +1006,19 @@ public
   end
   def join_curator_community_if_curator
     self.join_community(CuratorCommunity.get) if self.is_curator?
+  end
+  
+  
+  # synchronization
+  def sync_activate_user(collection)
+  if collection
+      sync_params = {collection_origin_id: collection.origin_id, collection_site_id: collection.site_id}
+    else
+      sync_params = {collection_origin_id: nil, collection_site_id: nil}
+    end
+    options = {user: self, object: self, action_id: SyncObjectAction.activate.id,
+                    type_id: SyncObjectType.user.id, params: sync_params}
+    SyncPeerLog.log_action(options)
   end
 
 # END CURATOR METHODS

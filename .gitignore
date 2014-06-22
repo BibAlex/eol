@@ -10,6 +10,7 @@
 # Ignore all logfiles and tempfiles.
 /log/*.log
 /tmp
+/public/files/sync_logs
 .sass-cache/
 
 # Ignore guard (which is an auto-tester):
@@ -67,6 +68,8 @@ public/uploads/Image/*
 public/uploads/images/collection_icons/*
 solr/logs/*.*
 solr/solr/data/*
+solr2/logs/*.*
+solr2/solr/data/*
 vendor/eol_org
 tags
 public/files/solr_import_file.csv

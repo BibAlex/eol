@@ -1,4 +1,7 @@
 # NOTE - we use these commit_* button names because we don't want to parse the I18n of the button name (hard).
+require "#{Rails.root}/app/helpers/sync_peer_log_helper"
+include SyncPeerLogHelper::ClassMethods
+
 class CollectionsController < ApplicationController
 
   before_filter :login_with_open_authentication, only: :show
@@ -54,12 +57,13 @@ class CollectionsController < ApplicationController
     @collection = Collection.new(params[:collection])
     if @collection.save
       @collection.users = [current_user]
-      #log_activity(activity: Activity.create)
+      log_activity(activity: Activity.create)
       
         # set collection origin id and collection site id
         @collection[:origin_id] = @collection.id
         @collection[:site_id] =  PEER_SITE_ID
-        @collection.save                    
+        @collection.save 
+        sync_create_collection                   
         flash[:notice] = I18n.t(:collection_created_with_count_notice,
                               collection_name: link_to_name(@collection),
                               count: @collection.collection_items.count)   
@@ -70,26 +74,8 @@ class CollectionsController < ApplicationController
       else
         auto_collect(@collection)
         create_collection_from_item
-        
-         # create sync peer log for new collection metadata
-        sync_params = params[:collection] 
-        sync_params = sync_params.reverse_merge(:base => true)
-        options = {"user" => current_user, "object" =>  @collection, "action_id" => SyncObjectAction.get_create_action.id,
-                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}       
-        SyncPeerLog.log_action(options)
-        
-        # log create collection item
-        sync_params = {}
-        sync_params = sync_params.reverse_merge(:collected_item_type => params[:item_type],
-                                                :collected_item_name => @item.summary_name,                                                
-                                                :item_id => @item.origin_id,
-                                                :item_site_id => @item.site_id,
-                                                :base_item => true) 
-        options = {"user" => current_user, "object" =>  @collection, "action_id" => SyncObjectAction.get_add_item_to_collection_action.id,
-                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}                                                                    
-        SyncPeerLog.log_action(options)
-                      
-         return      
+        sync_create_collection_item
+        return      
       end
     else
       flash[:error] = I18n.t(:collection_not_created_error, collection_name: @collection.name)
@@ -135,21 +121,8 @@ class CollectionsController < ApplicationController
       
       CollectionActivityLog.create({ collection: @collection, user_id: current_user.id, activity: Activity.change_name }) if name_change
       CollectionActivityLog.create({ collection: @collection, user_id: current_user.id, activity: Activity.change_description }) if description_change
-      
-       # create sync peer log for updating collection metadata
-       sync_params = params[:collection] 
-       sync_params.delete("logo")
-       sync_params = sync_params.reverse_merge(  :logo_cache_url => @collection.logo_cache_url,
-                                                 :logo_file_name => @collection.logo_file_name,
-                                                 :logo_content_type => @collection.logo_content_type,
-                                                 :logo_file_size => @collection.logo_file_size,
-                                                 :base_url => "#{$CONTENT_SERVER}content/",
-                                                 :updated_at => @collection.updated_at)                                                                               
-        options = {"user" => current_user, "object" =>  @collection, "action_id" => SyncObjectAction.get_update_action.id,
-              "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}
-        SyncPeerLog.log_action(options) 
-               
-                              
+       
+       sync_update_collection
     else
       set_edit_vars
       render action: :edit
@@ -169,9 +142,7 @@ class CollectionsController < ApplicationController
       if @collection.unpublish
         flash[:notice] = I18n.t(:collection_destroyed)
         #syncronization
-        options = {"user" => current_user, "object" =>  @collection, "action_id" => SyncObjectAction.get_delete_action.id,
-              "type_id" =>  SyncObjectType.get_collection_type.id, "params" => {}}
-        SyncPeerLog.log_action(options)
+        sync_delete_collection
       else
         flash[:error] = I18n.t(:collection_not_destroyed_error)
       end
@@ -680,8 +651,9 @@ private
   end
 
   def create_collection_from_item
-    @collection.add(@item)
-    EOL::GlobalStatistics.increment('collections')
+    # @collection.add(@item)
+    # EOL::GlobalStatistics.increment('collections')
+    add_item_to_collection(@collection, @item)
     flash[:notice] = I18n.t(:collection_created_notice, collection_name: link_to_name(@collection))
     respond_to do |format|
       format.html { redirect_to link_to_item(@item), status: :moved_permanently }
@@ -754,5 +726,44 @@ private
     EOL::Solr::CollectionItemsCoreRebuilder.reindex_collection_items_by_ids(collection_item_ids_to_reindex.uniq)
   end
   
+  # synchronization
+  def sync_create_collection
+    sync_params = params[:collection] 
+    sync_params = sync_params.reverse_merge(:base => true)
+    options = {user: current_user, object: @collection, action_id: SyncObjectAction.create.id,
+                type_id: SyncObjectType.collection.id, params: sync_params}       
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_create_collection_item
+    sync_params = {collected_item_type: params[:item_type], collected_item_name: @item.summary_name,                                                
+                   item_id: @item.origin_id, item_site_id: @item.site_id, base_item: true} 
+                   
+    options = {user: current_user, object: @collection, action_id: SyncObjectAction.add.id,
+               type_id: SyncObjectType.collection_item.id, params: sync_params}                                                               
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_collection
+   # create sync peer log for updating collection metadata
+   sync_params = params[:collection] 
+   sync_params.delete("logo")
+   sync_params = sync_params.reverse_merge(logo_cache_url: @collection.logo_cache_url,
+                                           logo_file_name: @collection.logo_file_name,
+                                           logo_content_type: @collection.logo_content_type,
+                                           logo_file_size: @collection.logo_file_size,
+                                           base_url: "#{$CONTENT_SERVER}content/",
+                                           updated_at: @collection.updated_at)    
+    # send updated_at attribute to solve conflict if found                                                                           
+    options = {user: current_user, object: @collection, action_id: SyncObjectAction.update.id,
+              type_id: SyncObjectType.collection.id, params: sync_params}
+    SyncPeerLog.log_action(options) 
+  end
+  
+  def sync_delete_collection
+   options = {user: current_user, object: @collection, action_id: SyncObjectAction.delete.id,
+              type_id: SyncObjectType.collection.id, params: {}}
+   SyncPeerLog.log_action(options)
+  end
 
 end

@@ -61,34 +61,17 @@ class DataObjectsController < ApplicationController
       @data_object[:origin_id] = @data_object.id
       @data_object[:site_id] = PEER_SITE_ID
       @data_object.save
+      sync_create_data_object(toc_id, link_type_id)
       add_references(@data_object)
+      sync_add_refs_to_data_object(@data_object)
       
       current_user.log_activity(:created_data_object_id, value: @data_object.id,
                                 taxon_concept_id: @taxon_concept.id)
      
       @data_object.log_activity_in_solr(keyword: 'create', user: current_user, taxon_concept: @taxon_concept)
       
-      # sync create data object
-      toc = TocItem.find(toc_id)      
-      link_type_origin_id = nil
-      link_type_site_id = nil
-      unless link_type_id.nil?
-        link_type = LinkType.find(link_type_id)
-        link_type_origin_id = link_type.origin_id
-        link_type_site_id = link_type.site_id
-      end
-      sync_params = params[:data_object]
-      sync_params = sync_params.reverse_merge("taxon_concept_origin_id" =>  @taxon_concept.origin_id,
-                                              "taxon_concept_site_id" => @taxon_concept.site_id,
-                                              "commit_link" => params[:commit_link],                                              
-                                              "references" => @references,
-                                              "toc_id" => toc.origin_id,
-                                              "toc_site_id" => toc.site_id,
-                                              "link_type_id" => link_type_origin_id,
-                                              "link_type_site_id" => link_type_site_id)
-      options = {"user" => current_user, "object" =>  @data_object, "action_id" => SyncObjectAction.get_create_action.id,
-                 "type_id" =>  SyncObjectType.get_data_object_type.id, "params" => sync_params}           
-      SyncPeerLog.log_action(options)
+      
+      
       
        # add this new object to the user's watch collection
       collection_item = CollectionItem.create(
@@ -98,17 +81,7 @@ class DataObjectsController < ApplicationController
       CollectionActivityLog.create(collection: current_user.watch_collection, user_id: current_user.id,
                                    activity: Activity.collect, collection_item: collection_item)
       
-      # sync create collection item
-      sync_params = {"collected_item_type" =>  "DataObject",
-                     "collected_item_name" => @data_object.object_title,
-                     "item_id" => @data_object.origin_id,                                              
-                     "item_site_id" => @data_object.site_id,
-                     "add_item" =>  true}       
-      col = current_user.watch_collection
-      options = {"user" => current_user, "object" =>  col , "action_id" => SyncObjectAction.get_add_item_to_collection_action.id,
-                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}           
-      SyncPeerLog.log_action(options)
-    
+      sync_create_collection_item
 
       # redirect to appropriate tab/sub-tab after creating the users_data_object/link_object
       if @data_object.is_link?
@@ -201,31 +174,12 @@ class DataObjectsController < ApplicationController
       new_data_object[:origin_id] = new_data_object.id
       new_data_object[:site_id] = PEER_SITE_ID
       new_data_object.save
+      sync_update_data_object(new_data_object, toc_id, link_type_id)
       add_references(new_data_object)
+      sync_add_refs_to_data_object(new_data_object)
       current_user.log_activity(:updated_data_object_id, value: new_data_object.id,
                                 taxon_concept_id: new_data_object.taxon_concept_for_users_text.id)
       
-      toc = TocItem.find(toc_id)      
-      link_type_origin_id = nil
-      link_type_site_id = nil
-      unless link_type_id.nil?
-        link_type = LinkType.find(link_type_id)
-        link_type_origin_id = link_type.origin_id
-        link_type_site_id = link_type.site_id
-      end
-                                
-      sync_params = params[:data_object]
-      sync_params = sync_params.reverse_merge("new_revision_origin_id" => new_data_object.origin_id,
-                                              "new_revision_site_id" => new_data_object.site_id,
-                                              "commit_link" => params[:commit_link],                                              
-                                              "references" => @references,
-                                              "toc_id" => toc.origin_id,
-                                              "toc_site_id" => toc.site_id,
-                                              "link_type_id" => link_type_origin_id,
-                                              "link_type_site_id" => link_type_site_id)
-      options = {"user" => current_user, "object" =>  @data_object, "action_id" => SyncObjectAction.get_update_action.id,
-                 "type_id" =>  SyncObjectType.get_data_object_type.id, "params" => sync_params}           
-      SyncPeerLog.log_action(options)
                                 
       redirect_to data_object_path(new_data_object), status: :moved_permanently
     end
@@ -253,12 +207,7 @@ class DataObjectsController < ApplicationController
       if rated_successfully
         @data_object.update_solr_index
         flash[:notice] = I18n.t(:rating_added_notice)
-        
-        # sync rate data object
-        sync_params = {"stars" => params[:stars]}
-        options = {"user" => current_user, "object" =>  @data_object, "action_id" => SyncObjectAction.get_rate_action.id,
-                   "type_id" =>  SyncObjectType.get_data_object_type.id, "params" => sync_params}           
-        SyncPeerLog.log_action(options)
+        sync_rate_data_object
         
       else
         # TODO: Ideally examine validation error and provide more informative error message.
@@ -319,15 +268,7 @@ class DataObjectsController < ApplicationController
     @data_object.update_solr_index
     clear_cached_media_count_and_exemplar(he)
     log_action(cdohe, :remove_association)
-    
-    #synchronization
-    sync_params = {:hierarchy_entry_origin_id => he.origin_id,
-                   :hierarchy_entry_site_id => he.site_id}
-                        
-    options = {"user" => current_user, "object" =>  @data_object, "action_id" => SyncObjectAction.get_remove_association_action.id,
-               "type_id" =>  SyncObjectType.get_data_object_type.id, "params" => sync_params}
-    SyncPeerLog.log_action(options)
-    
+    sync_remove_association(he)    
     redirect_to data_object_path(@data_object), status: :moved_permanently
   end
 
@@ -337,14 +278,7 @@ class DataObjectsController < ApplicationController
     clear_cached_media_count_and_exemplar(he)
     @data_object.update_solr_index
     log_action(cdohe, :add_association)
-    #synchronization
-    sync_params = {:hierarchy_entry_origin_id => he.origin_id,
-                   :hierarchy_entry_site_id => he.site_id}
-                         
-    options = {"user" => current_user, "object" =>  @data_object, "action_id" => SyncObjectAction.get_save_association_action.id,
-               "type_id" =>  SyncObjectType.get_data_object_type.id, "params" => sync_params}
-    SyncPeerLog.log_action(options)
-    
+    sync_add_association(he)
     redirect_to data_object_path(@data_object), status: :moved_permanently, notice: I18n.t(:association_added_flash)
   end
 
@@ -400,45 +334,11 @@ class DataObjectsController < ApplicationController
       flash[:notice] = I18n.t(:object_curated)
       @data_object.reindex
       
-      #Synchronization
-      
-      index = 0
-      associations.each do |association|
-        
-        untrust_reasons = params["untrust_reasons_#{association.id}"]? get_objects_labels(params["untrust_reasons_#{association.id}"], "UntrustReason"): nil
-        hide_reasons = params["hide_reasons_#{association.id}"]? get_objects_labels(params["hide_reasons_#{association.id}"], "UntrustReason"): nil
-        visibility = TranslatedVisibility.find_by_visibility_id_and_language_id(
-                  params["visibility_id_#{association.id}"], current_language.id)
-                    
-        sync_params = {}
-        sync_params["language"] = current_language
-        sync_params["vetted_view_order"] = Vetted.find(params["vetted_id_#{association.id}"]).view_order
-        sync_params["curation_comment_origin_id"] = comments[index].origin_id if comments[index]
-        sync_params["curation_comment_site_id"] = comments[index].site_id if comments[index]
-        sync_params["untrust_reasons"] = untrust_reasons if untrust_reasons
-        sync_params["hide_reasons"] = hide_reasons if hide_reasons
-        sync_params["visibility_label"] = visibility.label if visibility
-        sync_params["taxon_concept_origin_id"] = association.taxon_concept.origin_id
-        sync_params["taxon_concept_site_id"] = association.taxon_concept.site_id
-        options = {"user" => current_user, "object" =>  @data_object, "action_id" => SyncObjectAction.get_curate_associations_action.id,
-                   "type_id" =>  SyncObjectType.get_data_object_type.id, "params" => sync_params}
-        SyncPeerLog.log_action(options)
-        index = index + 1
-      end
+      sync_curate_association(associations, comments)
     end
     redirect_back_or_default data_object_path(@data_object.latest_published_version_in_same_language)
   end
   
-  def get_objects_labels(objects_ids, object_type)
-    objects_labels = ""
-    if objects_ids
-      objects_ids.each do |object_id|
-        object = object_type.constantize.find(object_id.to_i)
-        objects_labels += object.class_name + "," if object
-      end
-    end  
-    objects_labels  
-  end
 
   def ignore
     return_to = params[:return_to] unless params[:return_to].blank?
@@ -550,19 +450,7 @@ private
       auto_collect(@data_object) # SPG asks for all curation comments to add the item to their watchlist.
       comment = Comment.create(parent: @data_object, body: comment, user: current_user, site_id: PEER_SITE_ID)
       comment.update_column(:origin_id, comment.id)
-      
-      sync_params = {:parent_type => "DataObject",
-                     :reply_to_type => comment.reply_to_type,
-                     :reply_to_id => comment.reply_to_id,
-                     :body => comment.body,
-                     :from_curator => comment.from_curator,
-                     :visible_at => comment.visible_at,
-                     :hidden => comment.hidden,
-                     :comment_parent_origin_id => comment.parent.origin_id,
-                     :comment_parent_site_id => comment.parent.site_id }
-      options = {"user" => current_user, "object" =>  comment, "action_id" => SyncObjectAction.get_create_action.id,
-                    "type_id" =>  SyncObjectType.get_comment_type.id, "params" => sync_params} 
-      SyncPeerLog.log_action(options)                                 
+      sync_create_comment(comment)                                     
       return comment
     end
   end
@@ -660,11 +548,7 @@ private
         if reference.strip != ''
           dato.refs << Ref.new(full_reference: reference, user_submitted: true, published: 1,
                                        visibility: Visibility.visible)
-          # sync create ref
-          sync_params = {"reference" => reference}
-          options = {"user" => current_user, "object" =>  nil, "action_id" => SyncObjectAction.get_create_action.id,
-              "type_id" =>  SyncObjectType.get_ref_type.id, "params" => sync_params}           
-          SyncPeerLog.log_action(options)                                 
+          sync_create_ref(reference)                       
         end
       end
     end
@@ -701,5 +585,152 @@ private
   def visibility_from_params(he)
     params["visibility_id_#{he.id}"] ? Visibility.find(params["visibility_id_#{he.id}"]) : nil
   end
+  
+  # synchronization
+  def sync_create_data_object(toc_id, link_type_id)
+    toc_sync_ids = get_object_sync_ids(toc_id, "TocItem")
+    link_type_sync_ids = get_object_sync_ids(link_type_id, "LinkType")
+    sync_params = params[:data_object]
+    sync_params = sync_params.reverse_merge(taxon_concept_origin_id: @taxon_concept.origin_id,
+                                            taxon_concept_site_id: @taxon_concept.site_id,
+                                            commit_link: params[:commit_link],                                              
+                                            toc_id: toc_sync_ids[:origin_id],
+                                            toc_site_id: toc_sync_ids[:site_id],
+                                            link_type_id: link_type_sync_ids[:origin_id],
+                                            link_type_site_id: link_type_sync_ids[:site_id],
+                                            guid: @data_object.guid)
+    options = {user: current_user, object: @data_object, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.data_object.id, params: sync_params}           
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_add_refs_to_data_object(data_object)
+    sync_params = {references: @references}
+    options = {user: current_user, object: data_object, action_id: SyncObjectAction.add_refs.id,
+               type_id: SyncObjectType.data_object.id, params: sync_params}           
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_create_collection_item
+    sync_params = {collected_item_type: "DataObject",
+                   collected_item_name: @data_object.object_title,
+                   item_id: @data_object.origin_id,                                              
+                   item_site_id: @data_object.site_id,
+                   add_item: true}       
+    col = current_user.watch_collection
+    options = {user: current_user, object: col , action_id: SyncObjectAction.add.id,
+               type_id: SyncObjectType.collection_item.id, params: sync_params}           
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_data_object(new_data_object, toc_id, link_type_id)
+    toc_sync_ids = get_object_sync_ids(toc_id, "TocItem")
+    link_type_sync_ids = get_object_sync_ids(link_type_id, "LinkType")
+    sync_params = params[:data_object]
+    sync_params = sync_params.reverse_merge(new_revision_origin_id: new_data_object.origin_id,
+                                            new_revision_site_id: new_data_object.site_id,
+                                            commit_link: params[:commit_link],                                              
+                                            toc_id: toc_sync_ids[:origin_id],
+                                            toc_site_id: toc_sync_ids[:site_id],
+                                            link_type_id: link_type_sync_ids[:origin_id],
+                                            link_type_site_id: link_type_sync_ids[:site_id])
+    options = {user: current_user, object: @data_object, action_id: SyncObjectAction.update.id,
+               type_id: SyncObjectType.data_object.id, params: sync_params}           
+    SyncPeerLog.log_action(options)
+  end
+  
+  def get_object_sync_ids(object_id, object_type)
+    sync_ids = {}
+    if object_id
+      object = object_type.constantize.find(object_id)
+      sync_ids[:origin_id] = object.origin_id
+      sync_ids[:site_id] = object.site_id
+    end
+    sync_ids    
+  end
+  
+  def sync_rate_data_object
+    sync_params = {stars: params[:stars]}
+    options = {user: current_user, object: @data_object, action_id: SyncObjectAction.rate.id,
+               type_id: SyncObjectType.data_object.id, params: sync_params}           
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_remove_association(he)
+    sync_params = {hierarchy_entry_origin_id: he.origin_id,
+                   hierarchy_entry_site_id: he.site_id}
+                        
+    options = {user: current_user, object: @data_object, action_id: SyncObjectAction.remove_association.id,
+               type_id: SyncObjectType.data_object.id, params: sync_params}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_add_association(he)
+    sync_params = {hierarchy_entry_origin_id: he.origin_id,
+                   hierarchy_entry_site_id: he.site_id}
+                         
+    options = {user: current_user, object: @data_object, action_id: SyncObjectAction.save_association.id,
+               type_id: SyncObjectType.data_object.id, params: sync_params}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_create_comment(comment)
+    sync_params = {parent_type: "DataObject",
+                   reply_to_type: comment.reply_to_type,
+                   reply_to_id: comment.reply_to_id,
+                   body: comment.body,
+                   from_curator: comment.from_curator,
+                   visible_at: comment.visible_at,
+                   hidden: comment.hidden,
+                   comment_parent_origin_id: comment.parent.origin_id,
+                   comment_parent_site_id: comment.parent.site_id}
+      options = {user: current_user, object: comment, action_id: SyncObjectAction.create.id,
+                 type_id: SyncObjectType.comment.id, params: sync_params} 
+      SyncPeerLog.log_action(options) 
+  end
+  
+  def sync_create_ref(reference)
+    sync_params = {reference: reference}
+    options = {user: current_user, object: nil, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.ref.id, params: sync_params}           
+    SyncPeerLog.log_action(options)  
+  end
+  
+  def sync_curate_association(associations, comments)
+      associations.each_with_index do |association, index|
+        untrust_reasons = params["untrust_reasons_#{association.id}"]? get_objects_labels(params["untrust_reasons_#{association.id}"], "UntrustReason"): nil
+        hide_reasons = params["hide_reasons_#{association.id}"]? get_objects_labels(params["hide_reasons_#{association.id}"], "UntrustReason"): nil
+        visibility = TranslatedVisibility.find_by_visibility_id_and_language_id(
+                  params["visibility_id_#{association.id}"], current_language.id)
+                    
+        sync_params = {}
+        sync_params[:language] = current_language
+        sync_params[:vetted_view_order] = Vetted.find(params["vetted_id_#{association.id}"]).view_order
+        if comments[index]
+          sync_params[:curation_comment_origin_id] = comments[index].origin_id 
+          sync_params[:curation_comment_site_id] = comments[index].site_id 
+        end
+        sync_params[:untrust_reasons] = untrust_reasons if untrust_reasons
+        sync_params[:hide_reasons] = hide_reasons if hide_reasons
+        sync_params[:visibility_label] = visibility.label if visibility
+        sync_params[:taxon_concept_origin_id] = association.taxon_concept.origin_id
+        sync_params[:taxon_concept_site_id] = association.taxon_concept.site_id
+        options = {user: current_user, object: @data_object, action_id: SyncObjectAction.curate_associations.id,
+                   type_id: SyncObjectType.data_object.id, params: sync_params}
+        SyncPeerLog.log_action(options)
+      end
+  end
+  
+  def get_objects_labels(objects_ids, object_type)
+    objects_labels = ""
+    if objects_ids
+      objects_ids.each do |object_id|
+        object = object_type.constantize.find(object_id.to_i)
+        objects_labels += object.class_name + "," if object
+      end
+    end  
+    objects_labels  
+  end
+  
 
 end

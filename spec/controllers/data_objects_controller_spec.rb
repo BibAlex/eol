@@ -540,5 +540,105 @@ describe DataObjectsController do
       end
     end
     
+    describe "sync curate associations" do
+      before(:each) do
+        truncate_all_tables
+        load_foundation_cache
+        
+        @current_user = User.gen
+        session[:user_id] = @current_user.id
+        @current_user[:origin_id] = @current_user.id
+        @current_user[:site_id] = PEER_SITE_ID
+        @current_user.save
+        
+        @data_object = DataObject.gen
+        @data_object.update_column(:origin_id, @data_object.id)
+        @data_object.update_column(:site_id, 1)
+        
+        he = HierarchyEntry.first
+        he.update_column(:origin_id, he.id)
+        he.update_column(:site_id, 1)
+        
+       
+        
+        
+      end
+      
+      it "should curate association" do        
+        
+        put :curate_associations, {"id" => @data_object.id,
+                                   "return_to"=>"http://localhost:#{PEER_SITE_ID}/data_objects/#{@data_object.id}",
+                                  "vetted_id_1" => Vetted.first.id, 
+                                  "curation_comment_1" => "comment1"}
+        
+        # created comments for data object
+        first_comment = Comment.first
+        first_comment.body.should == "comment1"
+        first_comment.user_id.should == @current_user.id
+        first_comment.parent_type.should == "DataObject"
+        first_comment.parent_id.should == @data_object.id   
+           
+        # check sync_object_type
+        data_object_type = SyncObjectType.find(2)
+        data_object_type.should_not be_nil
+        data_object_type.object_type.should == "data_object"
+        
+        comment_type = SyncObjectType.first
+        comment_type.should_not be_nil
+        comment_type.object_type.should == "Comment"
+  
+        # check sync_object_actions
+        curate_action = SyncObjectAction.find(2)
+        curate_action.should_not be_nil
+        curate_action.object_action.should == "curate_association"
+        
+        create_action = SyncObjectAction.first
+        create_action.should_not be_nil
+        create_action.object_action.should == "create"
+  
+  
+        # check peer log for creating new comment
+        first_comment_peer_log = SyncPeerLog.first
+        first_comment_peer_log.should_not be_nil
+        first_comment_peer_log.sync_object_action_id.should == create_action.id
+        first_comment_peer_log.sync_object_type_id.should == comment_type.id
+        first_comment_peer_log.user_site_id .should == PEER_SITE_ID
+        first_comment_peer_log.user_site_object_id.should == @current_user.id
+        first_comment_peer_log.sync_object_id.should == first_comment.origin_id
+        first_comment_peer_log.sync_object_site_id.should == PEER_SITE_ID
+  
+        # check log action parameters
+        # parameters for new collection
+        first_comment_body_parameter = SyncLogActionParameter.where(:peer_log_id => first_comment_peer_log.id, :parameter => "body")
+        first_comment_body_parameter[0][:value].should == "comment1"
+        
+        first_comment_parent_type_parameter = SyncLogActionParameter.where(:peer_log_id => first_comment_peer_log.id, :parameter => "parent_type")
+        first_comment_parent_type_parameter[0][:value].should == "DataObject"
+        
+        first_comment_parent_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => first_comment_peer_log.id, :parameter => "comment_parent_site_id")
+        first_comment_parent_site_id_parameter[0][:value].should == "#{@data_object.site_id}" 
+        
+        first_comment_parent_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => first_comment_peer_log.id, :parameter => "comment_parent_origin_id")
+        first_comment_parent_origin_id_parameter[0][:value].should == "#{@data_object.origin_id}"
+        
+        
+        # check peer log for creating new curation object
+        peer_log = SyncPeerLog.find(2)
+        peer_log.should_not be_nil
+        peer_log.sync_object_action_id.should == curate_action.id
+        peer_log.sync_object_type_id.should == data_object_type.id
+        peer_log.user_site_id.should == @current_user.site_id
+        peer_log.user_site_object_id.should == @current_user.origin_id
+        peer_log.sync_object_id.should == @data_object.origin_id
+        peer_log.sync_object_site_id.should == @data_object.site_id
+        
+        # check log action parameters
+        hierarchy_entry_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "hierarchy_entry_origin_id")
+        hierarchy_entry_origin_id_parameter[0][:value].should == "#{he.origin_id}"
+        hierarchy_entry_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "hierarchy_entry_site_id")
+        hierarchy_entry_site_id_parameter[0][:value].should == "#{he.site_id}"
+      end
+    end
+    
   end
 end

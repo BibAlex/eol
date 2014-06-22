@@ -27,17 +27,7 @@ class CollectionItemsController < ApplicationController
     flash.now[:error] = nil
     @notices = []
     @errors = []
-    
-    # sync params
-    sync_params = {}
-    item = params["collection_item"]["collected_item_type"].constantize.find(params["collection_item"]["collected_item_id"])
-    sync_params["collected_item_type"] = params["collection_item"]["collected_item_type"]
-    sync_params["collected_item_name"] = item.summary_name
-    sync_params["item_id"] = item.origin_id
-    sync_params["item_site_id"] = item.site_id
-    sync_params["add_item"] = true
-    
-    
+    sync_params = prepare_sync_params_for_create       
     # Sooo... we could get our data in a lot of different ways.
     if session[:submitted_data] # They are coming back from logging in, data is stored:
       store_location(session[:submitted_data][:return_to])
@@ -49,18 +39,13 @@ class CollectionItemsController < ApplicationController
           create_collection_item(params[:collection_item].merge(collection_id: collection_id))
           # for synchronization
           col = Collection.find(collection_id)
-         options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.get_add_item_to_collection_action.id,
-                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params}           
-          SyncPeerLog.log_action(options)
+          sync_create_collection_item(col, sync_params)
         end        
         
       else
         create_collection_item(params[:collection_item].merge(collection_id: params[:collection_id]))
-        # for synchronization
         col = Collection.find(params[:collection_id])
-        options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.get_add_item_to_collection_action.id,
-                    "type_id" =>  SyncObjectType.get_collection_type.id, "params" => sync_params} 
-        SyncPeerLog.log_action(options)
+        sync_create_collection_item(col, sync_params)
       end
       
     
@@ -101,17 +86,12 @@ class CollectionItemsController < ApplicationController
 
   # PUT /collection_items/:id
   def update
-    last_updated_at = @collection_item.updated_at
     # Update method is called when JS off by submit of /collection_items/:id/edit. When JS is on collection item
     # updates are handled by the Collections update method and specifically the annotate method in Collections controller.
     return access_denied unless current_user.can_update?(@collection_item)
     if @collection_item.update_attributes(params[:collection_item])
+      sync_update_collection_item
 
-      # prepere parameters for sync
-      col = @collection_item.collection
-      item = @collection_item.collected_item_type.constantize.find(@collection_item.collected_item_id)
-      
-            
       # update collection item references
       if @collection_item.collection.show_references?
         @collection_item.refs.clear
@@ -125,37 +105,14 @@ class CollectionItemsController < ApplicationController
                 @collection_item.refs << ref
               else
                 @collection_item.refs << Ref.new(full_reference: reference, user_submitted: true, published: 1, visibility: Visibility.visible)
-                
-                # sync create ref
-                sync_params = {"reference" => reference}
-                options = {"user" => current_user, "object" =>  nil, "action_id" => SyncObjectAction.get_create_action.id,
-                    "type_id" =>  SyncObjectType.get_ref_type.id, "params" => sync_params}           
-                SyncPeerLog.log_action(options)          
+                sync_create_ref(reference)          
               end
-            
             end
           end
         end
-        
-        if last_updated_at == @collection_item.updated_at
-          last_updated_at = Time.now.utc
-        else
-          last_updated_at = @collection_item.updated_at
-        end   
-        sync_params = {"collected_item_type" =>  @collection_item.collected_item_type,
-                       "item_id" => item.origin_id,
-                       "item_site_id" => item.site_id,
-                       "annotation" => params[:collection_item][:annotation],
-                       "sort_field" => params[:collection_item][:sort_field],
-                       "references" => @references,
-                       "updated_at" => last_updated_at}
-        options = {"user" => current_user, "object" =>  col, "action_id" => SyncObjectAction.get_update_action.id,
-                      "type_id" =>  SyncObjectType.get_collection_item_type.id, "params" => sync_params}           
-        SyncPeerLog.log_action(options)
+        sync_add_refs_to_collection_item         
       end
       
-      
-          
       respond_to do |format|
         format.html do
           flash[:notice] = I18n.t(:item_updated_in_collection_notice, collection_name: @collection_item.collection.name)
@@ -225,6 +182,54 @@ private
       # already in the collection etc
       @errors << I18n.t(:item_not_added_to_collection_error)
     end
+  end
+  
+  # synchronization
+  def prepare_sync_params_for_create
+    item = params[:collection_item][:collected_item_type].constantize.find(params[:collection_item][:collected_item_id])
+    sync_params = {collected_item_type: params[:collection_item][:collected_item_type],
+                   collected_item_name: item.summary_name, item_id: item.origin_id,
+                   item_site_id: item.site_id, add_item: true}
+  end
+  
+  def sync_create_collection_item(col, sync_params)
+    sync_params =  sync_params.reverse_merge(collection_updated_at: col.updated_at)
+    options = {user: current_user, object: col, action_id: SyncObjectAction.add.id,
+               type_id: SyncObjectType.collection_item.id, params: sync_params}           
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_create_ref(reference)
+    sync_params = {reference: reference}
+    options = {user: current_user, object: nil, action_id: SyncObjectAction.create.id,
+              type_id: SyncObjectType.ref.id, params: sync_params}           
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_collection_item
+    col = @collection_item.collection
+    item = @collection_item.collected_item_type.constantize.find(@collection_item.collected_item_id)
+    sync_params = {collected_item_type: @collection_item.collected_item_type,
+                   item_id: item.origin_id,
+                   item_site_id: item.site_id,
+                   annotation: params[:collection_item][:annotation],
+                   sort_field: params[:collection_item][:sort_field],                   
+                   updated_at: @collection_item.updated_at}
+    options = {user: current_user, object: col, action_id: SyncObjectAction.update.id,
+               type_id: SyncObjectType.collection_item.id, params: sync_params}           
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_add_refs_to_collection_item
+    col = @collection_item.collection
+    item = @collection_item.collected_item_type.constantize.find(@collection_item.collected_item_id)
+    sync_params = {collected_item_type: @collection_item.collected_item_type,
+                   item_id: item.origin_id,
+                   item_site_id: item.site_id,                   
+                   references: @references}
+    options = {user: current_user, object: col, action_id: SyncObjectAction.add_refs.id,
+               type_id: SyncObjectType.collection_item.id, params: sync_params}           
+    SyncPeerLog.log_action(options)
   end
 
 end
