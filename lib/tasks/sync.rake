@@ -22,7 +22,7 @@ namespace :sync do
       
       # Now send the request to the registry
       url = URI.parse(REGISTRY_URL + REGISTRY_PUSH_URL + parameters)
-      resp=Net::HTTP.get_response(url)
+      resp = Net::HTTP.get_response(url)
       
       if (resp.code == '200')      
         # get the response and do the validation

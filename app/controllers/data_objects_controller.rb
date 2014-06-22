@@ -314,7 +314,6 @@ class DataObjectsController < ApplicationController
   end
 
   def remove_association
-    debugger
     he = HierarchyEntry.find(params[:hierarchy_entry_id])
     cdohe = @data_object.remove_curated_association(current_user, he)
     @data_object.update_solr_index
@@ -333,7 +332,6 @@ class DataObjectsController < ApplicationController
   end
 
   def save_association
-    debugger
     he = HierarchyEntry.find(params[:hierarchy_entry_id])
     cdohe = @data_object.add_curated_association(current_user, he)
     clear_cached_media_count_and_exemplar(he)
