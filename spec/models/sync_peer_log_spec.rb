@@ -8,6 +8,92 @@ describe SyncPeerLog do
       SyncObjectType.create_enumerated
       SyncObjectAction.create_enumerated
     end
+    
+    describe "pulling curate association action" do
+      before(:each) do
+        truncate_all_tables
+        load_foundation_cache
+        SpecialCollection.create(:name => "watch")
+        
+        user = User.first
+        user.origin_id = user.id
+        user.site_id = 1
+        user.save
+        
+        @data_object = DataObject.gen
+        @data_object.update_column(:origin_id, @data_object.id)
+        @data_object.update_column(:site_id, 1)
+        
+        @he = HierarchyEntry.first
+        @he.update_column(:origin_id, @he.id)
+        @he.update_column(:site_id, 1)
+                
+        cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
+                       :visibility_id => Visibility.visible.id, :user_id => user.id, 
+                       :data_object_guid => @data_object.guid, :hierarchy_entry_id => @he.id,
+                       :data_object_id => @data_object.id) 
+          
+        comment = Comment.gen
+        comment.update_column(:origin_id, comment.id)
+        comment.update_column(:site_id, 1)
+                       
+        #create sync_object_action
+        SyncObjectAction.create(:object_action => 'curate_associations')
+        
+        #create sync_object_type
+        SyncObjectType.create(:object_type => 'data_object')
+        
+        #create sync_peer_log
+        @peer_log = SyncPeerLog.new
+        @peer_log.sync_event_id = 4 #pull event
+        @peer_log.user_site_id = user.origin_id
+        @peer_log.user_site_object_id = user.site_id
+        @peer_log.action_taken_at_time = Time.now
+        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('curate_associations').id
+        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
+        @peer_log.sync_object_id = @data_object.origin_id
+        @peer_log.sync_object_site_id = @data_object.site_id
+        @peer_log.save
+          
+        
+#        sync_params["language"] = current_language
+#              sync_params["vetted_view_order"] = Vetted.find(params["vetted_id_#{association.id}"]).view_order
+#              sync_params["curation_comment_origin_id"] = comments[index].origin_id if comments[index]
+#              sync_params["curation_comment_site_id"] = comments[index].site_id if comments[index]
+#              sync_params["untrust_reasons"] = untrust_reasons if untrust_reasons
+#              sync_params["hide_reasons"] = hide_reasons if hide_reasons
+#              sync_params["visibility_label"] = visibility.label if visibility
+#              sync_params["taxon_concept_origin_id"] = association.taxon_concept.origin_id
+#              sync_params["taxon_concept_site_id"] = association.taxon_concept.site_id
+                
+                
+                
+        parameters = ["language", "vetted_view_order", "curation_comment_origin_id", 
+                      "curation_comment_site_id", "untrust_reasons", 
+                      "visibility_label", "taxon_concept_origin_id", "taxon_concept_site_id"]
+        values = ["#{Language.first.id}", "1", "#{comment.origin_id}", 
+                  "#{comment.site_id}", "misidentified,", "Invisible", 
+                  "TaxonConcept.first.origin_id", "TaxonConcept.first.site_id"]
+ 
+        for i in 0..parameters.length-1
+          lap = SyncLogActionParameter.new
+          lap.peer_log_id = @peer_log.id
+          lap.param_object_type_id = nil
+          lap.param_object_id = nil
+          lap.param_object_site_id = nil
+          lap.parameter = parameters[i]
+          lap.value = values[i]
+          lap.save
+        end
+        
+        #call process entery
+        @peer_log.process_entry
+      end
+      
+      it "should curate association" do
+      end
+    end
+    
     describe "pulling add association action" do
       before(:each) do
         truncate_all_tables
