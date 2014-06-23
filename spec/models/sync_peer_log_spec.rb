@@ -3068,8 +3068,8 @@ describe SyncPeerLog do
             parameters = ["language_id"]
             values = ["#{language.id}"]
   
-            for i in 0..parameters.length-1
-              lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: parameters[i],
+            parameters.each_with_index do |param, i|
+              lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
                                                value: values[i])
             end
             sync_peer_log.process_entry
