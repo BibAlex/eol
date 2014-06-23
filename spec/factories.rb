@@ -1406,10 +1406,6 @@ FactoryGirl.define do
     recover_account_token_expires_at  nil
     curator_level_id          nil
     logo_cache_url            { generate(:user_logo) }
-    trait :site_specific do
-      origin_id {self.id}
-      site_id   PEER_SITE_ID 
-    end
   end
 
   factory :user_activity_log do

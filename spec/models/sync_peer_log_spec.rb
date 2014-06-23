@@ -2795,7 +2795,7 @@ describe SyncPeerLog do
       describe "#add_translation_content_page" do
         
         let(:content_page) {ContentPage.gen}
-        let(:user) {User.gen(:site_specific)}
+        let(:user) {User.gen}
         subject(:translated_content_page) {TranslatedContentPage.first}
         let(:language) {Language.english}
         
