@@ -3,6 +3,7 @@ class SyncPeerLog < ActiveRecord::Base
   
   include FileHelper
   include SyncPeerLogHelper
+  
   attr_accessible :action_taken_at, :sync_event_id, :sync_object_action_id, :sync_object_id, :sync_object_site_id, :sync_object_type_id, :user_site_id, :user_site_object_id
   has_many :sync_log_action_parameter, :foreign_key => 'peer_log_id'
   belongs_to :sync_object_type, :foreign_key => 'sync_object_type_id'
@@ -152,7 +153,8 @@ class SyncPeerLog < ActiveRecord::Base
     base_url = parameters[:base_url]
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                                        :action_taken_at, :base_url],parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:origin_id], parameters[:site_id])
+                                       
+    user = User.find_site_specific(parameters[:origin_id], parameters[:site_id])
     
     if user
       user.update_attributes(parameters)
@@ -212,7 +214,7 @@ class SyncPeerLog < ActiveRecord::Base
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                                        :action_taken_at],parameters)
     
-    user = User.find_by_origin_id_and_site_id(parameters[:origin_id], parameters[:site_id])
+    user = User.find_site_specific(parameters[:origin_id], parameters[:site_id])
     if user
       user.update_attributes(parameters)    
       user.add_to_index
@@ -233,7 +235,7 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle create collection action
   def self.create_collection(parameters)
-    collection_owner = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    collection_owner = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     # remove extra parameters which not needed in creating collection 
     parameters[:site_id] = parameters[:sync_object_site_id]
     parameters[:origin_id] = parameters[:sync_object_id]    
@@ -253,8 +255,8 @@ class SyncPeerLog < ActiveRecord::Base
   
    # how node site handle update collection action
   def self.update_collection(parameters)
-    collection_owner = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    collection = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    collection_owner = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    collection = Collection.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if collection.updated_at < parameters[:updated_at]
       parameters[:site_id] = parameters[:sync_object_site_id]
       parameters[:origin_id] = parameters[:sync_object_id] 
@@ -278,7 +280,7 @@ class SyncPeerLog < ActiveRecord::Base
   
    
   def self.delete_collection(parameters)
-    collection = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    collection = Collection.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if collection
       collection.unpublish
     end
@@ -286,8 +288,8 @@ class SyncPeerLog < ActiveRecord::Base
   
   # create collection job
   def self.create_collection_job(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    origin_collection = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    origin_collection = Collection.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     unique_job_id = parameters[:unique_job_id]
     dummy_type_id = SyncObjectType.dummy_type.id
     # find copied items
@@ -319,7 +321,7 @@ class SyncPeerLog < ActiveRecord::Base
       item_origin_id = item_origin_id_action_parameter.value if item_origin_id_action_parameter
       item_site_id_action_parameter = SyncLogActionParameter.where("peer_log_id = ? and parameter = ? ", peer_log.id, "item_site_id").first
       item_site_id = item_site_id_action_parameter.value if item_site_id_action_parameter
-      item = item_type.constantize.find_by_origin_id_and_site_id(item_origin_id, item_site_id)
+      item = item_type.constantize.find_site_specific(item_origin_id, item_site_id)
       collected_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", origin_col.id, item.id).first
       collected_items_ids << collected_item.id if collected_item
     end
@@ -330,7 +332,7 @@ class SyncPeerLog < ActiveRecord::Base
   def self.get_collections_ids(peer_logs)
     collections_ids = []
     peer_logs.each do |peer_log|
-      collection = Collection.find_by_origin_id_and_site_id(peer_log.sync_object_id, peer_log.sync_object_site_id)
+      collection = Collection.find_site_specific(peer_log.sync_object_id, peer_log.sync_object_site_id)
       collections_ids << collection.id if collection
     end
     collections_ids = collections_ids.uniq
@@ -339,9 +341,9 @@ class SyncPeerLog < ActiveRecord::Base
   
  # add item to collection
   def self.add_collection_item(parameters) 
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    item = parameters[:collected_item_type].constantize.find_by_origin_id_and_site_id(parameters[:item_id], parameters[:item_site_id])
-    col = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    item = parameters[:collected_item_type].constantize.find_site_specific(parameters[:item_id], parameters[:item_site_id])
+    col = Collection.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     # add item to one collection
     if col && item
       if parameters[:base_item]
@@ -358,45 +360,13 @@ class SyncPeerLog < ActiveRecord::Base
       end
     end
   end
-  
-  # add item to collection
-  def self.copy_collection_item(parameters) 
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    item = parameters[:collected_item_type].constantize.find_by_origin_id_and_site_id(parameters[:item_id], parameters[:item_site_id])
-    col = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    if col && item
-      col_item = CollectionItem.create(name: parameters[:collected_item_name], collected_item_type: parameters[:collected_item_type],
-                                       collection_id: col.id, collected_item_id: item.id, created_at: parameters[:created_at],
-                                       updated_at: parameters[:updated_at], annotation: parameters[:annotation],
-                                       added_by_user_id: parameters[:added_by_user_id], sort_field: parameters[:sort_field])
-      references = parameters[:references]
-      if references
-        references.split(',').each do |reference|
-          ref = Ref.find_by_full_reference(reference)
-          col_item.refs << ref  if (ref && !(col_item.refs.include?(ref)))
-        end
-      end
-    end        
-  end
-
-  
-   # remove item from collection
-  def self.remove_collection_item(parameters)
-    col = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    item = parameters[:collected_item_type].constantize.find_by_origin_id_and_site_id(parameters[:item_id], parameters[:item_site_id])
-    result = CollectionItem.where("collection_id = ?  and collected_item_id = ? ",col.id, item.id)
-    if result
-     col_item = result.first
-     col_item.destroy if col_item           
-    end  
-  end
    
      # how node site handle create comment action
   def self.create_comment(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    comment_parent = parameters[:parent_type].constantize.find_by_origin_id_and_site_id(parameters[:comment_parent_origin_id], parameters[:comment_parent_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    comment_parent = parameters[:parent_type].constantize.find_site_specific(parameters[:comment_parent_origin_id], parameters[:comment_parent_site_id])
     
-    parent_comment = Comment.find_by_origin_id_and_site_id(parameters[:parent_comment_origin_id], parameters[:parent_comment_site_id]) if parameters[:parent_comment_origin_id]
+    parent_comment = Comment.find_site_specific(parameters[:parent_comment_origin_id], parameters[:parent_comment_site_id]) if parameters[:parent_comment_origin_id]
     # remove extra parameters which not needed in creating collection 
     if user
       parameters = parameters.reverse_merge(site_id: parameters[:sync_object_site_id],
@@ -414,7 +384,7 @@ class SyncPeerLog < ActiveRecord::Base
   
        # how node site handle update comment action
   def self.update_comment(parameters)
-    comment = Comment.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if comment
       parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
                                          :action_taken_at, :language],parameters)
@@ -430,8 +400,8 @@ class SyncPeerLog < ActiveRecord::Base
    
     # how node site handle hide comment action
   def self.hide_comment(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    comment = Comment.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if user
      comment.hide(user)
      Rails.cache.delete('homepage/activity_logs_expiration') if Rails.cache
@@ -440,8 +410,8 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle show comment action
   def self.show_comment(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    comment = Comment.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if user
      comment.show(user)
      Rails.cache.delete('homepage/activity_logs_expiration') if Rails.cache
@@ -450,8 +420,8 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle update collection item action after pull
   def self.update_collection_item(parameters)
-    col = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    item = parameters[:collected_item_type].constantize.find_by_origin_id_and_site_id(parameters[:item_id], parameters[:item_site_id])    
+    col = Collection.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    item = parameters[:collected_item_type].constantize.find_site_specific(parameters[:item_id], parameters[:item_site_id])    
     col_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", col.id, item.id).first
     if col_item.updated_at < parameters[:updated_at]
       parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
@@ -463,8 +433,8 @@ class SyncPeerLog < ActiveRecord::Base
   
   def self.add_refs_collection_item(parameters)
     references = parameters[:references]
-    col = Collection.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    item = parameters[:collected_item_type].constantize.find_by_origin_id_and_site_id(parameters[:item_id], parameters[:item_site_id])    
+    col = Collection.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    item = parameters[:collected_item_type].constantize.find_site_specific(parameters[:item_id], parameters[:item_site_id])    
     col_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", col.id, item.id).first
     col_item.refs.clear
     add_refs(col_item, references)    
@@ -496,8 +466,8 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle create data object action after pull
   def self.create_data_object(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    taxon_concept = TaxonConcept.find_site_specific(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
     #references = parameters[:references]
     commit_link = parameters[:commit_link]
     toc_id = nil
@@ -529,15 +499,15 @@ class SyncPeerLog < ActiveRecord::Base
   end 
   
   def self.add_refs_data_object(parameters)
-    data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    data_object = DataObject.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     references = parameters[:references]
     add_refs(data_object, references)
   end
   
   # how node site handle update data object action after pull
   def self.update_data_object(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    data_object = DataObject.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     #references = parameters[:references]
     commit_link = parameters[:commit_link]
     new_revision_origin_id = parameters[:new_revision_origin_id]
@@ -573,8 +543,8 @@ class SyncPeerLog < ActiveRecord::Base
   end
  
    def self.rate_data_object(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    data_object = DataObject.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     stars = parameters[:stars]
     rated_successfully = data_object.rate(user, stars.to_i)
     user.log_activity(:rated_data_object_id, value: data_object.id)
@@ -591,7 +561,7 @@ class SyncPeerLog < ActiveRecord::Base
   def self.create_common_name(parameters)
     taxon_concept = TaxonConcept.find_by_site_id_and_origin_id(parameters[:taxon_concept_site_id], parameters[:taxon_concept_origin_id])
     if taxon_concept 
-      user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id],parameters[:user_site_id])
+      user = User.find_site_specific(parameters[:user_site_object_id],parameters[:user_site_id])
       taxon_concept.add_common_name_synonym(parameters[:string], agent: user.agent,
                                             language: parameters[:language],
                                             vetted: Vetted.trusted,
@@ -604,8 +574,8 @@ class SyncPeerLog < ActiveRecord::Base
   end
  
   def self.delete_common_name(parameters)
-    synonym = Synonym.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
+    synonym = Synonym.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    taxon_concept = TaxonConcept.find_site_specific(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
     if synonym && taxon_concept
       tcn = TaxonConceptName.find_by_synonym_id_and_taxon_concept_id(synonym.id, taxon_concept.id)
       taxon_concept.delete_common_name(tcn)
@@ -616,9 +586,9 @@ class SyncPeerLog < ActiveRecord::Base
   def self.vet_common_name(parameters)
     language_id = parameters[:language].id
     name_id = Name.find_by_string(parameters[:string]).id
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     vetted = Vetted.find_or_create_by_view_order(parameters[:vetted_view_order])
-    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
+    taxon_concept = TaxonConcept.find_site_specific(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
     found = taxon_concept.vet_common_name(language_id: language_id, name_id: name_id, vetted: vetted, user: user,
                                         date: parameters[:action_taken_at])
     if found
@@ -629,9 +599,9 @@ class SyncPeerLog < ActiveRecord::Base
  
   def self.update_common_name(parameters)
     name = Name.find_by_string(parameters[:string])
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     language = parameters[:language]
-    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
+    taxon_concept = TaxonConcept.find_site_specific(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
     taxon_concept.add_common_name_synonym(name.string,
                                           agent: user.agent,
                                           language: language,
@@ -644,7 +614,7 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.create_content_page(parameters)
-    parent_content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:parent_content_page_origin_id], parameters[:parent_content_page_site_id])
+    parent_content_page = ContentPage.find_site_specific(parameters[:parent_content_page_origin_id], parameters[:parent_content_page_site_id])
     content_page = ContentPage.new(parent_content_page_id: parent_content_page.id,
                                    page_name: parameters[:page_name], active: parameters[:active],
                                    sort_order: parameters[:sort_order])
@@ -659,13 +629,13 @@ class SyncPeerLog < ActiveRecord::Base
     content_page.update_column(:origin_id, parameters[:sync_object_id])
     content_page.update_column(:site_id, parameters[:sync_object_site_id])
     
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     content_page.last_update_user_id = user.id unless content_page.blank?
   end
   
   def self.delete_content_page(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id], include: [:translations, :children])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id], include: [:translations, :children])
     page_name = content_page.page_name
     content_page.last_update_user_id = user.id
     parent_content_page_id = content_page.parent_content_page_id
@@ -675,53 +645,59 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.swap_content_page(parameters)
-    content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    swap_page = ContentPage.find_by_origin_id_and_site_id(parameters[:swap_page_origin_id], parameters[:swap_page_site_id])
+    content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    swap_page = ContentPage.find_site_specific(parameters[:swap_page_origin_id], parameters[:swap_page_site_id])
     content_page.update_column(:sort_order, parameters[:content_page_sort_order]) if content_page
     swap_page.update_column(:sort_order, parameters[:swap_page_sort_order]) if swap_page
   end
   
   def self.update_content_page(parameters)
-    content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     content_page.update_attributes(parent_content_page_id: parameters[:parent_content_page_id],
                                    page_name: parameters[:page_name], active: parameters[:active])
   end
   
   def self.add_translation_content_page(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                               :action_taken_at, :language],parameters)
-    translated_content_page = content_page.translations.build(parameters)
-    content_page.last_update_user_id = user.id unless content_page.blank?
-    content_page.save 
+    if content_page
+      translated_content_page = content_page.translations.build(parameters)
+      content_page.last_update_user_id = user.id
+      content_page.save
+    end 
   end
   
   def self.update_translated_content_page(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     translated_content_page = TranslatedContentPage.find_by_content_page_id_and_language_id(content_page.id, parameters[:language_id])
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                               :action_taken_at, :language, :language_id],parameters)
     older_version = translated_content_page.dup
-    if translated_content_page.update_attributes(parameters)
-      content_page.last_update_user_id = user.id
-      content_page.save
-      archive_fields = older_version.attributes.delete_if{ |k,v| [ 'id', 'active_translation' ].include?(k) }.
-        merge(translated_content_page_id: older_version.id, original_creation_date: older_version.created_at)
-      TranslatedContentPageArchive.create(archive_fields)
-    end 
+    if translated_content_page
+      if translated_content_page.update_attributes(parameters)
+        if content_page
+        content_page.last_update_user_id = user.id
+        content_page.save
+        end
+        archive_fields = older_version.attributes.delete_if{ |k,v| [ 'id', 'active_translation' ].include?(k) }.
+          merge(translated_content_page_id: older_version.id, original_creation_date: older_version.created_at)
+        TranslatedContentPageArchive.create(archive_fields)
+      end 
+    end
   end
   
   def self.delete_translated_content_page(parameters)
-    content_page = ContentPage.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     translated_content_page = TranslatedContentPage.find_by_content_page_id_and_language_id(content_page.id, parameters[:language_id])
     translated_content_page.destroy if translated_content_page
   end
   
   def self.create_community(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    collection = Collection.find_by_origin_id_and_site_id(parameters[:collection_origin_id], parameters[:collection_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    collection = Collection.find_site_specific(parameters[:collection_origin_id], parameters[:collection_site_id])
     community = Community.create(name: parameters[:community_name], 
                                  description: parameters[:community_description], 
                                  origin_id: parameters[:sync_object_id], 
@@ -742,9 +718,9 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.add_community(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    collection = Collection.find_by_origin_id_and_site_id(parameters[:collection_origin_id], parameters[:collection_site_id])
-    community = Community.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    collection = Collection.find_site_specific(parameters[:collection_origin_id], parameters[:collection_site_id])
+    community = Community.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if collection && community
       collection.communities << community
       opts = {user: user, community: community, collection_id: collection.id}
@@ -753,8 +729,8 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.update_community(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    community = Community.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    community = Community.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if community
       community.update_column(:name, parameters[:community_name]) if parameters[:name_change]
       community.update_column(:description, parameters[:community_description]) if parameters[:description_change]
@@ -768,8 +744,8 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.delete_community(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    community = Community.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    community = Community.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if community
       community.update_column(:published, false)
       community.collection.update_column(:published, false) rescue nil
@@ -784,8 +760,8 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.join_community(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    community = Community.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    community = Community.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if community && user
       member = community.add_member(user)
       options = {}
@@ -803,8 +779,8 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.leave_community(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    community = Community.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    community = Community.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if community && user
       community.remove_member(user)
       opts = {user: user, community: community, member_id: user.id}
@@ -813,9 +789,9 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.save_association_data_object(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    he = HierarchyEntry.find_by_origin_id_and_site_id(parameters[:hierarchy_entry_origin_id], parameters[:hierarchy_entry_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    data_object = DataObject.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    he = HierarchyEntry.find_site_specific(parameters[:hierarchy_entry_origin_id], parameters[:hierarchy_entry_site_id])
     cdohe = data_object.add_curated_association(user, he)
     data_object.update_solr_index
     options = {data_object: data_object, user: user}
@@ -823,9 +799,9 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.remove_association_data_object(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    he = HierarchyEntry.find_by_origin_id_and_site_id(parameters[:hierarchy_entry_origin_id], parameters[:hierarchy_entry_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    data_object = DataObject.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    he = HierarchyEntry.find_site_specific(parameters[:hierarchy_entry_origin_id], parameters[:hierarchy_entry_site_id])
     cdohe = data_object.remove_curated_association(user, he)
     data_object.update_solr_index
     options = {data_object: data_object, user: user}
@@ -833,13 +809,13 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.curate_associations_data_object(parameters)
-    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
-    data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    data_object = DataObject.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    taxon_concept = TaxonConcept.find_site_specific(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
     visibility = parameters[:visibility_label] ? Visibility.find(TranslatedVisibility.find_by_language_id_and_label(parameters[:language].id, parameters[:visibility_label]).visibility_id) : nil
     untrust_reasons = parameters[:untrust_reasons] ? get_objects_ids(parameters[:untrust_reasons], "UntrustReason") : nil
     hide_reasons = parameters[:hide_reasons] ? get_objects_ids(parameters[:hide_reasons], "UntrustReason"): nil
-    comment = (parameters[:curation_comment_origin_id] && parameters[:curation_comment_site_id]) ? Comment.find_by_origin_id_and_site_id(parameters[:curation_comment_origin_id], parameters[:curation_comment_site_id]) : nil
+    comment = (parameters[:curation_comment_origin_id] && parameters[:curation_comment_site_id]) ? Comment.find_site_specific(parameters[:curation_comment_origin_id], parameters[:curation_comment_site_id]) : nil
     association = data_object.data_object_taxa.find {|item| item.taxon_concept.origin_id == taxon_concept.origin_id && item.taxon_concept.site_id == taxon_concept.site_id}
     if association
       curation = Curation.new(

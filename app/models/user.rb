@@ -12,6 +12,7 @@ class User < ActiveRecord::Base
 
   include EOL::ActivityLoggable
   include IdentityCache
+  extend SiteSpecific
 
   belongs_to :language
   belongs_to :agent

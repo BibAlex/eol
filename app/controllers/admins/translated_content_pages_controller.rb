@@ -69,7 +69,7 @@ class Admins::TranslatedContentPagesController < AdminsController
     translated_content_page = TranslatedContentPage.find(params[:id], include: :language)
     language = translated_content_page.language
     translated_content_page.destroy
-    sync_update_translated_content_page(content_page, language.id)
+    sync_destroy_translated_content_page(content_page, language.id)
     flash[:notice] = I18n.t(:admin_translated_content_page_delete_successful_notice,
                             page_name: page_name, language: language.label)
     redirect_to admin_content_pages_path, status: :moved_permanently
@@ -112,7 +112,7 @@ private
     SyncPeerLog.log_action(options)
   end
   
-  def sync_update_translated_content_page(content_page, language)
+  def sync_destroy_translated_content_page(content_page, language)
     sync_params = {language_id: language}
     options = {user: current_user, object: content_page, action_id: SyncObjectAction.delete.id,
                type_id: SyncObjectType.translated_content_page.id, params: sync_params}

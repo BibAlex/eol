@@ -1406,6 +1406,10 @@ FactoryGirl.define do
     recover_account_token_expires_at  nil
     curator_level_id          nil
     logo_cache_url            { generate(:user_logo) }
+    trait :site_specific do
+      origin_id {self.id}
+      site_id   PEER_SITE_ID 
+    end
   end
 
   factory :user_activity_log do
@@ -1494,6 +1498,27 @@ FactoryGirl.define do
     association :user
     year { generate(:year) }
     month { generate(:month) }
+  end
+  
+  # synchronization
+  factory :sync_peer_log do
+    sync_object_type_id         1
+    sync_object_action_id       1
+    sync_event_id               1
+    action_taken_at             {Time.now} 
+    sync_object_site_id         PEER_SITE_ID
+    user_site_id                PEER_SITE_ID
+    user_site_object_id         1
+    sync_object_id              1
+  end
+  
+  factory :sync_log_action_parameter do
+    association                 :sync_peer_log
+    param_object_type_id        nil
+    param_object_id             nil
+    param_object_site_id        nil
+    parameter                   "test_parameter"
+    value                       "test_value"
   end
 
 end

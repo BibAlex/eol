@@ -5,6 +5,7 @@ class Collection < ActiveRecord::Base
 #  attr_accessible :site_id, :name, :special_collection_id, :origin_id
   
   include EOL::ActivityLoggable
+  extend SiteSpecific
 
   REINDEX_LIMIT = 1000
 

@@ -25,7 +25,4 @@ module FileHelper
     def self.included(receiver)
       receiver.extend ClassMethods
     end
-    
-    
-  
   end

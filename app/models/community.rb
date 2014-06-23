@@ -3,6 +3,7 @@ require 'eol/activity_loggable'
 class Community < ActiveRecord::Base
 
   include EOL::ActivityLoggable
+  extend SiteSpecific
 
   has_and_belongs_to_many :collections, uniq: true
 
