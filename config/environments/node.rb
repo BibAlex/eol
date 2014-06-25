@@ -51,7 +51,7 @@ end
 $UNSUBSCRIBE_NOTIFICATIONS_KEY = 'f0de2a0651aa88a090e5679e5e3a7d28'
 # variables used for syncing
 PEER_SITE_ID = 2
-AUTH_CODE = 'f909d80e-d9ca-11e3-91cc-000ffe473aab'
+AUTH_CODE = 'f909d80e-d9ca-11e3-91cc-000ffe473aac'
 REGISTRY_URL = 'http://localhost:3000/'
 REGISTRY_PUSH_URL = 'push_requests/create'
 REGISTRY_PUSH_QUERY_URL = 'push_requests/show'

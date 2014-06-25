@@ -2897,7 +2897,6 @@ describe SyncPeerLog do
             #user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
             content_page.update_attributes(origin_id: content_page.id, site_id: PEER_SITE_ID) if content_page
             
-            debugger
             sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.add_translation.id, sync_object_type_id: SyncObjectType.content_page.id,
                                           user_site_object_id: user.origin_id, sync_object_id: content_page.id)
                                           
