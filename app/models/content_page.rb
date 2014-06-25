@@ -4,6 +4,7 @@
 class ContentPage < ActiveRecord::Base
   establish_connection(Rails.env)
   uses_translations
+  extend SiteSpecific
 
   belongs_to :parent, class_name: ContentPage.to_s, foreign_key: 'parent_content_page_id'
   has_many :children, class_name: ContentPage.to_s, foreign_key: 'parent_content_page_id', order: 'sort_order'

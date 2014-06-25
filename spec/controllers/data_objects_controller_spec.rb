@@ -128,10 +128,10 @@ describe DataObjectsController do
   
   
   
-    # add items to collections synchronization
+ 
   describe "mange data objects synchronization" do
     
-    describe "add association" do
+    describe "synchronization of adding association" do
       before(:each) do
         truncate_all_tables
         load_foundation_cache
@@ -143,7 +143,7 @@ describe DataObjectsController do
         @current_user.save
       end
       
-      it "should add association" do
+      it "should synchronize adding association" do
         data_object = DataObject.gen
         data_object.update_column(:origin_id, data_object.id)
         data_object.update_column(:site_id, 1)
@@ -184,7 +184,7 @@ describe DataObjectsController do
       end
     end
     
-    describe "remove association" do
+    describe "synchronize removing association" do
       before(:each) do
         truncate_all_tables
         load_foundation_cache
@@ -196,7 +196,7 @@ describe DataObjectsController do
         @current_user.save
       end
       
-      it "should add association" do
+      it "should remove association" do
         data_object = DataObject.gen
         cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
         :visibility_id => Visibility.visible.id, :user_id => @current_user.id, 

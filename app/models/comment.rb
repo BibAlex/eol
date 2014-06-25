@@ -13,6 +13,7 @@ require 'eol/activity_log_item'
 class Comment < ActiveRecord::Base
 
   include EOL::ActivityLogItem
+  extend SiteSpecific
 
   belongs_to :user # always always posted by a user.
   belongs_to :parent, polymorphic: true

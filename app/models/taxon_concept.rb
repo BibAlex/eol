@@ -18,6 +18,7 @@ require 'eol/activity_loggable'
 
 class TaxonConcept < ActiveRecord::Base
   include EOL::ActivityLoggable
+  extend SiteSpecific
 
   belongs_to :vetted
 

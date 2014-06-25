@@ -1,7 +1,9 @@
 # Represents an entry in the Tree of Life (see Hierarchy).  This is one of the major models of the EOL codebase, and
 # most data links to these instances.
 class HierarchyEntry < ActiveRecord::Base
-
+  
+  extend SiteSpecific
+  
   belongs_to :hierarchy
   belongs_to :name
   belongs_to :rank

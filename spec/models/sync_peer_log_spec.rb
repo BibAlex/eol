@@ -3,6 +3,12 @@ require "spec_helper"
 describe SyncPeerLog do
 
   describe "process pull" do
+    before(:all) do
+      truncate_all_tables
+      SyncObjectType.create_enumerated
+      SyncObjectAction.create_enumerated
+    end
+    
     describe "pulling curate association action" do
       before(:each) do
         truncate_all_tables
@@ -61,7 +67,7 @@ describe SyncPeerLog do
 #              sync_params["taxon_concept_site_id"] = association.taxon_concept.site_id
                 
                 
-            debugger    
+                
         parameters = ["language", "vetted_view_order", "curation_comment_origin_id", 
                       "curation_comment_site_id", "untrust_reasons", 
                       "visibility_label", "taxon_concept_origin_id", "taxon_concept_site_id"]
@@ -2869,7 +2875,218 @@ describe SyncPeerLog do
           user_data_obj_rate.rating.should == 3         
         end
       end
-      
     end
+    
+    describe "process pulling for translated content pages actions " do
+      describe "#add_translation_content_page" do
+        
+        let(:content_page) {ContentPage.gen}
+        let(:user) {User.gen}
+        subject(:translated_content_page) {TranslatedContentPage.first}
+        let(:language) {Language.english}
+        
+        context "successful creation" do
+          
+          before(:all) do
+            truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+            truncate_table(ActiveRecord::Base.connection, "content_pages", {})
+            truncate_table(ActiveRecord::Base.connection, "translated_content_pages", {})
+            truncate_table(ActiveRecord::Base.connection, "users", {})
+            
+            #user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+            content_page.update_attributes(origin_id: content_page.id, site_id: PEER_SITE_ID) if content_page
+            
+            debugger
+            sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.add_translation.id, sync_object_type_id: SyncObjectType.content_page.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: content_page.id)
+                                          
+            parameters = ["language_id", "title", "main_content", "left_content",
+                          "meta_keywords", "meta_description", "active_translation"]
+            values = ["#{language.id}" , "title", "main_content", "left_content",
+                      "meta_keywords", "meta_description", "1"]
+  
+            parameters.each_with_index do |param, i|
+              lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                               value: values[i])
+            end
+            sync_peer_log.process_entry
+          end
+          
+          it "new translation will be added to content page" do
+            expect(translated_content_page).not_to be_nil          
+          end
+          
+          it "translated content page should respond to 'language'" do
+            expect(translated_content_page.language_id).to eq(language.id)
+          end
+        
+          it "translated content page should respond to 'title'" do
+            expect(translated_content_page.title).to eq("title")
+          end
+          
+          it "translated content page should respond to 'main_content'" do
+            expect(translated_content_page.main_content).to eq("main_content")
+          end
+          
+          it "translated content page should respond to 'left_content'" do
+            expect(translated_content_page.left_content).to eq("left_content")
+          end
+          
+          it "translated content page should respond to 'meta_keywords'" do
+            expect(translated_content_page.meta_keywords).to eq("meta_keywords")
+          end
+          
+          it "translated content page should respond to 'meta_description'" do
+            expect(translated_content_page.meta_description).to eq("meta_description")
+          end
+          
+          it "translated content page should respond to 'active_translation'" do
+            expect(translated_content_page.active_translation).to eq(1)
+          end
+          
+          it "update content page" do
+            expect(content_page.last_update_user_id).to eq(user.id)
+          end
+        end
+        
+        context "failed creation: content page not found" do
+          
+          before(:all) do
+            truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+            truncate_table(ActiveRecord::Base.connection, "content_pages", {})
+            truncate_table(ActiveRecord::Base.connection, "translated_content_pages", {})
+            truncate_table(ActiveRecord::Base.connection, "users", {})
+            
+            user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+            
+            sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.add_translation.id, sync_object_type_id: SyncObjectType.content_page.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: content_page.id)
+            
+            parameters = ["language_id", "title", "main_content", "left_content",
+                          "meta_keywords", "meta_description", "active_translation"]
+            values = ["#{language.id}" , "title", "main_content", "left_content",
+                      "meta_keywords", "meta_description", "1"]
+  
+            parameters.each_with_index do |param, i|
+              lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                               value: values[i])
+            end
+            sync_peer_log.process_entry
+          end
+          
+          it "doesn't create translated content page" do
+            expect(translated_content_page).to be_nil
+          end
+        end
+       end
+      
+      describe "#update_translated_content_page" do
+        
+        let(:content_page) {ContentPage.gen}
+        let(:user) {User.gen}
+        subject(:translated_content_page) {TranslatedContentPage.first} 
+        let(:language) {Language.english}
+        
+        context "successful update" do
+          
+          before(:all) do
+            truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+            truncate_table(ActiveRecord::Base.connection, "content_pages", {})
+            truncate_table(ActiveRecord::Base.connection, "translated_content_pages", {})
+            truncate_table(ActiveRecord::Base.connection, "users", {})
+            
+            user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+            content_page.update_attributes(origin_id: content_page.id, site_id: PEER_SITE_ID) if content_page
+            TranslatedContentPage.gen(content_page: content_page, language: language)
+            
+            sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id, sync_object_type_id: SyncObjectType.translated_content_page.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: content_page.id)
+                                          
+            parameters = ["language_id", "title", "main_content", "left_content",
+                          "meta_keywords", "meta_description", "active_translation"]
+            values = ["#{language.id}" , "new title", "main_content", "left_content",
+                      "meta_keywords", "meta_description", "1"]
+  
+            parameters.each_with_index do |param, i|
+              lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                               value: values[i])
+            end
+            sync_peer_log.process_entry
+          end
+        
+          it "updates title of translated content page" do
+            expect(translated_content_page.title).to eq("new title")
+          end
+          
+          it "updates main_content of translated content page" do
+            expect(translated_content_page.main_content).to eq("main_content")
+          end
+          
+          it "updates left_content of translated content page" do
+            expect(translated_content_page.left_content).to eq("left_content")
+          end
+          
+          it "updates meta_keywords of translated content page" do
+            expect(translated_content_page.meta_keywords).to eq("meta_keywords")
+          end
+          
+          it "updates meta_description of translated content page" do
+            expect(translated_content_page.meta_description).to eq("meta_description")
+          end
+        end
+       #TODO handle pull failures  
+        context "failed update: translated content page not found" do
+        end
+       end
+      end
+      
+      describe "#delete_translated_content_page" do
+        
+        let(:content_page) {ContentPage.gen}
+        let(:user) {User.gen}
+        subject(:translated_content_page) {TranslatedContentPage.first} 
+        let(:language) {Language.english}
+        
+        context "successful deletion" do
+          
+          before(:all) do
+            truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+            truncate_table(ActiveRecord::Base.connection, "content_pages", {})
+            truncate_table(ActiveRecord::Base.connection, "translated_content_pages", {})
+            truncate_table(ActiveRecord::Base.connection, "users", {})
+            
+            user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+            content_page.update_attributes(origin_id: content_page.id, site_id: PEER_SITE_ID) if content_page
+            TranslatedContentPage.gen(content_page: content_page, language: language)
+            sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.delete.id, sync_object_type_id: SyncObjectType.translated_content_page.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: content_page.id)
+            
+            parameters = ["language_id"]
+            values = ["#{language.id}"]
+  
+            parameters.each_with_index do |param, i|
+              lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                               value: values[i])
+            end
+            sync_peer_log.process_entry
+          end
+        
+          it "delets translated content page" do
+            expect(translated_content_page).to be_nil
+          end
+          
+          it "archives deleted translated content page" do
+            expect(TranslatedContentPageArchive.first.title).to eq("Test Content Page")
+          end
+        end
+       #TODO handle pull failures  
+        context "failed deletion translated content page not found" do
+        end
+       end
+    
   end
 end
