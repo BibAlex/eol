@@ -257,23 +257,25 @@ class SyncPeerLog < ActiveRecord::Base
   def self.update_collection(parameters)
     collection_owner = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     collection = Collection.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    if collection.updated_at < parameters[:updated_at]
-      parameters[:site_id] = parameters[:sync_object_site_id]
-      parameters[:origin_id] = parameters[:sync_object_id] 
-      base_url = parameters[:base_url]  
-      # remove extra parameters which not needed in creating collection
-      parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
-                                       :action_taken_at, :language , :updated_at, :base_url],parameters)
-      if collection
-        collection.update_attributes(parameters)
-        name_change = parameters[:name] != collection.name
-        description_change = parameters[:description] != collection.description
-        # log create collection action
-        CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_change
-        CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_change
-         
-        parameters[:base_url] = base_url
-        download_object_logo("Collection", collection, parameters)        
+    if collection
+      if collection.updated_at < parameters[:updated_at]
+        parameters[:site_id] = parameters[:sync_object_site_id]
+        parameters[:origin_id] = parameters[:sync_object_id] 
+        base_url = parameters[:base_url]  
+        # remove extra parameters which not needed in creating collection
+        parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                                         :action_taken_at, :language , :updated_at, :base_url],parameters)
+        if collection
+          collection.update_attributes(parameters)
+          name_changed = parameters[:name] != collection.name
+          description_changed = parameters[:description] != collection.description
+          # log create collection action
+          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_changed
+          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_changed
+           
+          parameters[:base_url] = base_url
+          download_object_logo("Collection", collection, parameters)        
+        end
       end
     end  
   end
@@ -298,17 +300,19 @@ class SyncPeerLog < ActiveRecord::Base
      collection_items = get_collection_items_ids(peer_logs, origin_collection)
      collections = get_collections_ids(peer_logs) unless parameters[:command] == "remove"
      
-     # create collection job                   
-     unless (collection_items.blank? and  parameters["command"] == "remove")
-       collection_job = CollectionJob.create!(command: parameters[:command], user: user,
-                             collection: origin_collection, item_count: parameters[:item_count],
-                             all_items: parameters[:all_items],
-                             overwrite: parameters[:overwrite],
-                             collection_item_ids: collection_items,
-                             collection_ids: collections)
-       if collection_job
-         collection_job.run
-       end
+     # create collection job  
+     if user.can_edit_collection?(origin_collection)                 
+       unless (collection_items.blank? and  parameters["command"] == "remove")
+         collection_job = CollectionJob.create!(command: parameters[:command], user: user,
+                               collection: origin_collection, item_count: parameters[:item_count],
+                               all_items: parameters[:all_items],
+                               overwrite: parameters[:overwrite],
+                               collection_item_ids: collection_items,
+                               collection_ids: collections)
+         if collection_job
+           collection_job.run
+         end
+      end
     end
   end
   
@@ -423,21 +427,26 @@ class SyncPeerLog < ActiveRecord::Base
     col = Collection.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     item = parameters[:collected_item_type].constantize.find_site_specific(parameters[:item_id], parameters[:item_site_id])    
     col_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", col.id, item.id).first
-    if col_item.updated_at < parameters[:updated_at]
-      parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
-                                         :action_taken_at, :language , :updated_at, :collected_item_type,
-                                         :item_id, :item_site_id, :references],parameters)
-      col_item.update_attributes(parameters) 
+    if col_item
+      if col_item.updated_at < parameters[:updated_at]
+        parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                                           :action_taken_at, :language , :updated_at, :collected_item_type,
+                                           :item_id, :item_site_id, :references],parameters)
+        col_item.update_attributes(parameters) 
+      end
     end
   end
+  
   
   def self.add_refs_collection_item(parameters)
     references = parameters[:references]
     col = Collection.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     item = parameters[:collected_item_type].constantize.find_site_specific(parameters[:item_id], parameters[:item_site_id])    
     col_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", col.id, item.id).first
-    col_item.refs.clear
-    add_refs(col_item, references)    
+    if col_item
+      col_item.refs.clear
+      add_refs(col_item, references) 
+    end   
   end
   
   def self.add_refs(object, references)

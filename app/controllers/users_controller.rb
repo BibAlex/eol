@@ -560,7 +560,7 @@ private
   # synchronization of user actions
   
   def sync_create_user
-     collection = @user.watch_collection
+    collection = @user.watch_collection
     if collection       
       sync_params = params[:user]
       sync_params = sync_params.reverse_merge(language: current_language,
@@ -573,7 +573,7 @@ private
       options = {user: @user, object: @user, action_id: SyncObjectAction.create.id,
                  type_id: SyncObjectType.user.id, params: sync_params}
       SyncPeerLog.log_action(options)
-     end
+    end
   end
   
   
