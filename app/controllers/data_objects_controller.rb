@@ -333,7 +333,6 @@ class DataObjectsController < ApplicationController
       auto_collect(@data_object) # SPG wants all curated objects collected.
       flash[:notice] = I18n.t(:object_curated)
       @data_object.reindex
-      
       sync_curate_association(associations, comments)
     end
     redirect_back_or_default data_object_path(@data_object.latest_published_version_in_same_language)
@@ -683,7 +682,9 @@ private
                    visible_at: comment.visible_at,
                    hidden: comment.hidden,
                    comment_parent_origin_id: comment.parent.origin_id,
-                   comment_parent_site_id: comment.parent.site_id}
+                   comment_parent_site_id: comment.parent.site_id,
+                   created_at: comment.created_at,
+                   updated_at: comment.updated_at}
       options = {user: current_user, object: comment, action_id: SyncObjectAction.create.id,
                  type_id: SyncObjectType.comment.id, params: sync_params} 
       SyncPeerLog.log_action(options) 
@@ -715,6 +716,8 @@ private
       sync_params[:visibility_label] = visibility.label if visibility
       sync_params[:taxon_concept_origin_id] = association.taxon_concept.origin_id
       sync_params[:taxon_concept_site_id] = association.taxon_concept.site_id
+      sync_params[:hierarchy_entry_origin_id] = association.hierarchy_entry.origin_id
+      sync_params[:hierarchy_entry_site_id] = association.hierarchy_entry.site_id
       options = {user: current_user, object: @data_object, action_id: SyncObjectAction.curate_associations.id,
                  type_id: SyncObjectType.data_object.id, params: sync_params}
       SyncPeerLog.log_action(options)

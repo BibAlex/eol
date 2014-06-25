@@ -17,9 +17,7 @@ namespace :sync do
           if object.updated_at > record.created_at
             #delete this record           
             record.destroy
-            failed_file_parameters.each do |file_paramters|
-             file_paramters.destroy
-            end
+            failed_file_parameters.each { |fp| fp.destroy }
           else
             if download_file?(record.file_url, record.output_file_name, record.file_type)
               
@@ -30,9 +28,7 @@ namespace :sync do
               delete_file(object, file_name, file_type)            
               
               # update object parameters
-              failed_file_parameters.each do |file_paramters|
-                object[file_paramters.parameter] = file_paramters.value
-              end
+              failed_file_parameters.each { |fp| object[fp.parameter] = fp.value }
               object.save
               
               # upload file
@@ -40,9 +36,7 @@ namespace :sync do
                    
               #delete this record           
               record.destroy
-              failed_file_parameters.each do |file_paramters|
-               file_paramters.destroy
-              end
+              failed_file_parameters.each { |fp| fp.destroy }
             end
           end
         end

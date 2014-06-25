@@ -798,13 +798,16 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.save_association_data_object(parameters)
-    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
-    data_object = DataObject.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    he = HierarchyEntry.find_site_specific(parameters[:hierarchy_entry_origin_id], parameters[:hierarchy_entry_site_id])
-    cdohe = data_object.add_curated_association(user, he)
-    data_object.update_solr_index
-    options = {data_object: data_object, user: user}
-    log_data_object_action(cdohe, :add_association, options)
+    user = User.find_by_origin_id_and_site_id(parameters[:user_site_object_id], parameters[:user_site_id])
+    data_object = DataObject.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    he = HierarchyEntry.find_by_origin_id_and_site_id(parameters[:hierarchy_entry_origin_id], parameters[:hierarchy_entry_site_id])
+    actual_cdohe = data_object.existing_association(he)
+    if actual_cdohe.nil? # there is no exixsting one then create it
+      cdohe = data_object.add_curated_association(user, he)
+      data_object.update_solr_index
+      options = {data_object: data_object, user: user}
+      log_data_object_action(cdohe, :add_association, options)
+    end
   end
   
   def self.remove_association_data_object(parameters)
@@ -824,22 +827,31 @@ class SyncPeerLog < ActiveRecord::Base
     visibility = parameters[:visibility_label] ? Visibility.find(TranslatedVisibility.find_by_language_id_and_label(parameters[:language].id, parameters[:visibility_label]).visibility_id) : nil
     untrust_reasons = parameters[:untrust_reasons] ? get_objects_ids(parameters[:untrust_reasons], "UntrustReason") : nil
     hide_reasons = parameters[:hide_reasons] ? get_objects_ids(parameters[:hide_reasons], "UntrustReason"): nil
-    comment = (parameters[:curation_comment_origin_id] && parameters[:curation_comment_site_id]) ? Comment.find_site_specific(parameters[:curation_comment_origin_id], parameters[:curation_comment_site_id]) : nil
-    association = data_object.data_object_taxa.find {|item| item.taxon_concept.origin_id == taxon_concept.origin_id && item.taxon_concept.site_id == taxon_concept.site_id}
-    if association
-      curation = Curation.new(
-          association: association,
-          user: user,
-          vetted: Vetted.find_by_view_order(parameters[:vetted_view_order]),
-          visibility: visibility,
-          comment: comment, 
-          untrust_reason_ids: untrust_reasons,
-          hide_reason_ids: hide_reasons)
-      curation.curate
-      DataObjectCaching.clear(data_object)
-      options = {user: user, without_flash: true}
-      auto_collect_helper(data_object, options) 
-      data_object.reindex
+    comment = (parameters[:curation_comment_origin_id] && parameters[:curation_comment_site_id]) ? Comment.find_by_origin_id_and_site_id(parameters[:curation_comment_origin_id], parameters[:curation_comment_site_id]) : nil
+    # check if this is old or new update
+    
+    he = HierarchyEntry.find_by_origin_id_and_site_id(parameters[:hierarchy_entry_origin_id], parameters[:hierarchy_entry_site_id])
+    assoc = CuratedDataObjectsHierarchyEntry.find_by_data_object_guid_and_hierarchy_entry_id(data_object.guid, he.id)
+    assoc = DataObjectsHierarchyEntry.find_by_data_object_id_and_hierarchy_entry_id(data_object.id, he.id) if assoc.nil?
+    last_update = assoc.updated_at
+    # if it is newer take it else keep the old one
+    if last_update.nil? || parameters[:action_taken_at] > last_update
+      association = data_object.data_object_taxa.find {|item| item.taxon_concept.origin_id == taxon_concept.origin_id && item.taxon_concept.site_id == taxon_concept.site_id}
+      if association
+        curation = Curation.new(
+            association: association,
+            user: user,
+            vetted: Vetted.find_by_view_order(parameters[:vetted_view_order]),
+            visibility: visibility,
+            comment: comment, 
+            untrust_reason_ids: untrust_reasons,
+            hide_reason_ids: hide_reasons)
+        curation.curate
+        DataObjectCaching.clear(data_object)
+        options = {user: user, without_flash: true}
+        auto_collect_helper(data_object, options) 
+        data_object.reindex
+      end
     end
   end
   

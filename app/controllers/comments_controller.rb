@@ -168,7 +168,9 @@ private
                                             visible_at: @comment.visible_at,
                                             hidden: @comment.hidden,
                                             comment_parent_origin_id: @comment.parent.origin_id,
-                                            comment_parent_site_id: @comment.parent.site_id)
+                                            comment_parent_site_id: @comment.parent.site_id,
+                                            created_at: @comment.created_at,
+                                            updated_at: @comment.updated_at)
     if parent_comment
       sync_params = sync_params.reverse_merge(parent_comment_origin_id: parent_comment.origin_id,
                                               parent_comment_site_id: parent_comment.site_id)

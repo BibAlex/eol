@@ -28,9 +28,9 @@ module ImageManipulation
   
   def check_file_integrity(file_path, file_sha1_path)
     if File.file? file_path
-    original_sh1 = read_file(file_sha1_path)
-    current_sha1 = generate_sha1(file_path)
-    return original_sh1 == current_sha1
+      original_sh1 = read_file(file_sha1_path)
+      current_sha1 = generate_sha1(file_path)
+      return original_sh1 == current_sha1
     end
   end
   
