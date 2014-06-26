@@ -155,7 +155,6 @@ class SyncPeerLog < ActiveRecord::Base
                                        :action_taken_at, :base_url],parameters)
                                        
     user = User.find_site_specific(parameters[:origin_id], parameters[:site_id])
-    
     if user
       user.update_attributes(parameters)
       # call log activity
@@ -390,9 +389,11 @@ class SyncPeerLog < ActiveRecord::Base
   def self.update_comment(parameters)
     comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if comment
-      parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
-                                         :action_taken_at, :language],parameters)
-      comment.update_attributes(parameters)
+      if comment.updated_at < parameters[:updated_at]
+        parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
+                                           :action_taken_at, :language],parameters)
+        comment.update_attributes(parameters)
+      end
     end    
   end
   

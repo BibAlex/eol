@@ -76,7 +76,8 @@ private
   # synchronization
   def sync_update_comment
     admin = User.find(session[:user_id])
-    sync_params = params[:comment]      
+    sync_params = params[:comment] 
+    sync_params = sync_params.reverse_merge(updated_at: @comment.updated_at)     
     options = {user: admin, object: @comment, action_id: SyncObjectAction.update.id,
                type_id: SyncObjectType.comment.id, params: sync_params} 
     SyncPeerLog.log_action(options)

@@ -7,6 +7,7 @@ describe SyncPeerLog do
       truncate_all_tables
       SyncObjectType.create_enumerated
       SyncObjectAction.create_enumerated
+      SpecialCollection.create_enumerated
     end
     
     describe "pulling curate association action" do
@@ -564,139 +565,201 @@ describe SyncPeerLog do
         Community.first.members.count.should == prev_count - 1
       end
     end
+  
+  describe "user synchronization" do
+    describe ".create_user" do
+        
+      subject(:user) {User.first}
+      
+      context "successful creation" do
+        
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collections_users", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id, sync_object_type_id: SyncObjectType.user.id,
+                                          user_site_object_id: 100, sync_object_id: 100, user_site_id: 2,
+                                          sync_object_site_id: 2)
+                                        
+          parameters = ["language", "validation_code", "remote_ip", "username", "agreed_with_terms",
+                        "collection_site_id", "collection_origin_id"]
+          values = ["en", "89accf204c74d07fbdb1c2bad027946818142efb", "127.0.0.1", "user100", 
+                    1, "2", "10"]
+
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          sync_peer_log.process_entry
+        end
+        
+        it "creates new user" do
+          expect(user).not_to be_nil          
+        end
+        
+        it "has the correct 'username'" do
+          expect(user.username).to eq("user100")
+        end
+      
+        it "has the correct 'language_id'" do
+          expect(user.language_id).to eq(Language.english.id)
+        end
+        
+        it "has the correct 'validation_code'" do
+          expect(user.validation_code).to eq("89accf204c74d07fbdb1c2bad027946818142efb")
+        end
+        
+        it "has the correct 'remote_ip'" do
+          expect(user.remote_ip).to eq("127.0.0.1")
+        end
+        
+        it "has the correct 'origin_id'" do
+          expect(user.origin_id).to eq(100)
+        end
+        
+        it "has the correct 'site_id'" do
+          expect(user.site_id).to eq(2)
+        end
+        
+        it "has the correct 'agreed_with_terms'" do
+          expect(user.agreed_with_terms).to eq(!(1.zero?))
+        end
+        
+        it "hasn't sync 'email'" do
+          expect(user.email).to be_nil
+        end
+        
+        it "hasn't sync 'password'" do
+          expect(user.hashed_password).to be_nil
+        end
+        
+        it "creates a watch collection for new user" do
+          expect(user.watch_collection).not_to be_nil
+        end
+      end
+    end
     
-    describe "pulling create user action" do
-      before(:all) do
-        truncate_table(ActiveRecord::Base.connection, "users", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        truncate_table(ActiveRecord::Base.connection, "users", {})
-        truncate_table(ActiveRecord::Base.connection, "collections", {})
-        truncate_table(ActiveRecord::Base.connection, "special_collections", {})
-        truncate_table(ActiveRecord::Base.connection, "collections_users", {})
+    describe ".update_user" do
         
-        SpecialCollection.create(:name => "watch")
-        @prev_count = EOL::GlobalStatistics.solr_count('User')
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'create')
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'User')
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = 2
-        @peer_log.user_site_object_id = 80
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('User').id
-        @peer_log.sync_object_id = 80
-        @peer_log.sync_object_site_id = 2
-        @peer_log.save
-        #create sync_action_parameters
+      subject(:user) {User.gen(username: "name")}
+      
+      context "successful update" do
+        
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collections_users", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          
+          user.update_attributes(origin_id: user.id, site_id: 2)
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id, sync_object_type_id: SyncObjectType.user.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: user.origin_id, user_site_id: 2,
+                                          sync_object_site_id: 2)
+                                        
+          parameters = ["username", "bio", "remote_ip"]
+          values = ["myusername", "My bio", "127.0.0.2"]
 
-        parameters = ["language", "validation_code", "remote_ip", "origin_id", "site_id", "username", "agreed_with_terms", "collection_site_id", "collection_origin_id"]
-        values = ["en", "89accf204c74d07fbdb1c2bad027946818142efb", "127.0.0.1", "80", "2", "user100", "1", "2", "10"]
-
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.param_object_type_id = nil
-          lap.param_object_id = nil
-          lap.param_object_site_id = nil
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          sync_peer_log.process_entry
+          user.reload
         end
-        #call process entery
-        @peer_log.process_entry
+        
+        it "updates 'username'" do
+          expect(user.username).to eq("myusername")
+        end
+      
+        it "updates 'bio'" do
+          expect(user.bio).to eq("My bio")
+        end
       end
-
-      it "should create user and watch collection" do
-        User.count.should == 1
-        user = User.first
-        #user must not have a password or an email
-        user.email.should be_nil
-        user.hashed_password.should be_nil
-
-        user.username.should == "user100"
-        user.language_id.should == Language.find_by_iso_639_1("en").id
-        user.validation_code.should ==  "89accf204c74d07fbdb1c2bad027946818142efb"
-        user.remote_ip.should == "127.0.0.1"
-        user.origin_id.should == 80
-        user.site_id.should == 2
-        user.username.should == "user100"
-        user.agreed_with_terms == 1
-        
-        
-        Collection.all.count.should_not == 0
-        col = Collection.find_by_sql("SELECT * FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id)
-              WHERE cu.user_id = #{user.id}
-              AND c.special_collection_id = #{SpecialCollection.watch.id}")
-        col.should_not be_nil
-        col.count.should == 1
+      #TODO handle pull failures  
+      context "failed update user not found" do
       end
     end
-
-    describe "pulling update user action" do
-      before(:all) do
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        truncate_table(ActiveRecord::Base.connection, "users", {})
-        user = User.create(:origin_id => 85, :site_id => 2, :username => "name")
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'update')
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'User')
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 5 #pull event
-        @peer_log.user_site_id = 2
-        @peer_log.user_site_object_id = user.origin_id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('User').id
-        @peer_log.sync_object_id = user.origin_id
-        @peer_log.sync_object_site_id = 2
-        @peer_log.save
-        #create sync_action_parameters
-        parameters = ["username", "bio", "remote_ip", "origin_id", "site_id", "logo_cache_url",
-          "logo_file_name", "logo_content_type", "logo_file_size", "base_url"]
-        values = ["myusername", "My bio", "127.0.0.2", "85", "2", "201403200876152", "shopcandles006.JPG", "image/jpeg", "322392", "#{$CONTENT_SERVER}content/"]
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.param_object_type_id = nil
-          lap.param_object_id = nil
-          lap.param_object_site_id = nil
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
+    
+    describe ".activate_user" do
+        
+      subject(:user) {User.gen(active: false)}
+      
+      context "successful activate" do
+        
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collections_users", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          
+          user.update_attributes(origin_id: user.id, site_id: 2)
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.activate.id, sync_object_type_id: SyncObjectType.user.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: user.origin_id, user_site_id: 2,
+                                          sync_object_site_id: 2)
+          
+          sync_peer_log.process_entry
+          user.reload
         end
-        #call process entery
-        @peer_log.process_entry
+        
+        it "activates user" do        
+          expect(user.active).to be_true
+        end
+        
+        it "has the correct validation code" do        
+          expect(user.validation_code).to be_nil
+        end
       end
-
-      it "should update user" do
-        user = User.first
-        #user must not have a password or an email
-        user.email.should be_nil
-        user.hashed_password.should be_nil
-
-        user.username.should == "myusername"
-        user.bio.should == "My bio"
-
+      #TODO handle pull failures  
+      context "failed update user not found" do
       end
-
-      it "should download files" do
-        File.exist?("#{Rails.root}/public#{$LOGO_UPLOAD_PATH}users_1.JPG").should be_true
-        File.exist?("#{Rails.root}/public#{$LOGO_UPLOAD_PATH}users_1.JPG.sha1").should be_true
-      end
-
     end
+    
+    describe ".update_by_admin_user" do
+        
+      subject(:user) {User.gen(username: "name")}
+      
+      context "successful update" do
+        
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collections_users", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          
+          user.update_attributes(origin_id: user.id, site_id: 2)
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update_by_admin.id, sync_object_type_id: SyncObjectType.user.id,
+                                          user_site_object_id: user.id+1, sync_object_id: user.origin_id, user_site_id: 2,
+                                          sync_object_site_id: 2)
+          parameters = ["username", "bio", "remote_ip"]
+          values = ["myusername", "My bio", "127.0.0.2"]
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          sync_peer_log.process_entry
+          user.reload
+        end
+        
+        it "updates 'username'" do
+          expect(user.username).to eq("myusername")
+        end
+      
+        it "updates 'bio'" do
+          expect(user.bio).to eq("My bio")
+        end
+      end
+      #TODO handle pull failures  
+      context "failed update user not found" do
+      end
+    end
+    
+  end
 
     describe "pulling update user by admiin action" do
       before(:all) do
@@ -752,67 +815,6 @@ describe SyncPeerLog do
         user.bio.should == "My bio"
       end
 
-    end
-
-    describe "pulling activate user action" do
-      before :each do
-        truncate_table(ActiveRecord::Base.connection, "users", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-
-        #create user to be activated laterly
-        @user = User.gen(active: false)
-        @user.site_id = 2
-        @user.origin_id = @user.id
-        @user.save
-
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'activate')
-
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'User')
-
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = 2
-        @peer_log.user_site_object_id = @user.id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('activate').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('User').id
-        @peer_log.sync_object_id = @user.id
-        @peer_log.sync_object_site_id = 2
-        @peer_log.save
-
-        #create sync_action_parameters
-        parameters = ["origin_id", "site_id"]
-        values     = ["#{@user.origin_id}", "2"]
-
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.param_object_type_id = nil
-          lap.param_object_id = nil
-          lap.param_object_site_id = nil
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
-        end
-
-        #call process entery
-        @peer_log.process_entry
-      end
-
-      it "should activate user" do
-        user = User.where(:site_id => @user.site_id, :origin_id => @user.origin_id)
-        if user && user.count
-          user = user[0]
-          user.active.should be_true
-          user.validation_code.should be_nil
-        end
-      end
     end
 
     describe "pulling 'add common name' action" do
@@ -2878,10 +2880,10 @@ describe SyncPeerLog do
     end
     
     describe "process pulling for translated content pages actions " do
-      describe "#add_translation_content_page" do
+      describe ".add_translation_content_page" do
         
-        let(:content_page) {ContentPage.gen}
         let(:user) {User.gen}
+        let(:content_page) {ContentPage.gen}
         subject(:translated_content_page) {TranslatedContentPage.first}
         let(:language) {Language.english}
         
@@ -2894,9 +2896,8 @@ describe SyncPeerLog do
             truncate_table(ActiveRecord::Base.connection, "translated_content_pages", {})
             truncate_table(ActiveRecord::Base.connection, "users", {})
             
-            #user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
-            content_page.update_attributes(origin_id: content_page.id, site_id: PEER_SITE_ID) if content_page
-            
+            user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+            content_page.update_attributes(origin_id: content_page.id, site_id: PEER_SITE_ID)
             sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.add_translation.id, sync_object_type_id: SyncObjectType.content_page.id,
                                           user_site_object_id: user.origin_id, sync_object_id: content_page.id)
                                           
@@ -2981,12 +2982,10 @@ describe SyncPeerLog do
         end
        end
       
-      describe "#update_translated_content_page" do
+      describe ".update_translated_content_page" do
         
         let(:content_page) {ContentPage.gen}
-        let(:user) {User.gen}
-        subject(:translated_content_page) {TranslatedContentPage.first} 
-        let(:language) {Language.english}
+        subject(:translated_content_page) {TranslatedContentPage.gen(content_page: content_page, language: Language.english)} 
         
         context "successful update" do
           
@@ -2997,16 +2996,16 @@ describe SyncPeerLog do
             truncate_table(ActiveRecord::Base.connection, "translated_content_pages", {})
             truncate_table(ActiveRecord::Base.connection, "users", {})
             
+            user = User.gen
             user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
-            content_page.update_attributes(origin_id: content_page.id, site_id: PEER_SITE_ID) if content_page
-            TranslatedContentPage.gen(content_page: content_page, language: language)
+            content_page.update_attributes(origin_id: content_page.id, site_id: PEER_SITE_ID)
             
             sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id, sync_object_type_id: SyncObjectType.translated_content_page.id,
                                           user_site_object_id: user.origin_id, sync_object_id: content_page.id)
                                           
             parameters = ["language_id", "title", "main_content", "left_content",
                           "meta_keywords", "meta_description", "active_translation"]
-            values = ["#{language.id}" , "new title", "main_content", "left_content",
+            values = ["#{translated_content_page.language.id}" , "new title", "main_content", "left_content",
                       "meta_keywords", "meta_description", "1"]
   
             parameters.each_with_index do |param, i|
@@ -3014,6 +3013,7 @@ describe SyncPeerLog do
                                                value: values[i])
             end
             sync_peer_log.process_entry
+            translated_content_page.reload
           end
         
           it "updates title of translated content page" do
@@ -3042,12 +3042,7 @@ describe SyncPeerLog do
        end
       end
       
-      describe "#delete_translated_content_page" do
-        
-        let(:content_page) {ContentPage.gen}
-        let(:user) {User.gen}
-        subject(:translated_content_page) {TranslatedContentPage.first} 
-        let(:language) {Language.english}
+      describe ".delete_translated_content_page" do
         
         context "successful deletion" do
           
@@ -3058,14 +3053,16 @@ describe SyncPeerLog do
             truncate_table(ActiveRecord::Base.connection, "translated_content_pages", {})
             truncate_table(ActiveRecord::Base.connection, "users", {})
             
+            user = User.gen
             user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
-            content_page.update_attributes(origin_id: content_page.id, site_id: PEER_SITE_ID) if content_page
-            TranslatedContentPage.gen(content_page: content_page, language: language)
+            content_page = ContentPage.gen
+            content_page.update_attributes(origin_id: content_page.id, site_id: PEER_SITE_ID)
+            translated_content_page = TranslatedContentPage.gen(content_page: content_page, language: Language.english)
             sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.delete.id, sync_object_type_id: SyncObjectType.translated_content_page.id,
                                           user_site_object_id: user.origin_id, sync_object_id: content_page.id)
             
             parameters = ["language_id"]
-            values = ["#{language.id}"]
+            values = ["#{translated_content_page.language.id}"]
   
             parameters.each_with_index do |param, i|
               lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
@@ -3075,7 +3072,7 @@ describe SyncPeerLog do
           end
         
           it "delets translated content page" do
-            expect(translated_content_page).to be_nil
+            expect(TranslatedContentPage.all).to be_blank
           end
           
           it "archives deleted translated content page" do

@@ -181,7 +181,8 @@ private
   end
   
   def sync_update_comment
-    sync_params = params[:comment]      
+    sync_params = params[:comment]
+    sync_params = sync_params.reverse_merge(updated_at: @comment.updated_at)
     options = {user: current_user, object: @comment, action_id: SyncObjectAction.update.id,
                type_id: SyncObjectType.comment.id, params: sync_params} 
     SyncPeerLog.log_action(options)
