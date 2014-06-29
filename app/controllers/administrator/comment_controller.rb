@@ -29,6 +29,7 @@ class Administrator::CommentController  < AdminController
     @comment = Comment.find(params[:id])
 
     if @comment.update_attributes(params[:comment])
+     @comment.update_attributes(last_updated_at: @comment.updated_at)
       sync_update_comment      
       flash[:notice] = I18n.t("the_comment_was_successfully_updated")
       redirect_back_or_default(url_for(action: 'index'))
@@ -92,8 +93,9 @@ private
   end
   
   def sync_show_comment
+    sync_params = {visible_at: @comment.visible_at}
     options = {user: current_user, object: @comment, action_id: SyncObjectAction.show.id,
-               type_id: SyncObjectType.comment.id, params: {}} 
+               type_id: SyncObjectType.comment.id, params: sync_params} 
     SyncPeerLog.log_action(options)
   end
   
