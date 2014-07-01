@@ -56,7 +56,7 @@ class Administrator::CommentController  < AdminController
     @comment.hide(current_user)
     clear_cached_homepage_activity_logs
     sync_hide_comment
-    redirect_to referred_url, status: :moved_permanently unless params[:test]
+    redirect_to referred_url, status: :moved_permanently
   end
 
   def show

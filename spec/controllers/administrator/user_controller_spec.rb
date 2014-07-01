@@ -34,27 +34,27 @@ describe Administrator::UserController do
           expect(peer_log).not_to be_nil
         end
         
-        it "action of sync peer log is 'create'" do
+        it "has correct action" do
           expect(peer_log.sync_object_action_id).to eq(SyncObjectAction.update_by_admin.id)
         end
         
-        it "type of sync peer log is 'user'" do
+        it "has correct type" do
           expect(peer_log.sync_object_type_id).to eq(SyncObjectType.user.id)
         end
         
-        it "sync peer log 'user_site_id' equal 'PEER_SITE_ID'" do
+        it "has correct 'user_site_id'" do
           expect(peer_log.user_site_id).to eq(PEER_SITE_ID)
         end
         
-        it "sync peer log 'user_id' equal 'admin_id'" do
+        it "has correct 'user_id'" do
           expect(peer_log.user_site_object_id).to eq(admin.id)
         end
         
-        it "sync peer log 'object_site_id' equal 'PEER_SITE_ID'" do
+        it "has correct 'object_site_id'" do
           expect(peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
         end
         
-        it "sync peer log 'object_id' equal 'user_id'" do
+        it "has correct 'object_id' equal 'user_id'" do
           expect(peer_log.sync_object_id).to eq(user.id)
         end
         

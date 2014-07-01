@@ -390,7 +390,7 @@ class SyncPeerLog < ActiveRecord::Base
     comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if comment
        # if it is newer take it else keep the old one
-      if comment.last_updated_at && comment.last_updated_at < parameters[:updated_at] 
+      if comment.last_updated_at.nil? || comment.last_updated_at < parameters[:updated_at] 
         parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
                                            :action_taken_at, :language],parameters)
         comment.update_attributes(parameters)
@@ -401,6 +401,13 @@ class SyncPeerLog < ActiveRecord::Base
   # how node site handle destroy comment action
   def self.delete_comment(parameters)   
      # update deleted attribute
+     comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    if comment
+       # if it is newer take it else keep the old one
+        parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
+                                           :action_taken_at, :language],parameters)
+        comment.update_attributes(parameters)
+    end
      update_comment(parameters)
   end
    
@@ -422,7 +429,7 @@ class SyncPeerLog < ActiveRecord::Base
     comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if user
       if comment
-        if ((comment.visible_at) && (parameters[:visible_at]) && (comment.visible_at < parameters[:visible_at]))
+        if (comment.visible_at.nil? || (comment.visible_at < parameters[:visible_at]))
           comment.show(user)
           comment.update_attributes(visible_at: parameters[:visible_at])
           Rails.cache.delete('homepage/activity_logs_expiration') if Rails.cache
