@@ -263,6 +263,7 @@ class DataObjectsController < ApplicationController
   end
 
   def remove_association
+    debugger
     he = HierarchyEntry.find(params[:hierarchy_entry_id])
     cdohe = @data_object.remove_curated_association(current_user, he)
     @data_object.update_solr_index
@@ -335,7 +336,7 @@ class DataObjectsController < ApplicationController
       @data_object.reindex
       sync_curate_association(associations, comments)
     end
-    redirect_back_or_default data_object_path(@data_object.latest_published_version_in_same_language)
+#    redirect_back_or_default data_object_path(@data_object.latest_published_version_in_same_language)
   end
   
 
@@ -658,7 +659,6 @@ private
   def sync_remove_association(he)
     sync_params = {hierarchy_entry_origin_id: he.origin_id,
                    hierarchy_entry_site_id: he.site_id}
-                        
     options = {user: current_user, object: @data_object, action_id: SyncObjectAction.remove_association.id,
                type_id: SyncObjectType.data_object.id, params: sync_params}
     SyncPeerLog.log_action(options)
@@ -667,7 +667,6 @@ private
   def sync_add_association(he)
     sync_params = {hierarchy_entry_origin_id: he.origin_id,
                    hierarchy_entry_site_id: he.site_id}
-                         
     options = {user: current_user, object: @data_object, action_id: SyncObjectAction.save_association.id,
                type_id: SyncObjectType.data_object.id, params: sync_params}
     SyncPeerLog.log_action(options)
@@ -698,30 +697,30 @@ private
   end
   
   def sync_curate_association(associations, comments)
-      associations.each_with_index do |association, index|
-        untrust_reasons = params["untrust_reasons_#{association.id}"]? get_objects_labels(params["untrust_reasons_#{association.id}"], "UntrustReason"): nil
-        hide_reasons = params["hide_reasons_#{association.id}"]? get_objects_labels(params["hide_reasons_#{association.id}"], "UntrustReason"): nil
-        visibility = TranslatedVisibility.find_by_visibility_id_and_language_id(
-                  params["visibility_id_#{association.id}"], current_language.id)
-                    
-        sync_params = {}
-        sync_params[:language] = current_language
-        sync_params[:vetted_view_order] = Vetted.find(params["vetted_id_#{association.id}"]).view_order
-        if comments[index]
-          sync_params[:curation_comment_origin_id] = comments[index].origin_id 
-          sync_params[:curation_comment_site_id] = comments[index].site_id 
-        end
-        sync_params[:untrust_reasons] = untrust_reasons if untrust_reasons
-        sync_params[:hide_reasons] = hide_reasons if hide_reasons
-        sync_params[:visibility_label] = visibility.label if visibility
-        sync_params[:taxon_concept_origin_id] = association.taxon_concept.origin_id
-        sync_params[:taxon_concept_site_id] = association.taxon_concept.site_id
-        sync_params[:hierarchy_entry_origin_id] = association.hierarchy_entry.origin_id
-        sync_params[:hierarchy_entry_site_id] = association.hierarchy_entry.site_id
-        options = {user: current_user, object: @data_object, action_id: SyncObjectAction.curate_associations.id,
-                   type_id: SyncObjectType.data_object.id, params: sync_params}
-        SyncPeerLog.log_action(options)
+    associations.each_with_index do |association, index|
+      untrust_reasons = params["untrust_reasons_#{association.id}"]? get_objects_labels(params["untrust_reasons_#{association.id}"], "UntrustReason"): nil
+      hide_reasons = params["hide_reasons_#{association.id}"]? get_objects_labels(params["hide_reasons_#{association.id}"], "UntrustReason"): nil
+      visibility = TranslatedVisibility.find_by_visibility_id_and_language_id(
+                params["visibility_id_#{association.id}"], current_language.id)
+                  
+      sync_params = {}
+      sync_params[:language] = current_language
+      sync_params[:vetted_view_order] = Vetted.find(params["vetted_id_#{association.id}"]).view_order
+      if comments[index]
+        sync_params[:curation_comment_origin_id] = comments[index].origin_id 
+        sync_params[:curation_comment_site_id] = comments[index].site_id 
       end
+      sync_params[:untrust_reasons] = untrust_reasons if untrust_reasons
+      sync_params[:hide_reasons] = hide_reasons if hide_reasons
+      sync_params[:visibility_label] = visibility.label if visibility
+      sync_params[:taxon_concept_origin_id] = association.taxon_concept.origin_id
+      sync_params[:taxon_concept_site_id] = association.taxon_concept.site_id
+      sync_params[:hierarchy_entry_origin_id] = association.hierarchy_entry.origin_id
+      sync_params[:hierarchy_entry_site_id] = association.hierarchy_entry.site_id
+      options = {user: current_user, object: @data_object, action_id: SyncObjectAction.curate_associations.id,
+                 type_id: SyncObjectType.data_object.id, params: sync_params}
+      SyncPeerLog.log_action(options)
+    end
   end
   
   def get_objects_labels(objects_ids, object_type)

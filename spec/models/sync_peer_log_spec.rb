@@ -3,223 +3,129 @@ require "spec_helper"
 describe SyncPeerLog do
 
   describe "process pull" do
+    
     before(:all) do
       truncate_all_tables
+      load_foundation_cache
       SyncObjectType.create_enumerated
       SyncObjectAction.create_enumerated
+      SpecialCollection.create_enumerated
+      Visibility.create_enumerated
     end
     
-    describe "pulling curate association action" do
-      before(:each) do
-        truncate_all_tables
-        load_foundation_cache
+    describe("data_object Synchronization") do
+      
+      before(:all) do
         SpecialCollection.create(:name => "watch")
+      end
         
-        user = User.first
-        user.origin_id = user.id
-        user.site_id = 1
-        user.save
-        
-        @data_object = DataObject.gen
-        @data_object.update_column(:origin_id, @data_object.id)
-        @data_object.update_column(:site_id, 1)
-        
-        @he = HierarchyEntry.first
-        @he.update_column(:origin_id, @he.id)
-        @he.update_column(:site_id, 1)
-                
-        cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
-                       :visibility_id => Visibility.visible.id, :user_id => user.id, 
-                       :data_object_guid => @data_object.guid, :hierarchy_entry_id => @he.id,
-                       :data_object_id => @data_object.id) 
+      let(:user) {User.first}
+      let(:data_object) {DataObject.first}
+      let(:he) {HierarchyEntry.first}
+      let(:comment) {Comment.gen}
+      let(:taxon_concept) {TaxonConcept.first}
+      before(:all) do
+        user.update_attributes(curator_approved: 1, curator_level_id: 1)
+        data_object.update_attributes(origin_id: data_object.id, site_id: PEER_SITE_ID)
+        he.update_attributes(origin_id: he.id, site_id: PEER_SITE_ID)
+        comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID)
+        taxon_concept.update_attributes(origin_id: taxon_concept.id, site_id: PEER_SITE_ID)
+        DataObjectsTaxonConcept.create(data_object_id: data_object.id, taxon_concept_id: taxon_concept.id)
+        UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id)
+      end
+      describe ".curate_association" do
+        before do
           
-        comment = Comment.gen
-        comment.update_column(:origin_id, comment.id)
-        comment.update_column(:site_id, 1)
-                       
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'curate_associations')
-        
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'data_object')
-        
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = user.origin_id
-        @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at_time = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('curate_associations').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
-        @peer_log.sync_object_id = @data_object.origin_id
-        @peer_log.sync_object_site_id = @data_object.site_id
-        @peer_log.save
-          
-        
-#        sync_params["language"] = current_language
-#              sync_params["vetted_view_order"] = Vetted.find(params["vetted_id_#{association.id}"]).view_order
-#              sync_params["curation_comment_origin_id"] = comments[index].origin_id if comments[index]
-#              sync_params["curation_comment_site_id"] = comments[index].site_id if comments[index]
-#              sync_params["untrust_reasons"] = untrust_reasons if untrust_reasons
-#              sync_params["hide_reasons"] = hide_reasons if hide_reasons
-#              sync_params["visibility_label"] = visibility.label if visibility
-#              sync_params["taxon_concept_origin_id"] = association.taxon_concept.origin_id
-#              sync_params["taxon_concept_site_id"] = association.taxon_concept.site_id
-                
-                
-                
-        parameters = ["language", "vetted_view_order", "curation_comment_origin_id", 
-                      "curation_comment_site_id", "untrust_reasons", 
-                      "visibility_label", "taxon_concept_origin_id", "taxon_concept_site_id"]
-        values = ["#{Language.first.id}", "1", "#{comment.origin_id}", 
-                  "#{comment.site_id}", "misidentified,", "Invisible", 
-                  "TaxonConcept.first.origin_id", "TaxonConcept.first.site_id"]
- 
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.param_object_type_id = nil
-          lap.param_object_id = nil
-          lap.param_object_site_id = nil
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
+          @cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
+                         :visibility_id => Visibility.invisible.id, :user_id => user.id, 
+                         :data_object_guid => data_object.guid, :hierarchy_entry_id => he.id,
+                         :data_object_id => data_object.id) 
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.curate_associations.id,
+                                          sync_object_type_id: SyncObjectType.data_object.id,
+                                          user_site_object_id: data_object.site_id, 
+                                          sync_object_id: data_object.origin_id, 
+                                          user_site_id: user.site_id,
+                                          sync_object_site_id: user.origin_id)
+          parameters = ["language", "vetted_view_order", "curation_comment_origin_id", 
+                        "curation_comment_site_id", "untrust_reasons", 
+                        "visibility_label", "taxon_concept_origin_id", "taxon_concept_site_id","hierarchy_entry_origin_id", "hierarchy_entry_site_id"]
+          values = ["en", "1", "#{comment.origin_id}", 
+                    "#{comment.site_id}", "misidentified,", "Visible", 
+                    "#{taxon_concept.origin_id}", "#{taxon_concept.site_id}", "#{he.origin_id}", "#{he.site_id}"]
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          #call process entery
+          sync_peer_log.process_entry
         end
         
-        #call process entery
-        @peer_log.process_entry
+        it "should curate association" do
+          cdoh = CuratedDataObjectsHierarchyEntry.find(@cdoh.id)
+          expect(cdoh.visibility_id).to eq(Visibility.visible.id)
+        end
       end
       
-      it "should curate association" do
+      describe ".add_association" do
+        before(:each) do
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.save_association.id,
+                                          sync_object_type_id: SyncObjectType.data_object.id,
+                                          user_site_object_id: data_object.site_id, 
+                                          sync_object_id: data_object.origin_id, 
+                                          user_site_id: user.site_id,
+                                          sync_object_site_id: user.origin_id)
+          parameters = ["hierarchy_entry_origin_id", "hierarchy_entry_site_id"]
+          values = ["#{he.origin_id}", "#{he.site_id}"]
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          #call process entery
+          sync_peer_log.process_entry
+        end
+        
+        it "should add association" do
+          cdoh = CuratedDataObjectsHierarchyEntry.find_by_hierarchy_entry_id_and_data_object_id(he.id, data_object.id)
+          cdoh.should_not be_nil
+        end
       end
+      
+      describe ".remove_association" do
+        before(:each) do
+          cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
+                  :visibility_id => Visibility.visible.id, :user_id => user.id, 
+                  :data_object_guid => data_object.guid, :hierarchy_entry_id => he.id,
+                  :data_object_id => data_object.id) 
+         
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.remove_association.id,
+                                                    sync_object_type_id: SyncObjectType.data_object.id,
+                                                    user_site_object_id: data_object.site_id, 
+                                                    sync_object_id: data_object.origin_id, 
+                                                    user_site_id: user.site_id,
+                                                    sync_object_site_id: user.origin_id)
+          parameters = ["hierarchy_entry_origin_id", "hierarchy_entry_site_id"]
+          values = ["#{he.origin_id}", "#{he.site_id}"]
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          #call process entery
+          sync_peer_log.process_entry
+        end
+        
+        it "should remove association" do
+          cdoh = CuratedDataObjectsHierarchyEntry.find_by_hierarchy_entry_id_and_data_object_id(he.id, data_object.id)
+          cdoh.should be_nil
+        end
+      end
+      
     end
     
-    describe "pulling add association action" do
-      before(:each) do
-        truncate_all_tables
-        load_foundation_cache
-        SpecialCollection.create(:name => "watch")
-        
-        user = User.first
-        user.origin_id = user.id
-        user.site_id = 1
-        user.save
-        
-        @data_object = DataObject.gen
-        @data_object.update_column(:origin_id, @data_object.id)
-        @data_object.update_column(:site_id, 1)
-        
-        @he = HierarchyEntry.first
-        @he.update_column(:origin_id, @he.id)
-        @he.update_column(:site_id, 1)
-                
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'save_association')
-        
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'data_object')
-        
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = user.origin_id
-        @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('save_association').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
-        @peer_log.sync_object_id = @data_object.origin_id
-        @peer_log.sync_object_site_id = @data_object.site_id
-        @peer_log.save
-          
-        parameters = ["hierarchy_entry_origin_id", "hierarchy_entry_site_id"]
-        values = ["#{@he.origin_id}", "#{@he.site_id}"]
- 
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.param_object_type_id = nil
-          lap.param_object_id = nil
-          lap.param_object_site_id = nil
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
-        end
-        
-        #call process entery
-        @peer_log.process_entry
-      end
-      
-      it "should add association" do
-        cdoh = CuratedDataObjectsHierarchyEntry.find_by_hierarchy_entry_id_and_data_object_id(@he.id, @data_object.id)
-        cdoh.should_not be_nil
-      end
-    end
     
-    describe "pulling remove association action" do
-      before(:each) do
-        truncate_all_tables
-        load_foundation_cache
-        SpecialCollection.create(:name => "watch")
-        
-        user = User.first
-        user.origin_id = user.id
-        user.site_id = 1
-        user.save
-        
-        @data_object = DataObject.gen
-        @data_object.update_column(:origin_id, @data_object.id)
-        @data_object.update_column(:site_id, 1)
-        
-        @he = HierarchyEntry.first
-        @he.update_column(:origin_id, @he.id)
-        @he.update_column(:site_id, 1)
-               
-        cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
-                :visibility_id => Visibility.visible.id, :user_id => user.id, 
-                :data_object_guid => @data_object.guid, :hierarchy_entry_id => @he.id,
-                :data_object_id => @data_object.id) 
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'remove_association')
-        
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'data_object')
-        
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = user.origin_id
-        @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('remove_association').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
-        @peer_log.sync_object_id = @data_object.origin_id
-        @peer_log.sync_object_site_id = @data_object.site_id
-        @peer_log.save
-          
-        
-        parameters = ["hierarchy_entry_origin_id", "hierarchy_entry_site_id"]
-        values = ["#{@he.origin_id}", "#{@he.site_id}"]
-        
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.param_object_type_id = nil
-          lap.param_object_id = nil
-          lap.param_object_site_id = nil
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
-        end
-        
-        #call process entery
-        @peer_log.process_entry
-      end
-      
-      it "should remove association" do
-        cdoh = CuratedDataObjectsHierarchyEntry.find_by_hierarchy_entry_id_and_data_object_id(@he.id, @data_object.id)
-        cdoh.should be_nil
-      end
-    end
+    
+    
+    
+    
     
     describe "pulling create community action" do
       before(:each) do

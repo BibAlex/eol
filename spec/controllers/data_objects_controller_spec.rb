@@ -1,4 +1,4 @@
-require "spec_helper"
+require File.dirname(__FILE__) + '/../spec_helper'
 
 def data_object_create_edit_variables_should_be_assigned
   assigns[:data_object].should be_a(DataObject)
@@ -13,6 +13,7 @@ end
 
 describe DataObjectsController do
   before(:all) do
+   
     load_foundation_cache
     @taxon_concept = TaxonConcept.gen
     @user = User.gen
@@ -129,516 +130,590 @@ describe DataObjectsController do
   
   
  
-  describe "mange data objects synchronization" do
-    
-    describe "synchronization of adding association" do
-      before(:each) do
+  describe "Synchronization" do
+    describe "association Synchronization" do
+      let(:current_user) {User.first} 
+      let(:data_object) {DataObject.first} 
+      let(:he) {HierarchyEntry.first} 
+      
+      
+      before(:all) do
         truncate_all_tables
         load_foundation_cache
-        
-        @current_user = User.gen
-        session[:user_id] = @current_user.id
-        @current_user[:origin_id] = @current_user.id
-        @current_user[:site_id] = PEER_SITE_ID
-        @current_user.save
+        SyncObjectType.create_enumerated
+        SyncObjectAction.create_enumerated
+        current_user.update_attributes(origin_id: current_user.id, site_id: PEER_SITE_ID)
+        data_object.update_attributes(origin_id: data_object.id, site_id: PEER_SITE_ID)
+        he.update_attributes(origin_id: he.id, site_id: PEER_SITE_ID)
+        UsersDataObject.create(user_id: current_user.id, data_object_id: data_object.id,
+                               taxon_concept_id: TaxonConcept.first.id)
       end
       
-      it "should synchronize adding association" do
-        data_object = DataObject.gen
-        data_object.update_column(:origin_id, data_object.id)
-        data_object.update_column(:site_id, 1)
-        
-        he = HierarchyEntry.first
-        he.update_column(:origin_id, he.id)
-        he.update_column(:site_id, 1)
-        
-        put :save_association, {:id => data_object.id, :hierarchy_entry_id => he.id}
-        cdoh = CuratedDataObjectsHierarchyEntry.find_by_hierarchy_entry_id_and_data_object_id(HierarchyEntry.first.id, data_object.id)
-        cdoh.should_not be_nil
-        
-        # check sync_object_type
-        type = SyncObjectType.first
-        type.should_not be_nil
-        type.object_type.should == "data_object"
-  
-        # check sync_object_actions
-        action = SyncObjectAction.first
-        action.should_not be_nil
-        action.object_action.should == "save_association"
-  
-        # check peer log for creating new collection
-        peer_log = SyncPeerLog.first
-        peer_log.should_not be_nil
-        peer_log.sync_object_action_id.should == action.id
-        peer_log.sync_object_type_id.should == type.id
-        peer_log.user_site_id.should == @current_user.site_id
-        peer_log.user_site_object_id.should == @current_user.origin_id
-        peer_log.sync_object_id.should == data_object.origin_id
-        peer_log.sync_object_site_id.should == data_object.site_id
-        
-        # check log action parameters
-        hierarchy_entry_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "hierarchy_entry_origin_id")
-        hierarchy_entry_origin_id_parameter[0][:value].should == "#{he.origin_id}"
-        hierarchy_entry_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "hierarchy_entry_site_id")
-        hierarchy_entry_site_id_parameter[0][:value].should == "#{he.site_id}"
-      end
-    end
-    
-    describe "synchronize removing association" do
-      before(:each) do
-        truncate_all_tables
-        load_foundation_cache
-        
-        @current_user = User.gen
-        session[:user_id] = @current_user.id
-        @current_user[:origin_id] = @current_user.id
-        @current_user[:site_id] = PEER_SITE_ID
-        @current_user.save
-      end
-      
-      it "should remove association" do
-        data_object = DataObject.gen
-        cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
-        :visibility_id => Visibility.visible.id, :user_id => @current_user.id, 
-        :data_object_guid => data_object.guid, :hierarchy_entry_id => HierarchyEntry.first.id,
-        :data_object_id => data_object.id)
-        get "/data_objects/#{data_object.id}/remove_association/#{HierarchyEntry.first.id}"
-#        get :remove_association, {:id =>, :hierarchy_entry_id => }
+      describe "PUT #save_association" do
+        let(:type) {SyncObjectType.data_object}
+        let(:action) {SyncObjectAction.save_association}
+        let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
           
-        CuratedDataObjectsHierarchyEntry.find_by_data_object_guid_and_data_object_id(data_object.guid,
-                                         data_object.id).should be_nil
-      end
-    end
-    
-    describe "create new data object" do
-      before(:each) do
-        truncate_all_tables
-        load_foundation_cache
-        Activity.create_enumerated
-        Visibility.create_enumerated
-        TocItem.gen_if_not_exists(:label => 'overview')
-        
-        @current_user = User.gen
-        session[:user_id] = @current_user.id
-        @current_user[:origin_id] = @current_user.id
-        @current_user[:site_id] = PEER_SITE_ID
-        @current_user.save
-        @taxon_concept = TaxonConcept.gen
-       
-      end
-      
-      it 'should save creating data object paramters in synchronization tables' do
-        post :create, { :taxon_id => @taxon_concept.id, :references => "Test reference.",
-                      :data_object => { :toc_items => { :id => TocItem.overview.id.to_s }, :data_type_id => DataType.text.id.to_s,
-                                        :object_title => "Test Article", :language_id => Language.english.id.to_s,
-                                        :description => "Test text", :license_id => License.public_domain.id.to_s} },
-                      { :user => @current_user, :user_id => @current_user.id }
-         
-          
-        # created data object
-        data_obj = DataObject.find(2)
-        data_obj.object_title.should == "Test Article"
-        data_obj.description.should == "Test text"
-        data_obj.license_id.should == License.public_domain.id
-        user_data_obj = UsersDataObject.first
-        user_data_obj.user_id.should == @current_user.id
-        data_obj.toc_items[0].id.should == TocItem.overview.id
-        # check created references
-        ref = Ref.first
-        ref.full_reference.should == "Test reference."
-        ref.user_submitted.should == true
-        ref.visibility_id.should == Visibility.visible.id
-        ref.published.should == 1         
-        data_obj_ref = data_obj.refs[0]
-        data_obj_ref.id.should == ref.id  
-        
-        # check created record for data object taxon concept
-        data_obj_taxon_concept = DataObjectsTaxonConcept.first 
-        data_obj_taxon_concept.taxon_concept_id.should == @taxon_concept.id
-        data_obj_taxon_concept.data_object_id.should == data_obj.id
-        
-        col_item = CollectionItem.first        
-        col_item.collected_item_type.should == "DataObject"
-        col_item.collected_item_id.should == data_obj.id
-        col_item.collection_id.should == @current_user.watch_collection.id        
-        
-        # check sync_object_type
-        ref_type = SyncObjectType.first
-        ref_type.should_not be_nil
-        ref_type.object_type.should == "Ref"
-        
-        data_object_type = SyncObjectType.find(2)
-        data_object_type.should_not be_nil
-        data_object_type.object_type.should == "data_object"
-        
-        collection_type = SyncObjectType.find(3)
-        collection_type.should_not be_nil
-        collection_type.object_type.should == "Collection"
-
-        # check sync_object_actions
-        create_action = SyncObjectAction.first
-        create_action.should_not be_nil
-        create_action.object_action.should == "create"
-        
-        add_item_action = SyncObjectAction.find(2)
-        add_item_action.should_not be_nil
-        add_item_action.object_action.should == "add_item"
-         
-        # check peer logs
-        create_ref_peer_log = SyncPeerLog.first
-        create_ref_peer_log.should_not be_nil
-        create_ref_peer_log.sync_object_action_id.should == create_action.id
-        create_ref_peer_log.sync_object_type_id.should == ref_type.id
-        create_ref_peer_log.user_site_id .should == PEER_SITE_ID
-        create_ref_peer_log.user_site_object_id.should == @current_user.id
-
-         # check log action parameters
-        full_reference_parameter = SyncLogActionParameter.where(:peer_log_id => create_ref_peer_log.id, :parameter => "reference")
-        full_reference_parameter[0][:value].should == "Test reference."
-        
-        create_data_object_peer_log = SyncPeerLog.find(2)
-        create_data_object_peer_log.should_not be_nil
-        create_data_object_peer_log.sync_object_action_id.should == create_action.id
-        create_data_object_peer_log.sync_object_type_id.should == data_object_type.id
-        create_data_object_peer_log.user_site_id .should == PEER_SITE_ID
-        create_data_object_peer_log.user_site_object_id.should == @current_user.id
-        create_data_object_peer_log.sync_object_id.should == data_obj.origin_id
-        create_data_object_peer_log.sync_object_site_id.should == data_obj.site_id
-
-         # check log action parameters
-        toc = TocItem.find(TocItem.overview.id)
-        
-        taxon_concept_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "taxon_concept_origin_id")
-        taxon_concept_origin_id_parameter[0][:value].should == @taxon_concept.origin_id
-        
-        taxon_concept_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "taxon_concept_site_id")
-        taxon_concept_site_id_parameter[0][:value].should == "#{@taxon_concept.site_id}"
-        
-        references_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "references")
-        references_parameter[0][:value].should == "Test reference."
-        
-        toc_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "toc_id")
-        toc_id_parameter[0][:value].should == toc.origin_id
-        
-        toc_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "toc_site_id")
-        toc_site_id_parameter[0][:value].should == toc.site_id
-        
-        object_title_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "object_title")
-        object_title_parameter[0][:value].should == "Test Article" 
-      
-        description_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "description")
-        description_parameter[0][:value].should == "Test text"
-       
-        data_type_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "data_type_id")
-        data_type_id_parameter[0][:value].should == DataType.text.id.to_s
-        
-        language_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "language_id")
-        language_id_parameter[0][:value].should == Language.english.id.to_s
-        
-        license_id_parameter = SyncLogActionParameter.where(:peer_log_id => create_data_object_peer_log.id, :parameter => "license_id")
-        license_id_parameter[0][:value].should == License.public_domain.id.to_s
-        
-        # check peer logs
-        create_collection_item_peer_log = SyncPeerLog.find(3)
-        create_collection_item_peer_log.should_not be_nil
-        create_collection_item_peer_log.sync_object_action_id.should == add_item_action.id
-        create_collection_item_peer_log.sync_object_type_id.should == collection_type.id
-        create_collection_item_peer_log.user_site_id .should == PEER_SITE_ID
-        create_collection_item_peer_log.user_site_object_id.should == @current_user.id
-        create_collection_item_peer_log.sync_object_id.should == @current_user.watch_collection.id
-        create_collection_item_peer_log.sync_object_site_id.should == @current_user.watch_collection.site_id
-
-        # check log action parameters
-        collection_origin_ids_parameter = SyncLogActionParameter.where(:peer_log_id => create_collection_item_peer_log.id, :parameter => "item_id")
-        collection_origin_ids_parameter[0][:value].should == "#{data_obj.origin_id}"
-        collection_site_ids_parameter = SyncLogActionParameter.where(:peer_log_id => create_collection_item_peer_log.id, :parameter => "item_site_id")
-        collection_site_ids_parameter[0][:value].should == "#{data_obj.site_id}"
-    
-    
-        collected_item_type_parameter = SyncLogActionParameter.where(:peer_log_id => create_collection_item_peer_log.id, :parameter => "collected_item_type")
-        collected_item_type_parameter[0][:value].should == "DataObject"
-        collected_item_name_parameter = SyncLogActionParameter.where(:peer_log_id => create_collection_item_peer_log.id, :parameter => "collected_item_name")
-        collected_item_name_parameter[0][:value].should == "#{data_obj.object_title}"
-      end
-    end
-    
-    describe "sync update data object" do
-      before(:each) do
-        truncate_all_tables
-        load_foundation_cache
-        Activity.create_enumerated
-        Visibility.create_enumerated
-        TocItem.gen_if_not_exists(:label => 'overview')
-        
-        @user = User.gen
-        session[:user_id] = @user.id
-        @user[:origin_id] = @user.id
-        @user[:site_id] = PEER_SITE_ID
-        @user.save
-        @taxon_concept = TaxonConcept.gen
-        @data_object = @taxon_concept.add_user_submitted_text(:user => @user)
-        @data_object[:origin_id] = @data_object.id
-        @data_object[:site_id] = PEER_SITE_ID
-        @data_object.save
-        @data_object.refs << Ref.new(full_reference: "Test reference", user_submitted: true, published: 1,
-                                       visibility: Visibility.visible)
+        before do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          session[:user_id] = current_user.id
+          put :save_association, {:id => data_object.id, :hierarchy_entry_id => he.id}
+        end
+        it "creates sync peer log" do
+          expect(peer_log).not_to be_nil
+        end
+        it "creates sync peer log with correct sync_object_action" do
+          expect(peer_log.sync_object_action_id).to eq(action.id)
+        end
+        it "creates sync peer log with correct sync_object_type" do
+          expect(peer_log.sync_object_type_id).to eq(type.id)
+        end
+        it "creates sync peer log with correct user_site_id" do
+          expect(peer_log.user_site_id).to eq(current_user.site_id)
+        end
+        it "creates sync peer log with correct user_site_object_id" do
+          expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+        end
+        it "creates sync peer log with correct sync_object_id" do
+          expect(peer_log.sync_object_id).to eq(data_object.origin_id)
+        end
+        it "creates sync peer log with correct sync_object_site_id" do
+          expect(peer_log.sync_object_site_id).to eq(data_object.site_id)
+        end
+        it "creates sync log action parameter for hierarchy_entry_origin_id" do
+          hierarchy_entry_origin_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "hierarchy_entry_origin_id")
+          expect(hierarchy_entry_origin_id_parameter[0][:value]).to eq("#{he.origin_id}")
+        end
+        it "creates sync log action parameter for hierarchy_entry_site_id" do
+          hierarchy_entry_site_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "hierarchy_entry_site_id")
+          expect(hierarchy_entry_site_id_parameter[0][:value]).to eq("#{he.site_id}")
+        end
       end
       
-      it 'should save updating data object paramters in synchronization tables' do
-        put :update, { :id => @data_object.id,
-                     :data_object => { :source_url => "", :rights_statement => "",
-                                       :toc_items => { :id => @data_object.toc_items.first.id.to_s }, :bibliographic_citation => "",
-                                       :data_type_id => DataType.text.id.to_s, :object_title =>"test_master",
-                                       :description => "desc", :license_id => License.public_domain.id.to_s,
-                                       :language_id => Language.english.id.to_s }, 
-                                       :references => "Test reference"},
-                   { :user => @user, :user_id => @user.id }
-               
-          
-        # created data object
-        new_data_obj = DataObject.find(3)
-        new_data_obj.object_title.should == "test_master"
-        new_data_obj.description.should == "desc"
-        new_data_obj.license_id.should == License.public_domain.id
-        user_data_obj = UsersDataObject.find(2)
-        user_data_obj.user_id.should == @user.id
-        new_data_obj.toc_items[0].id.should == @data_object.toc_items.first.id
-        # check created references
-        ref = Ref.find(2)       
-        new_data_obj_ref = new_data_obj.refs[0]
-        new_data_obj_ref.id.should == ref.id  
+      describe "GET #remove_association" do
+        let(:type) {SyncObjectType.data_object}
+        let(:action) {SyncObjectAction.remove_association}
+        let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
         
-        # check created record for data object taxon concept
-        data_obj_taxon_concept = DataObjectsTaxonConcept.find(:first, :conditions => "data_object_id = #{new_data_obj.id} and taxon_concept_id = #{@taxon_concept.id}")
-        data_obj_taxon_concept.should_not be_nil      
+        before do
+          truncate_table(ActiveRecord::Base.connection, "curated_data_objects_hierarchy_entries", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          current_user.update_attributes(curator_approved: 1, curator_level_id: 1)
+          session[:user_id] = current_user.id
+          cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
+                 :visibility_id => Visibility.visible.id, :user_id => current_user.id, 
+                 :data_object_guid => data_object.guid, :hierarchy_entry_id => HierarchyEntry.first.id,
+                 :data_object_id => data_object.id)
+          get :remove_association, {:id => data_object.id, :hierarchy_entry_id => he.id}
+        end
         
-        # check sync_object_type 
-        ref_type = SyncObjectType.first
-        ref_type.should_not be_nil
-        ref_type.object_type.should == "Ref"
+        it "creates sync peer log" do
+          expect(peer_log).not_to be_nil
+        end
+        it "creates sync peer log with correct sync_object_action" do
+          expect(peer_log.sync_object_action_id).to eq(action.id)
+        end
+        it "creates sync peer log with correct sync_object_type" do
+          expect(peer_log.sync_object_type_id).to eq(type.id)
+        end
+        it "creates sync peer log with correct user_site_id" do
+          expect(peer_log.user_site_id).to eq(current_user.site_id)
+        end
+        it "creates sync peer log with correct user_site_object_id" do
+          expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+        end
+        it "creates sync peer log with correct sync_object_id" do
+          expect(peer_log.sync_object_id).to eq(data_object.origin_id)
+        end
+        it "creates sync peer log with correct sync_object_site_id" do
+          expect(peer_log.sync_object_site_id).to eq(data_object.site_id)
+        end
+      end
+      
+      describe "PUT #curate_associations" do
+        before do
+          truncate_table(ActiveRecord::Base.connection, "curated_data_objects_hierarchy_entries", {})
+          truncate_table(ActiveRecord::Base.connection, "users_data_objects", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "comments", {})
+          session[:user_id] = current_user.id
+          current_user.update_attributes(curator_approved: 1, curator_level_id: 1)
+          cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
+                          :visibility_id => Visibility.visible.id, :user_id => current_user.id, 
+                          :data_object_guid => data_object.guid, :hierarchy_entry_id => HierarchyEntry.first.id,
+                          :hierarchy_entry => HierarchyEntry.first, :data_object_id => data_object.id)
+        end
+        context "curation without erros" do
+          before do
+            put :curate_associations, {id: data_object.id,
+                                       return_to: "http://localhost:#{PEER_SITE_ID}/data_objects/#{data_object.id}",
+                                       vetted_id_1: Vetted.first.id, 
+                                       curation_comment_1: "comment1",
+                                       untrust_reasons_1: ["3"],
+                                       hide_reasons_1: ["3"],
+                                       vetted_id_1: "1"}
+          end
+          describe "create comment for association" do
+            let(:type) {SyncObjectType.comment}
+            let(:action) {SyncObjectAction.create}
+            let(:comment) {Comment.first}
+            let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
             
-        data_object_type = SyncObjectType.find(2)
-        data_object_type.should_not be_nil
-        data_object_type.object_type.should == "data_object"        
-        
-        # check sync_object_actions 
-        create_action = SyncObjectAction.first
-        create_action.should_not be_nil
-        create_action.object_action.should == "create"
-        
-        update_action = SyncObjectAction.find(2)
-        update_action.should_not be_nil
-        update_action.object_action.should == "update"        
-       
-         
-        # check peer logs        
-        update_data_object_peer_log = SyncPeerLog.find(2)
-        update_data_object_peer_log.should_not be_nil
-        update_data_object_peer_log.sync_object_action_id.should == update_action.id
-        update_data_object_peer_log.sync_object_type_id.should == data_object_type.id
-        update_data_object_peer_log.user_site_id.should == PEER_SITE_ID
-        update_data_object_peer_log.user_site_object_id.should == @user.id
-        update_data_object_peer_log.sync_object_id.should == @data_object.origin_id
-        update_data_object_peer_log.sync_object_site_id.should == @data_object.site_id
-
-         # check log action parameters
-        toc = TocItem.find(TocItem.overview.id)
-        
-        new_data_object_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "new_revision_origin_id")
-        new_data_object_origin_id_parameter[0][:value].should == "#{new_data_obj.origin_id}"
-        
-        new_data_object_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "new_revision_site_id")
-        new_data_object_site_id_parameter[0][:value].should == "#{new_data_obj.site_id}"
-        
-        references_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "references")
-        references_parameter[0][:value].should == "Test reference"
-        
-        toc_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "toc_id")
-        toc_id_parameter[0][:value].should == toc.origin_id
-        
-        toc_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "toc_site_id")
-        toc_site_id_parameter[0][:value].should == toc.site_id
-      
-        object_title_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "object_title")
-        object_title_parameter[0][:value].should == "test_master"
-      
-        description_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "description")
-        description_parameter[0][:value].should == "desc"
-       
-        data_type_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "data_type_id")
-        data_type_id_parameter[0][:value].should == DataType.text.id.to_s
-        
-        language_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "language_id")
-        language_id_parameter[0][:value].should == Language.english.id.to_s
-        
-        license_id_parameter = SyncLogActionParameter.where(:peer_log_id => update_data_object_peer_log.id, :parameter => "license_id")
-        license_id_parameter[0][:value].should == License.public_domain.id.to_s
+            it "creates sync peer log" do
+              expect(peer_log).not_to be_nil
+            end
+            it "creates sync peer log with correct sync_object_action" do
+              expect(peer_log.sync_object_action_id).to eq(action.id)
+            end
+            it "creates sync peer log with correct sync_object_type" do
+              expect(peer_log.sync_object_type_id).to eq(type.id)
+            end
+            it "creates sync peer log with correct user_site_id" do
+              expect(peer_log.user_site_id).to eq(current_user.site_id)
+            end
+            it "creates sync peer log with correct user_site_object_id" do
+              expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+            end
+            it "creates sync peer log with correct sync_object_id" do
+              expect(peer_log.sync_object_id).to eq(comment.origin_id)
+            end
+            it "creates sync peer log with correct sync_object_site_id" do
+              expect(peer_log.sync_object_site_id).to eq(comment.site_id)
+            end
+            it "creates sync log action parameter for first_comment_body" do
+              first_comment_body_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "body")
+              expect(first_comment_body_parameter[0][:value]).to eq("comment1") 
+            end
+            it "creates sync peer log with correct first_comment_parent_type" do
+              first_comment_parent_type_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "parent_type")
+              expect(first_comment_parent_type_parameter[0][:value]).to eq("DataObject")
+            end
+            it "creates sync peer log with correct first_comment_parent_site_id" do
+              first_comment_parent_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "comment_parent_site_id")
+              expect(first_comment_parent_site_id_parameter[0][:value]).to eq("#{data_object.site_id}")  
+            end
+            it "creates sync peer log with correct first_comment_parent_origin_id" do
+              first_comment_parent_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "comment_parent_origin_id")
+              expect(first_comment_parent_origin_id_parameter[0][:value]).to eq("#{data_object.origin_id}") 
+            end
+          end
+          
+          describe "review association" do
+            let(:type) {SyncObjectType.data_object}
+            let(:action) {SyncObjectAction.curate_associations}
+            let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
+            
+            it "creates sync peer log" do
+              expect(peer_log).not_to be_nil
+            end
+            it "creates sync peer log with correct sync_object_action" do
+              expect(peer_log.sync_object_action_id).to eq(action.id)
+            end
+            it "creates sync peer log with correct sync_object_type" do
+              expect(peer_log.sync_object_type_id).to eq(type.id)
+            end
+            it "creates sync peer log with correct user_site_id" do
+              expect(peer_log.user_site_id).to eq(current_user.site_id)
+            end
+            it "creates sync peer log with correct user_site_object_id" do
+              expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+            end
+            it "creates sync peer log with correct sync_object_id" do
+              expect(peer_log.sync_object_id).to eq(data_object.origin_id)
+            end
+            it "creates sync peer log with correct sync_object_site_id" do
+              expect(peer_log.sync_object_site_id).to eq(data_object.site_id)
+            end
+            it "creates sync log action parameter for untrust_reasons" do
+              untrust_reasons_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "untrust_reasons")
+              expect(untrust_reasons_parameter[0][:value]).to eq("#{UntrustReason.find_by_id(3).class_name},") 
+            end
+            it "creates sync log action parameter for hide_reasons" do
+              hide_reasons_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "hide_reasons")
+              expect(hide_reasons_parameter[0][:value]).to eq("#{UntrustReason.find_by_id(3).class_name},") 
+            end
+            it "creates sync log action parameter for hierarchy_entry_origin_id" do
+              hierarchy_entry_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "hierarchy_entry_origin_id")
+              expect(hierarchy_entry_origin_id_parameter[0][:value]).to eq("#{he.origin_id}") 
+            end
+            it "creates sync log action parameter for hierarchy_entry_site_id" do
+              hierarchy_entry_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "hierarchy_entry_site_id")
+              expect(hierarchy_entry_site_id_parameter[0][:value]).to eq("#{he.site_id}") 
+            end
+          end
+        end
+        context "curation with erros" do
+          before do
+            put :curate_associations, {id: data_object.id,
+                                       return_to: "http://localhost:#{PEER_SITE_ID}/data_objects/#{data_object.id}",
+                                       vetted_id_1: "1", 
+                                       curation_comment_1: "",
+                                       visibility_id_1: "1"}
+          end
+          it "does nothing" do
+            flash[:error].should =~ /Please choose a reason/i
+          end
+          it "should not create peer log" do
+            expect(SyncPeerLog.count).to eq(0)
+          end
+        end
       end
     end
     
-    describe "sync rate data object" do
-      before(:each) do
+    describe "data_object management sychronization" do
+      before(:all) do
         truncate_all_tables
         load_foundation_cache
         Activity.create_enumerated
         Visibility.create_enumerated
+        SyncObjectType.create_enumerated
+        SyncObjectAction.create_enumerated
         TocItem.gen_if_not_exists(:label => 'overview')
+        taxon_concept.update_attributes(origin_id: taxon_concept.id, site_id: PEER_SITE_ID)
+      end
+      let(:current_user) {User.first}
+      let(:taxon_concept) {TaxonConcept.first}
+      before do
+        current_user.update_attributes(origin_id: current_user.id, site_id: PEER_SITE_ID)
+        session[:user_id] = current_user.id
+      end
+      describe "create new data object synchonization" do
+        let(:data_object) {DataObject.last}
+        let(:ref) {Ref.last}
+        let(:data_obj_taxon_concept) {DataObjectsTaxonConcept.first }
+        let(:col_item) {CollectionItem.first}
         
-        @user = User.gen
-        session[:user_id] = @user.id
-        @user[:origin_id] = @user.id
-        @user[:site_id] = PEER_SITE_ID
-        @user.save
-        @taxon_concept = TaxonConcept.gen
-        @data_object = @taxon_concept.add_user_submitted_text(:user => @user)
-        @data_object[:origin_id] = @data_object.id
-        @data_object[:site_id] = PEER_SITE_ID
-        @data_object.save
-        @data_object.refs << Ref.new(full_reference: "Test reference", user_submitted: true, published: 1,
-                                       visibility: Visibility.visible)
+        before do
+          truncate_table(ActiveRecord::Base.connection, "data_objects", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          post :create, { :taxon_id => taxon_concept.id, :references => "Test reference.",
+                          :data_object => { :toc_items => { :id => TocItem.overview.id.to_s }, :data_type_id => DataType.text.id.to_s,
+                                            :object_title => "Test Article", :language_id => Language.english.id.to_s,
+                                            :description => "Test text", :license_id => License.public_domain.id.to_s} },
+                          { :user => current_user, :user_id => current_user.id }
+        end
+        
+        describe "creating reference synchronization" do
+          let(:type) {SyncObjectType.ref}
+          let(:action) {SyncObjectAction.create}
+          let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
+          
+          it "creates sync peer log" do
+            expect(peer_log).not_to be_nil
+          end
+          it "creates sync peer log with correct sync_object_action" do
+            expect(peer_log.sync_object_action_id).to eq(action.id)
+          end
+          it "creates sync peer log with correct sync_object_type" do
+            expect(peer_log.sync_object_type_id).to eq(type.id)
+          end
+          it "creates sync peer log with correct user_site_id" do
+            expect(peer_log.user_site_id).to eq(current_user.site_id)
+          end
+          it "creates sync peer log with correct user_site_object_id" do
+            expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+          end
+          it "creates sync log action parameter for full_reference" do
+            full_reference_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "reference")
+            expect(full_reference_parameter[0][:value]).to eq("Test reference.") 
+          end
+        end
+        
+        describe "creating data_object synchronization" do
+          let(:type) {SyncObjectType.data_object}
+          let(:action) {SyncObjectAction.create}
+          let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
+          let(:toc) {TocItem.find(TocItem.overview.id)}
+          
+          it "creates sync peer log" do
+            expect(peer_log).not_to be_nil
+          end
+          it "creates sync peer log with correct sync_object_action" do
+            expect(peer_log.sync_object_action_id).to eq(action.id)
+          end
+          it "creates sync peer log with correct sync_object_type" do
+            expect(peer_log.sync_object_type_id).to eq(type.id)
+          end
+          it "creates sync peer log with correct user_site_id" do
+            expect(peer_log.user_site_id).to eq(current_user.site_id)
+          end
+          it "creates sync peer log with correct user_site_object_id" do
+            expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+          end
+          it "creates sync peer log with correct sync_object_id" do
+            expect(peer_log.sync_object_id).to eq(data_object.origin_id)
+          end
+          it "creates sync peer log with correct sync_object_site_id" do
+            expect(peer_log.sync_object_site_id).to eq(data_object.site_id)
+          end
+          it "creates sync log action parameter for taxon_concept_origin_id" do
+            taxon_concept_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_origin_id")
+            expect(taxon_concept_origin_id_parameter[0][:value]).to eq("#{taxon_concept.origin_id}") 
+          end
+          it "creates sync log action parameter for taxon_concept_site_id" do
+            taxon_concept_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_site_id")
+            expect(taxon_concept_site_id_parameter[0][:value]).to eq("#{taxon_concept.site_id}") 
+          end
+          it "creates sync log action parameter for toc_id" do
+            toc_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "toc_id")
+            expect(toc_id_parameter[0][:value]).to eq(toc.origin_id) 
+          end
+          it "creates sync log action parameter for toc_site_id" do
+            toc_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "toc_site_id")
+            expect(toc_site_id_parameter[0][:value]).to eq(toc.site_id) 
+          end
+          it "creates sync log action parameter for object_title" do
+            object_title_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "object_title")
+            expect(object_title_parameter[0][:value]).to eq("Test Article") 
+          end
+          it "creates sync log action parameter for description" do
+            description_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "description")
+            expect(description_parameter[0][:value]).to eq("Test text") 
+          end
+          it "creates sync log action parameter for data_type_id" do
+            data_type_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "data_type_id")
+            expect(data_type_id_parameter[0][:value]).to eq(DataType.text.id.to_s) 
+          end
+          it "creates sync log action parameter for language_id" do
+            language_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "language_id")
+            expect(language_id_parameter[0][:value]).to eq(Language.english.id.to_s) 
+          end
+          it "creates sync log action parameter for license_id" do
+            license_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "license_id")
+            expect(license_id_parameter[0][:value]).to eq(License.public_domain.id.to_s) 
+          end
+        end
+        
+        describe "creating collection item synchronization" do
+          let(:type) {SyncObjectType.collection_item}
+          let(:action) {SyncObjectAction.add}
+          let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
+          it "creates sync peer log" do
+            expect(peer_log).not_to be_nil
+          end
+          it "creates sync peer log with correct sync_object_action" do
+            expect(peer_log.sync_object_action_id).to eq(action.id)
+          end
+          it "creates sync peer log with correct sync_object_type" do
+            expect(peer_log.sync_object_type_id).to eq(type.id)
+          end
+          it "creates sync peer log with correct user_site_id" do
+            expect(peer_log.user_site_id).to eq(current_user.site_id)
+          end
+          it "creates sync peer log with correct user_site_object_id" do
+            expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+          end
+          it "creates sync peer log with correct sync_object_id" do
+            expect(peer_log.sync_object_id).to eq(current_user.watch_collection.id)
+          end
+          it "creates sync peer log with correct sync_object_site_id" do
+            expect(peer_log.sync_object_site_id).to eq(current_user.watch_collection.site_id)
+          end
+          it "creates sync log action parameter for item_id" do
+            collection_origin_ids_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "item_id")
+            expect(collection_origin_ids_parameter[0][:value]).to eq("#{data_object.origin_id}") 
+          end
+          it "creates sync log action parameter for item_site_id" do
+            collection_site_ids_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "item_site_id")
+            expect(collection_site_ids_parameter[0][:value]).to eq("#{data_object.site_id}") 
+          end  
+          it "creates sync log action parameter for collected_item_type" do
+            collected_item_type_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collected_item_type")
+            expect(collected_item_type_parameter[0][:value]).to eq("DataObject") 
+          end   
+          it "creates sync log action parameter for collected_item_name" do
+            collected_item_name_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collected_item_name")
+            expect(collected_item_name_parameter[0][:value]).to eq("#{data_object.object_title}") 
+          end  
+        end
       end
       
-      it 'should save rate data object paramters in synchronization tables' do
-        get :rate,  { :id => @data_object.id, 
-                      :minimal => false, :return_to => "http://localhost:3001/data_objects/#{@data_object.id}", 
-                      :stars => 2}
-               
-        # created data object
-        data_obj = DataObject.find(2)
-        data_obj.data_rating.should == 2
+      describe "update data object synchronization" do
+        let(:data_object) {taxon_concept.add_user_submitted_text(:user => current_user)}
+        let(:new_data_object) {DataObject.last}
+        let(:ref) {Ref.last}
         
-        user_data_obj_rate = UsersDataObjectsRating.first
-        user_data_obj_rate.user_id.should == @user.id
-        user_data_obj_rate.data_object_guid.should == @data_object.guid
-        user_data_obj_rate.rating.should == 2   
+        before(:all) do
+          data_object.update_attributes(origin_id: data_object.id, site_id: PEER_SITE_ID)
+          data_object.refs << Ref.new(full_reference: "Test reference", user_submitted: true, published: 1,
+                                      visibility: Visibility.visible)
+        end
+        before do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          session[:user_id] = current_user.id
+          put :update, { :id => data_object.id,
+                         :data_object => { :source_url => "", :rights_statement => "",
+                                           :toc_items => { :id => data_object.toc_items.first.id.to_s }, :bibliographic_citation => "",
+                                           :data_type_id => DataType.text.id.to_s, :object_title =>"test_master",
+                                           :description => "desc", :license_id => License.public_domain.id.to_s,
+                                           :language_id => Language.english.id.to_s }, 
+                                           :references => "Test reference"},
+                       { :user => current_user, :user_id => current_user.id }
+        end
         
-        # check sync_object_type 
-        data_object_type = SyncObjectType.first
-        data_object_type.should_not be_nil
-        data_object_type.object_type.should == "data_object"
+        describe "creating reference synchronization" do
+          let(:type) {SyncObjectType.ref}
+          let(:action) {SyncObjectAction.create}
+          let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
+         
+          it "creates sync peer log" do
+            expect(peer_log).not_to be_nil
+          end
+          it "creates sync peer log with correct sync_object_action" do
+            expect(peer_log.sync_object_action_id).to eq(action.id)
+          end
+          it "creates sync peer log with correct sync_object_type" do
+            expect(peer_log.sync_object_type_id).to eq(type.id)
+          end
+          it "creates sync peer log with correct user_site_id" do
+            expect(peer_log.user_site_id).to eq(current_user.site_id)
+          end
+          it "creates sync peer log with correct user_site_object_id" do
+            expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+          end
+          it "creates sync log action parameter for full_reference" do
+            full_reference_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "reference")
+            expect(full_reference_parameter[0][:value]).to eq("Test reference") 
+          end
+        end
         
-        # check sync_object_actions 
-        rate_action = SyncObjectAction.first
-        rate_action.should_not be_nil
-        rate_action.object_action.should == "rate"
-        
-        # check peer logs        
-        rate_data_object_peer_log = SyncPeerLog.first
-        rate_data_object_peer_log.should_not be_nil
-        rate_data_object_peer_log.sync_object_action_id.should == rate_action.id
-        rate_data_object_peer_log.sync_object_type_id.should == data_object_type.id
-        rate_data_object_peer_log.user_site_id.should == PEER_SITE_ID
-        rate_data_object_peer_log.user_site_object_id.should == @user.id
-        rate_data_object_peer_log.sync_object_id.should == @data_object.origin_id
-        rate_data_object_peer_log.sync_object_site_id.should == @data_object.site_id
+        describe "update data object" do
+          let(:type) {SyncObjectType.data_object}
+          let(:action) {SyncObjectAction.update}
+          let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
+          let(:toc) {TocItem.find(TocItem.overview.id)}
+          before(:all) do
+            toc.update_attributes(origin_id: toc.id, site_id: PEER_SITE_ID)
+          end
+            
+          it "creates sync peer log" do
+            expect(peer_log).not_to be_nil
+          end
+          it "creates sync peer log with correct sync_object_action" do
+            expect(peer_log.sync_object_action_id).to eq(action.id)
+          end
+          it "creates sync peer log with correct sync_object_type" do
+            expect(peer_log.sync_object_type_id).to eq(type.id)
+          end
+          it "creates sync peer log with correct user_site_id" do
+            expect(peer_log.user_site_id).to eq(current_user.site_id)
+          end
+          it "creates sync peer log with correct user_site_object_id" do
+            expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+          end
+          it "creates sync peer log with correct sync_object_id" do
+            expect(peer_log.sync_object_id).to eq(data_object.origin_id)
+          end
+          it "creates sync peer log with correct sync_object_site_id" do
+            expect(peer_log.sync_object_site_id).to eq(data_object.site_id)
+          end
+          it "creates sync log action parameter for new_revision_origin_id" do
+            new_data_object_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "new_revision_origin_id")
+            expect(new_data_object_origin_id_parameter[0][:value]).to eq("#{new_data_object.origin_id}") 
+          end
+          it "creates sync log action parameter for new_revision_site_id" do
+            new_data_object_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "new_revision_site_id")
+            expect(new_data_object_site_id_parameter[0][:value]).to eq("#{new_data_object.site_id}") 
+          end
+          it "creates sync log action parameter for references" do
+            toc_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "toc_id")
+            expect(toc_id_parameter[0][:value]).to eq("#{toc.origin_id}") 
+          end
+          it "creates sync log action parameter for toc_site_id" do
+            toc_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "toc_site_id")
+            expect(toc_site_id_parameter[0][:value]).to eq("#{toc.site_id}") 
+          end
+          it "creates sync log action parameter for object_title" do
+            object_title_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "object_title")
+            expect(object_title_parameter[0][:value]).to eq("test_master") 
+          end
+          it "creates sync log action parameter for description" do
+            description_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "description")
+            expect(description_parameter[0][:value]).to eq("desc") 
+          end
+          it "creates sync log action parameter for data_type_id" do
+            data_type_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "data_type_id")
+            expect(data_type_id_parameter[0][:value]).to eq(DataType.text.id.to_s) 
+          end
+          it "creates sync log action parameter for language_id" do
+            language_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "language_id")
+            expect(language_id_parameter[0][:value]).to eq(Language.english.id.to_s) 
+          end
+          it "creates sync log action parameter for license_id" do
+            license_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "license_id")
+            expect(license_id_parameter[0][:value]).to eq(License.public_domain.id.to_s) 
+          end
+        end
+      end
+    end
 
-         # check log action parameters
-        toc = TocItem.find(TocItem.overview.id)
-        
-        stars_parameter = SyncLogActionParameter.where(:peer_log_id => rate_data_object_peer_log.id, :parameter => "stars")
-        stars_parameter[0][:value].should == "2"
-      end
-    end
-    
-    describe "sync curate associations" do
-      before(:each) do
-        truncate_all_tables
-        load_foundation_cache
-        
-        @current_user = User.gen
-        session[:user_id] = @current_user.id
-        @current_user[:origin_id] = @current_user.id
-        @current_user[:site_id] = PEER_SITE_ID
-        @current_user.save
-        
-        @data_object = DataObject.gen
-        @data_object.update_column(:origin_id, @data_object.id)
-        @data_object.update_column(:site_id, 1)
-        
-        he = HierarchyEntry.first
-        he.update_column(:origin_id, he.id)
-        he.update_column(:site_id, 1)
-        
-       
-        
-        
-      end
+#    describe "sync rate data object" do
+#      before(:each) do
+#        truncate_all_tables
+#        load_foundation_cache
+#        Activity.create_enumerated
+#        Visibility.create_enumerated
+#        TocItem.gen_if_not_exists(:label => 'overview')
+#        
+#        @user = User.gen
+#        session[:user_id] = @user.id
+#        @user[:origin_id] = @user.id
+#        @user[:site_id] = PEER_SITE_ID
+#        @user.save
+#        @taxon_concept = TaxonConcept.gen
+#        @data_object = @taxon_concept.add_user_submitted_text(:user => @user)
+#        @data_object[:origin_id] = @data_object.id
+#        @data_object[:site_id] = PEER_SITE_ID
+#        @data_object.save
+#        @data_object.refs << Ref.new(full_reference: "Test reference", user_submitted: true, published: 1,
+#                                       visibility: Visibility.visible)
+#      end
       
-      it "should curate association" do        
-        
-        put :curate_associations, {"id" => @data_object.id,
-                                   "return_to"=>"http://localhost:#{PEER_SITE_ID}/data_objects/#{@data_object.id}",
-                                  "vetted_id_1" => Vetted.first.id, 
-                                  "curation_comment_1" => "comment1"}
-        
-        # created comments for data object
-        first_comment = Comment.first
-        first_comment.body.should == "comment1"
-        first_comment.user_id.should == @current_user.id
-        first_comment.parent_type.should == "DataObject"
-        first_comment.parent_id.should == @data_object.id   
-           
-        # check sync_object_type
-        data_object_type = SyncObjectType.find(2)
-        data_object_type.should_not be_nil
-        data_object_type.object_type.should == "data_object"
-        
-        comment_type = SyncObjectType.first
-        comment_type.should_not be_nil
-        comment_type.object_type.should == "Comment"
-  
-        # check sync_object_actions
-        curate_action = SyncObjectAction.find(2)
-        curate_action.should_not be_nil
-        curate_action.object_action.should == "curate_association"
-        
-        create_action = SyncObjectAction.first
-        create_action.should_not be_nil
-        create_action.object_action.should == "create"
-  
-  
-        # check peer log for creating new comment
-        first_comment_peer_log = SyncPeerLog.first
-        first_comment_peer_log.should_not be_nil
-        first_comment_peer_log.sync_object_action_id.should == create_action.id
-        first_comment_peer_log.sync_object_type_id.should == comment_type.id
-        first_comment_peer_log.user_site_id .should == PEER_SITE_ID
-        first_comment_peer_log.user_site_object_id.should == @current_user.id
-        first_comment_peer_log.sync_object_id.should == first_comment.origin_id
-        first_comment_peer_log.sync_object_site_id.should == PEER_SITE_ID
-  
-        # check log action parameters
-        # parameters for new collection
-        first_comment_body_parameter = SyncLogActionParameter.where(:peer_log_id => first_comment_peer_log.id, :parameter => "body")
-        first_comment_body_parameter[0][:value].should == "comment1"
-        
-        first_comment_parent_type_parameter = SyncLogActionParameter.where(:peer_log_id => first_comment_peer_log.id, :parameter => "parent_type")
-        first_comment_parent_type_parameter[0][:value].should == "DataObject"
-        
-        first_comment_parent_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => first_comment_peer_log.id, :parameter => "comment_parent_site_id")
-        first_comment_parent_site_id_parameter[0][:value].should == "#{@data_object.site_id}" 
-        
-        first_comment_parent_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => first_comment_peer_log.id, :parameter => "comment_parent_origin_id")
-        first_comment_parent_origin_id_parameter[0][:value].should == "#{@data_object.origin_id}"
-        
-        
-        # check peer log for creating new curation object
-        peer_log = SyncPeerLog.find(2)
-        peer_log.should_not be_nil
-        peer_log.sync_object_action_id.should == curate_action.id
-        peer_log.sync_object_type_id.should == data_object_type.id
-        peer_log.user_site_id.should == @current_user.site_id
-        peer_log.user_site_object_id.should == @current_user.origin_id
-        peer_log.sync_object_id.should == @data_object.origin_id
-        peer_log.sync_object_site_id.should == @data_object.site_id
-        
-        # check log action parameters
-        hierarchy_entry_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "hierarchy_entry_origin_id")
-        hierarchy_entry_origin_id_parameter[0][:value].should == "#{he.origin_id}"
-        hierarchy_entry_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "hierarchy_entry_site_id")
-        hierarchy_entry_site_id_parameter[0][:value].should == "#{he.site_id}"
-      end
-    end
-    
+#      it 'should save rate data object paramters in synchronization tables' do
+#        get :rate,  { :id => @data_object.id, 
+#                      :minimal => false, :return_to => "http://localhost:3001/data_objects/#{@data_object.id}", 
+#                      :stars => 2}
+#               
+#        # created data object
+#        data_obj = DataObject.find(2)
+#        data_obj.data_rating.should == 2
+#        
+#        user_data_obj_rate = UsersDataObjectsRating.first
+#        user_data_obj_rate.user_id.should == @user.id
+#        user_data_obj_rate.data_object_guid.should == @data_object.guid
+#        user_data_obj_rate.rating.should == 2   
+#        
+#        # check sync_object_type 
+#        data_object_type = SyncObjectType.first
+#        data_object_type.should_not be_nil
+#        data_object_type.object_type.should == "data_object"
+#        
+#        # check sync_object_actions 
+#        rate_action = SyncObjectAction.first
+#        rate_action.should_not be_nil
+#        rate_action.object_action.should == "rate"
+#        
+#        # check peer logs        
+#        rate_data_object_peer_log = SyncPeerLog.first
+#        rate_data_object_peer_log.should_not be_nil
+#        rate_data_object_peer_log.sync_object_action_id.should == rate_action.id
+#        rate_data_object_peer_log.sync_object_type_id.should == data_object_type.id
+#        rate_data_object_peer_log.user_site_id.should == PEER_SITE_ID
+#        rate_data_object_peer_log.user_site_object_id.should == @user.id
+#        rate_data_object_peer_log.sync_object_id.should == @data_object.origin_id
+#        rate_data_object_peer_log.sync_object_site_id.should == @data_object.site_id
+#
+#         # check log action parameters
+#        toc = TocItem.find(TocItem.overview.id)
+#        
+#        stars_parameter = SyncLogActionParameter.where(:peer_log_id => rate_data_object_peer_log.id, :parameter => "stars")
+#        stars_parameter[0][:value].should == "2"
+#      end
+#    end
   end
 end

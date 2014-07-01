@@ -820,7 +820,6 @@ class SyncPeerLog < ActiveRecord::Base
     hide_reasons = parameters[:hide_reasons] ? get_objects_ids(parameters[:hide_reasons], "UntrustReason"): nil
     comment = (parameters[:curation_comment_origin_id] && parameters[:curation_comment_site_id]) ? Comment.find_by_origin_id_and_site_id(parameters[:curation_comment_origin_id], parameters[:curation_comment_site_id]) : nil
     # check if this is old or new update
-    
     he = HierarchyEntry.find_by_origin_id_and_site_id(parameters[:hierarchy_entry_origin_id], parameters[:hierarchy_entry_site_id])
     assoc = CuratedDataObjectsHierarchyEntry.find_by_data_object_guid_and_hierarchy_entry_id(data_object.guid, he.id)
     assoc = DataObjectsHierarchyEntry.find_by_data_object_id_and_hierarchy_entry_id(data_object.id, he.id) if assoc.nil?
@@ -840,6 +839,7 @@ class SyncPeerLog < ActiveRecord::Base
         curation.curate
         DataObjectCaching.clear(data_object)
         options = {user: user, without_flash: true}
+        debugger
         auto_collect_helper(data_object, options) 
         data_object.reindex
       end
