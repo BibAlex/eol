@@ -53,6 +53,7 @@ describe Admins::TranslatedContentPagesController do
                                                    left_content: "left_content", meta_keywords: "meta_keywords",
                                                    meta_description: "meta_description", active_translation: "1"},
                          content_page_id: content_page.id}
+                         
         end
 
         it "creates sync peer log" do

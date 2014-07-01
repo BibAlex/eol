@@ -588,8 +588,8 @@ private
   
   # synchronization
   def sync_create_data_object(toc_id, link_type_id)
-    toc_sync_ids = get_object_sync_ids(toc_id, "TocItem")
-    link_type_sync_ids = get_object_sync_ids(link_type_id, "LinkType")
+    toc_sync_ids = get_object_sync_ids(TocItem.find(toc_id))
+    link_type_sync_ids = get_object_sync_ids(LinkType.find(link_type_id))
     sync_params = params[:data_object]
     sync_params = sync_params.reverse_merge(taxon_concept_origin_id: @taxon_concept.origin_id,
                                             taxon_concept_site_id: @taxon_concept.site_id,
@@ -624,8 +624,8 @@ private
   end
   
   def sync_update_data_object(new_data_object, toc_id, link_type_id)
-    toc_sync_ids = get_object_sync_ids(toc_id, "TocItem")
-    link_type_sync_ids = get_object_sync_ids(link_type_id, "LinkType")
+    toc_sync_ids = get_object_sync_ids(TocItem.find(toc_id))
+    link_type_sync_ids = get_object_sync_ids(LinkType.find(link_type_id))
     sync_params = params[:data_object]
     sync_params = sync_params.reverse_merge(new_revision_origin_id: new_data_object.origin_id,
                                             new_revision_site_id: new_data_object.site_id,
@@ -639,10 +639,9 @@ private
     SyncPeerLog.log_action(options)
   end
   
-  def get_object_sync_ids(object_id, object_type)
+  def get_object_sync_ids(object)
     sync_ids = {}
-    if object_id
-      object = object_type.constantize.find(object_id)
+    if object
       sync_ids[:origin_id] = object.origin_id
       sync_ids[:site_id] = object.site_id
     end

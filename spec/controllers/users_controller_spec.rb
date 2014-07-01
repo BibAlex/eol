@@ -110,79 +110,142 @@ describe UsersController do
     it 'should create a new EOL user and send verification email if registration is valid'
     it 'should not create a new user if registration is invalid'
     
-    context 'syncronization' do
-      it "should save registeration action data for later syncronization" do
+    describe 'create user syncronization' do
+      
+      before(:all) do
+        SyncObjectType.create_enumerated
+        SyncObjectAction.create_enumerated
+        SpecialCollection.create_enumerated
+      end
+      
+      describe "POST #create" do
         
-        truncate_table(ActiveRecord::Base.connection, "users", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        prev_count = EOL::GlobalStatistics.solr_count('User')
+        let(:peer_log) {SyncPeerLog.first}
+        subject(:user) {User.first}
         
-        @user = {:username => 'user_1', 
-                         :given_name => 'user', 
-                         :email => "user1@yahoo.com", 
-                         :email_confirmation => "user1@yahoo.com", 
-                         :entered_password => "HELLO", 
-                         :entered_password_confirmation => "HELLO", 
-                         :agreed_with_terms => 1}
-                        
-        post :create, {:user => @user}
-        
-        # check user
-        created_user = User.first
-        created_user.should_not be_nil
-        created_user.username.should == "#{@user[:username]}"
-        Rails.cache.read(EOL::GlobalStatistics.key_for_type("users")).should == prev_count + 1
-         
-        # check sync_object_type
-        type = SyncObjectType.first
-        type.should_not be_nil
-        type.object_type.should == "User"
-        
-        # check sync_object_actions
-        action = SyncObjectAction.first
-        action.should_not be_nil
-        action.object_action.should == "create"
-        
-        # check peer logs
-        peer_log = SyncPeerLog.first
-        peer_log.should_not be_nil
-        peer_log.sync_object_action_id.should == action.id
-        peer_log.sync_object_type_id.should == type.id
-        peer_log.user_site_id .should == PEER_SITE_ID
-        peer_log.user_site_object_id.should == created_user.id
-        peer_log.sync_object_id.should == created_user.id
-        peer_log.sync_object_site_id.should == PEER_SITE_ID
-        
-        # check log action parameters
-        username_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "username")
-        username_parameter[0][:value].should == "#{@user[:username]}"
-        
-        language_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "language")
-        lang = Language.find_by_source_form("English")
-        language_parameter[0][:value].should == "#{lang.id}"
-        
-        validation_code_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "validation_code")
-        validation_code_parameter[0][:value].should == "#{created_user.validation_code}"
-        
-        SpecialCollection.create(:name => "watch")
-        col = Collection.find_by_sql("SELECT * FROM collections c JOIN collections_users cu ON (c.id = cu.collection_id) 
-                WHERE cu.user_id = #{created_user.id} 
-                AND c.special_collection_id = #{SpecialCollection.watch.id}") 
-        if col && col.count > 0
-          collection_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collection_origin_id")
-          collection_origin_id_parameter[0][:value].should == "#{col[0].origin_id}"
-        end 
-        
+        context "successful creation" do
           
-        agreed_with_terms_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "agreed_with_terms")
-        if created_user.agreed_with_terms
-          agreed_with_terms_parameter[0][:value].should == "1"
-        else
-          agreed_with_terms_parameter[0][:value].should == "0"
+          before do
+            truncate_table(ActiveRecord::Base.connection, "users", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+            post :create, {user: {username: 'user_1', given_name: 'user', 
+                           email: "user1@yahoo.com",  email_confirmation: "user1@yahoo.com", 
+                           entered_password: "HELLO", entered_password_confirmation: "HELLO", 
+                           agreed_with_terms: 1}}
+          end
+          
+          it "creates sync peer log" do
+            expect(peer_log).not_to be_nil
+          end
+          
+          it "has correct action" do
+            expect(peer_log.sync_object_action_id).to eq(SyncObjectAction.create.id)
+          end
+          
+          it "has correct type" do
+            expect(peer_log.sync_object_type_id).to eq(SyncObjectType.user.id)
+          end
+          
+          it "sync peer log 'user_site_id' equal 'PEER_SITE_ID'" do
+            expect(peer_log.user_site_id).to eq(PEER_SITE_ID)
+          end
+          
+          it "has correct 'user_id'" do
+            expect(peer_log.user_site_object_id).to eq(user.id)
+          end
+          
+          it "has correct 'object_site_id'" do
+            expect(peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
+          end
+          
+          it "has correct 'object_id'" do
+            expect(peer_log.sync_object_id).to eq(user.id)
+          end
+          
+          it "creates sync log action parameter for 'user_name'" do
+            username_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "username")
+            expect(username_parameter[0][:value]).to eq("user_1")
+          end
+          
+          it "creates sync log action parameter for 'language'" do
+            language_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "language")
+            lang = Language.find_by_source_form("English")
+            expect(language_parameter[0][:value]).to eq("#{lang.id}")
+          end
+          
+          it "creates sync log action parameter for 'validation_code'" do
+            validation_code_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "validation_code")
+            expect(validation_code_parameter[0][:value]).to eq("#{user.validation_code}")
+          end
+          
+          it "creates sync log action parameter for 'collection_origin_id'" do
+            collection_origin_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "collection_origin_id")
+            expect(collection_origin_id_parameter[0][:value]).to eq("#{user.watch_collection.id}")
+          end
+          
+          it "creates sync log action parameter for 'agreed_with_terms'" do
+            agreed_with_terms_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "agreed_with_terms")
+            expect(!(agreed_with_terms_parameter[0][:value].to_i.zero?)).to eq(user.agreed_with_terms)
+          end
+        
         end
+        
+        context "failed creation: missing 'username'" do
+          before do
+            truncate_table(ActiveRecord::Base.connection, "users", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+            post :create, {user: {given_name: 'user', 
+                           email: "user1@yahoo.com",  email_confirmation: "user1@yahoo.com", 
+                           entered_password: "HELLO", entered_password_confirmation: "HELLO", 
+                           agreed_with_terms: 1}}
+          end
+          
+          it "doesn't create sync peer log" do
+            expect(peer_log).to be_nil
+          end
+          it "doesn't create sync log action parameters" do
+            expect(SyncLogActionParameter.all).to be_blank
+          end
+        end
+        
+        context "failed creation: missing 'email'" do
+          before do
+            truncate_table(ActiveRecord::Base.connection, "users", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+            post :create, {user: {username: 'user_1', given_name: 'user', 
+                           entered_password: "HELLO", entered_password_confirmation: "HELLO", 
+                           agreed_with_terms: 1}}
+          end
+          
+          it "doesn't create sync peer log" do
+            expect(peer_log).to be_nil
+          end
+          it "doesn't create sync log action parameters" do
+            expect(SyncLogActionParameter.all).to be_blank
+          end
+        end
+        
+        context "failed creation: missing 'password'" do
+          before do
+            truncate_table(ActiveRecord::Base.connection, "users", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+            post :create, {user: {username: 'user_1', given_name: 'user', 
+                           email: "user1@yahoo.com",  email_confirmation: "user1@yahoo.com", 
+                           agreed_with_terms: 1}}
+          end
+          
+          it "doesn't create sync peer log" do
+            expect(peer_log).to be_nil
+          end
+          it "doesn't create sync log action parameters" do
+            expect(SyncLogActionParameter.all).to be_blank
+          end
+        end
+        
       end
     end
   end
@@ -279,69 +342,88 @@ describe UsersController do
       assigns[:user].curator_level_id.should == CuratorLevel.assistant_curator.id
     end
     
-    # sync update action
-    describe 'update user synchronization' do
-      before(:each) do
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        @user[:origin_id] = @user.id
-        @user[:site_id] = PEER_SITE_ID
-        @user.save
-        
+    describe 'update user syncronization' do
+      
+      before(:all) do
+        SyncObjectType.create_enumerated
+        SyncObjectAction.create_enumerated
+        SpecialCollection.create_enumerated
       end
-      it 'should save updating user paramters in synchronization tables' do 
-        session[:user_id] = @user.id      
-        @file = ActionDispatch::Http::UploadedFile.new({
-            :filename => "test.jpg",
-            :type => "image/jpeg",
-            :tempfile => File.new(Rails.root.join("test/fixtures/files/test.jpg")) })
-        @user.logo_cache_url = nil
-        put :update, { :id => @user.id, :user => { :id => @user.id, :username => 'newusername', 
-                       :bio => 'My bio', :logo =>  @file}}
-        # check sync_object_type
-        type = SyncObjectType.first
-        type.should_not be_nil
-        type.object_type.should == "User"
+      
+      describe "PUT #update" do
         
-        # check sync_object_actions
-        action = SyncObjectAction.first
-        action.should_not be_nil
-        action.object_action.should == "update"
+        let(:peer_log) {SyncPeerLog.first}
+        subject(:user) {User.gen}
         
-        # check peer logs
-        peer_log = SyncPeerLog.first
-        peer_log.should_not be_nil
-        peer_log.sync_object_action_id.should == action.id
-        peer_log.sync_object_type_id.should == type.id
-        peer_log.user_site_id.should == PEER_SITE_ID
-        peer_log.user_site_object_id.should == @user.id
-        peer_log.sync_object_id.should == @user.id
-        peer_log.sync_object_site_id.should == PEER_SITE_ID
-        
-        user = User.find_by_id (@user.id)
-        # check log action parameters
-
-        username_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "username")
-        username_parameter[0][:value].should == "newusername"
-        
-        bio_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "bio")
-        bio_parameter[0][:value].should == "My bio"
+        context "successful update" do
           
-        logo_cache_url_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_cache_url")
-        logo_cache_url_parameter[0][:value].should == "#{user.logo_cache_url}"
+          before do
+            truncate_table(ActiveRecord::Base.connection, "users", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+            user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+            session[:user_id] = user.id
+            put :update, {id: user.id, user: {id: user.id, username: 'newusername', 
+                          bio: 'My bio'}}
+          end
           
-        logo_file_name_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_file_name")
-        logo_file_name_parameter[0][:value].should == "#{user.logo_file_name}"
-                    
-        logo_content_type_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_content_type")
-        logo_content_type_parameter[0][:value].should == "#{user.logo_content_type}"
-                    
-        logo_file_size_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_file_size")
-        logo_file_size_parameter[0][:value].should == "#{user.logo_file_size}"
-        base_url_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "base_url")
-        base_url_parameter[0][:value].should == "#{$CONTENT_SERVER}content/"
+          it "creates sync peer log" do
+            expect(peer_log).not_to be_nil
+          end
+          
+          it "has correct action" do
+            expect(peer_log.sync_object_action_id).to eq(SyncObjectAction.update.id)
+          end
+          
+          it "has correct type" do
+            expect(peer_log.sync_object_type_id).to eq(SyncObjectType.user.id)
+          end
+          
+          it "has correct 'user_site_id'" do
+            expect(peer_log.user_site_id).to eq(PEER_SITE_ID)
+          end
+          
+          it "has correct 'user_id'" do
+            expect(peer_log.user_site_object_id).to eq(user.id)
+          end
+          
+          it "has correct 'object_site_id'" do
+            expect(peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
+          end
+          
+          it "has correct 'object_id'" do
+            expect(peer_log.sync_object_id).to eq(user.id)
+          end
+          
+          it "creates sync log action parameter for 'user_name'" do
+            username_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "username")
+            expect(username_parameter[0][:value]).to eq("newusername")
+          end
+          
+          it "creates sync log action parameter for 'bio'" do
+            bio_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "bio")
+            expect(bio_parameter[0][:value]).to eq("My bio")
+          end
+        end
+        
+        context "failed update: user should login" do
+          before do
+            truncate_table(ActiveRecord::Base.connection, "users", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+            user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+            hashed_password = User.find(user).hashed_password
+            expect{put :update, {id: user.id, user: {id: user.id, entered_password: 'newpassword', 
+                                              entered_password_confirmation: 'newpassword' } }}.to raise_error(EOL::Exceptions::SecurityViolation)
+          end
+          
+          it "doesn't create sync peer log" do
+             expect(peer_log).to be_nil
+          end
+          it "doesn't create sync log action parameters" do
+            expect(SyncLogActionParameter.all).to be_blank
+          end
+        end
       end
     end
   end

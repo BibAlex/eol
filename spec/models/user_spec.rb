@@ -198,55 +198,57 @@ describe User do
     inactive_user.active?.should be_true
   end
   
-  it "should sync activation action" do
-    truncate_table(ActiveRecord::Base.connection, "users", {})
-    truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-    truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-    truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-    truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-    truncate_table(ActiveRecord::Base.connection, "special_collections", {})
-    
-    SpecialCollection.create(:name => "Focus")
-    SpecialCollection.create(:name => "Watch")
-    
-    #create sync_object_action
-    SyncObjectAction.create(:object_action => 'activate')
-    
-    #create sync_object_type
-    SyncObjectType.create(:object_type => 'User')
-    
-    inactive_user = User.create(:username => "user", :entered_password => "12345", :entered_password_confirmation => "12345", :email => "user@yahoo.com", :email_confirmation => "user@yahoo.com")
-    inactive_user.site_id = PEER_SITE_ID
-    inactive_user.origin_id = inactive_user.id
-    inactive_user.save
-    inactive_user.activate
-    
-    # check sync_object_type
-    type = SyncObjectType.first
-    type.should_not be_nil
-    type.object_type.should == "User"
-    
-    # check sync_object_actions
-    action = SyncObjectAction.first
-    action.should_not be_nil
-    action.object_action.should == "activate"
-    
-    #check peer log
-    peer_log = SyncPeerLog.first
-    peer_log.user_site_id.should == PEER_SITE_ID
-    peer_log.user_site_object_id.should == inactive_user.id
-    peer_log.sync_object_action_id.should == SyncObjectAction.get_activate_action.id
-    peer_log.sync_object_type_id.should == SyncObjectType.get_user_type.id
-    peer_log.sync_object_site_id.should == PEER_SITE_ID
-    peer_log.sync_object_id.should == inactive_user.id
-    
-    #check log action parameters
-    site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "site_id")
-    site_id_parameter[0][:value].should == "#{inactive_user[:site_id]}"
-    
-    origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "origin_id")
-    origin_id_parameter[0][:value].should == "#{inactive_user[:origin_id]}"
-  end
+  describe 'activate user syncronization' do
+      
+      describe "#activate" do
+        
+        let(:peer_log) {SyncPeerLog.first}
+        subject(:user) {User.gen}
+        
+        context "successful update" do
+          
+          before(:all) do
+            truncate_table(ActiveRecord::Base.connection, "users", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+            truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+            SyncObjectType.create_enumerated
+            SyncObjectAction.create_enumerated
+            SpecialCollection.create_enumerated
+            user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+            user.activate
+          end
+          
+          it "creates sync peer log" do
+            expect(peer_log).not_to be_nil
+          end
+          
+          it "has correct action" do
+            expect(peer_log.sync_object_action_id).to eq(SyncObjectAction.activate.id)
+          end
+          
+          it "has correct type" do
+            expect(peer_log.sync_object_type_id).to eq(SyncObjectType.user.id)
+          end
+          
+          it "has correct 'user_site_id'" do
+            expect(peer_log.user_site_id).to eq(PEER_SITE_ID)
+          end
+          
+          it "has coeect 'user_id'" do
+            expect(peer_log.user_site_object_id).to eq(user.id)
+          end
+          
+          it "has correct 'object_site_id'" do
+            expect(peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
+          end
+          
+          it "has correct 'object_id'" do
+            expect(peer_log.sync_object_id).to eq(user.id)
+          end
+        end
+      end
+    end
+  
   
   it 'should create a "watch" collection' do
     inactive_user = User.gen(active: false)
