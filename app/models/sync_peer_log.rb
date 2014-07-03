@@ -864,7 +864,6 @@ class SyncPeerLog < ActiveRecord::Base
         curation.curate
         DataObjectCaching.clear(data_object)
         options = {user: user, without_flash: true}
-        debugger
         auto_collect_helper(data_object, options) 
         data_object.reindex
       end

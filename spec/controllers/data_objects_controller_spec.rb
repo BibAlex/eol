@@ -132,31 +132,33 @@ describe DataObjectsController do
  
   describe "Synchronization" do
     describe "association Synchronization" do
-      let(:current_user) {User.first} 
       let(:data_object) {DataObject.first} 
       let(:he) {HierarchyEntry.first} 
-      
+       
       
       before(:all) do
         truncate_all_tables
         load_foundation_cache
         SyncObjectType.create_enumerated
         SyncObjectAction.create_enumerated
-        current_user.update_attributes(origin_id: current_user.id, site_id: PEER_SITE_ID)
         data_object.update_attributes(origin_id: data_object.id, site_id: PEER_SITE_ID)
         he.update_attributes(origin_id: he.id, site_id: PEER_SITE_ID)
-        UsersDataObject.create(user_id: current_user.id, data_object_id: data_object.id,
-                               taxon_concept_id: TaxonConcept.first.id)
       end
       
       describe "PUT #save_association" do
         let(:type) {SyncObjectType.data_object}
         let(:action) {SyncObjectAction.save_association}
         let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
-          
+        let(:current_user) {User.gen}
+        
         before do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users_data_objects", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          current_user.update_attributes(origin_id: current_user.id, site_id: PEER_SITE_ID)
+          UsersDataObject.create(user_id: current_user.id, data_object_id: data_object.id,
+                               taxon_concept_id: TaxonConcept.first.id)
           session[:user_id] = current_user.id
           put :save_association, {:id => data_object.id, :hierarchy_entry_id => he.id}
         end
@@ -195,15 +197,18 @@ describe DataObjectsController do
         let(:type) {SyncObjectType.data_object}
         let(:action) {SyncObjectAction.remove_association}
         let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
+        let(:curator) {User.gen(:curator_level => CuratorLevel.full_curator, :credentials => 'Blah', :curator_scope => 'More blah')}
         
         before do
           truncate_table(ActiveRecord::Base.connection, "curated_data_objects_hierarchy_entries", {})
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-          current_user.update_attributes(curator_approved: 1, curator_level_id: 1)
-          session[:user_id] = current_user.id
+          truncate_table(ActiveRecord::Base.connection, "users_data_objects", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          curator.update_attributes(origin_id: curator.id, site_id: PEER_SITE_ID)
+          session[:user_id] = curator.id
           cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
-                 :visibility_id => Visibility.visible.id, :user_id => current_user.id, 
+                 :visibility_id => Visibility.visible.id, :user_id => curator.id, 
                  :data_object_guid => data_object.guid, :hierarchy_entry_id => HierarchyEntry.first.id,
                  :data_object_id => data_object.id)
           get :remove_association, {:id => data_object.id, :hierarchy_entry_id => he.id}
@@ -219,10 +224,10 @@ describe DataObjectsController do
           expect(peer_log.sync_object_type_id).to eq(type.id)
         end
         it "creates sync peer log with correct user_site_id" do
-          expect(peer_log.user_site_id).to eq(current_user.site_id)
+          expect(peer_log.user_site_id).to eq(curator.site_id)
         end
         it "creates sync peer log with correct user_site_object_id" do
-          expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+          expect(peer_log.user_site_object_id).to eq(curator.origin_id)
         end
         it "creates sync peer log with correct sync_object_id" do
           expect(peer_log.sync_object_id).to eq(data_object.origin_id)
@@ -233,16 +238,18 @@ describe DataObjectsController do
       end
       
       describe "PUT #curate_associations" do
+        let(:curator) {User.gen(:curator_level => CuratorLevel.full_curator, :credentials => 'Blah', :curator_scope => 'More blah')}
         before do
           truncate_table(ActiveRecord::Base.connection, "curated_data_objects_hierarchy_entries", {})
           truncate_table(ActiveRecord::Base.connection, "users_data_objects", {})
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
           truncate_table(ActiveRecord::Base.connection, "comments", {})
-          session[:user_id] = current_user.id
-          current_user.update_attributes(curator_approved: 1, curator_level_id: 1)
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          curator.update_attributes(origin_id: curator.id, site_id: PEER_SITE_ID)
+          session[:user_id] = curator.id
           cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
-                          :visibility_id => Visibility.visible.id, :user_id => current_user.id, 
+                          :visibility_id => Visibility.visible.id, :user_id => curator.id, 
                           :data_object_guid => data_object.guid, :hierarchy_entry_id => HierarchyEntry.first.id,
                           :hierarchy_entry => HierarchyEntry.first, :data_object_id => data_object.id)
         end
@@ -272,10 +279,10 @@ describe DataObjectsController do
               expect(peer_log.sync_object_type_id).to eq(type.id)
             end
             it "creates sync peer log with correct user_site_id" do
-              expect(peer_log.user_site_id).to eq(current_user.site_id)
+              expect(peer_log.user_site_id).to eq(curator.site_id)
             end
             it "creates sync peer log with correct user_site_object_id" do
-              expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+              expect(peer_log.user_site_object_id).to eq(curator.origin_id)
             end
             it "creates sync peer log with correct sync_object_id" do
               expect(peer_log.sync_object_id).to eq(comment.origin_id)
@@ -316,10 +323,10 @@ describe DataObjectsController do
               expect(peer_log.sync_object_type_id).to eq(type.id)
             end
             it "creates sync peer log with correct user_site_id" do
-              expect(peer_log.user_site_id).to eq(current_user.site_id)
+              expect(peer_log.user_site_id).to eq(curator.site_id)
             end
             it "creates sync peer log with correct user_site_object_id" do
-              expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+              expect(peer_log.user_site_object_id).to eq(curator.origin_id)
             end
             it "creates sync peer log with correct sync_object_id" do
               expect(peer_log.sync_object_id).to eq(data_object.origin_id)
@@ -390,8 +397,10 @@ describe DataObjectsController do
           truncate_table(ActiveRecord::Base.connection, "data_objects", {})
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          toc_item = TocItem.overview
+          toc_item.update_attributes(origin_id: toc_item.id, site_id: PEER_SITE_ID)
           post :create, { :taxon_id => taxon_concept.id, :references => "Test reference.",
-                          :data_object => { :toc_items => { :id => TocItem.overview.id.to_s }, :data_type_id => DataType.text.id.to_s,
+                          :data_object => { :toc_items => { :id => toc_item.id.to_s }, :data_type_id => DataType.text.id.to_s,
                                             :object_title => "Test Article", :language_id => Language.english.id.to_s,
                                             :description => "Test text", :license_id => License.public_domain.id.to_s} },
                           { :user => current_user, :user_id => current_user.id }
@@ -460,11 +469,11 @@ describe DataObjectsController do
           end
           it "creates sync log action parameter for toc_id" do
             toc_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "toc_id")
-            expect(toc_id_parameter[0][:value]).to eq(toc.origin_id) 
+            expect(toc_id_parameter[0][:value]).to eq("#{toc.origin_id}") 
           end
           it "creates sync log action parameter for toc_site_id" do
             toc_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "toc_site_id")
-            expect(toc_site_id_parameter[0][:value]).to eq(toc.site_id) 
+            expect(toc_site_id_parameter[0][:value]).to eq("#{toc.site_id}") 
           end
           it "creates sync log action parameter for object_title" do
             object_title_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "object_title")
