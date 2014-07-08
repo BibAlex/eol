@@ -263,7 +263,6 @@ class DataObjectsController < ApplicationController
   end
 
   def remove_association
-    debugger
     he = HierarchyEntry.find(params[:hierarchy_entry_id])
     cdohe = @data_object.remove_curated_association(current_user, he)
     @data_object.update_solr_index
@@ -336,7 +335,7 @@ class DataObjectsController < ApplicationController
       @data_object.reindex
       sync_curate_association(associations, comments)
     end
-#    redirect_back_or_default data_object_path(@data_object.latest_published_version_in_same_language)
+    redirect_back_or_default data_object_path(@data_object.latest_published_version_in_same_language)
   end
   
 
@@ -588,8 +587,10 @@ private
   
   # synchronization
   def sync_create_data_object(toc_id, link_type_id)
-    toc_sync_ids = get_object_sync_ids(TocItem.find(toc_id))
-    link_type_sync_ids = get_object_sync_ids(LinkType.find(link_type_id))
+    toc_sync_ids = {}
+    link_type_sync_ids = {}
+    toc_sync_ids = get_object_sync_ids(TocItem.find(toc_id)) if toc_id
+    link_type_sync_ids = get_object_sync_ids(LinkType.find(link_type_id)) if link_type_id
     sync_params = params[:data_object]
     sync_params = sync_params.reverse_merge(taxon_concept_origin_id: @taxon_concept.origin_id,
                                             taxon_concept_site_id: @taxon_concept.site_id,
@@ -624,8 +625,10 @@ private
   end
   
   def sync_update_data_object(new_data_object, toc_id, link_type_id)
-    toc_sync_ids = get_object_sync_ids(TocItem.find(toc_id))
-    link_type_sync_ids = get_object_sync_ids(LinkType.find(link_type_id))
+    toc_sync_ids = {}
+    link_type_sync_ids = {}
+    toc_sync_ids = get_object_sync_ids(TocItem.find(toc_id)) if toc_id
+    link_type_sync_ids = get_object_sync_ids(LinkType.find(link_type_id)) if link_type_id
     sync_params = params[:data_object]
     sync_params = sync_params.reverse_merge(new_revision_origin_id: new_data_object.origin_id,
                                             new_revision_site_id: new_data_object.site_id,
