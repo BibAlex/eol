@@ -441,6 +441,7 @@ FactoryGirl.define do
     body         { Faker::Lorem.paragraph }
     association  :user
     from_curator false
+    site_id      PEER_SITE_ID
   end
 
   factory :community do
@@ -614,6 +615,7 @@ FactoryGirl.define do
     updated_at             { 3.days.ago }
     data_rating            2.5
     published              true
+    site_id                PEER_SITE_ID
   end
 
   factory :data_object_tag do
@@ -845,9 +847,10 @@ FactoryGirl.define do
     association    :taxon_concept
     vetted         { Vetted.trusted || Vetted.gen_if_not_exists(:label => 'Trusted') }
     published      1
-    visibility  { Visibility.visible || Visibility.gen_if_not_exists(:label => 'Visible') }
+    visibility     { Visibility.visible || Visibility.gen_if_not_exists(:label => 'Visible') }
     created_at     Time.now
     updated_at     Time.now
+    site_id        PEER_SITE_ID
   end
 
   factory :image_crop do

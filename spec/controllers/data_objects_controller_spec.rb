@@ -508,7 +508,7 @@ describe DataObjectsController do
             expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
           end
           it "creates sync peer log with correct sync_object_id" do
-            expect(peer_log.sync_object_id).to eq(current_user.watch_collection.id)
+            expect(peer_log.sync_object_id).to eq(current_user.watch_collection.origin_id)
           end
           it "creates sync peer log with correct sync_object_site_id" do
             expect(peer_log.sync_object_site_id).to eq(current_user.watch_collection.site_id)
