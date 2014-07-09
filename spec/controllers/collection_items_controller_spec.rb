@@ -17,13 +17,13 @@ describe CollectionItemsController do
   # This method is used when JS is disabled, otherwise items are updated through Collection controller
   describe "POST update" do
     it "should NOT update the item if user not logged in" do
-      post :update, :id => @collection_item.id, :collection_item => {:annotation => "New Annotation"}
+      post :update, id: @collection_item.id, collection_item: { annotation: "New Annotation" }
       expect(response).to redirect_to(login_url)
     end
     it "should update the item if user has permission to update" do
       getter = lambda{
         session[:user_id] = @collection_editor.id
-        post :update, { :id => @collection_item.id, :collection_item => {:annotation => "New Annotation"} }
+        post :update, { id: @collection_item.id, collection_item: { annotation: "New Annotation" } }
         @collection_item.reload
         unless @collection_item.annotation == "New Annotation" # What happened?  Seems rare... must be another error.
           puts "Huh?"
@@ -52,17 +52,17 @@ describe CollectionItemsController do
         @current_user[:origin_id] = @current_user.id
         @current_user[:site_id] = PEER_SITE_ID
         @current_user.save
-        @first_collection = Collection.create(:name => "first_collection")
+        @first_collection = Collection.create(name: "first_collection")
         @first_collection.users = [@current_user]
         @first_collection[:origin_id] = @first_collection.id
         @first_collection[:site_id] = PEER_SITE_ID
         @first_collection.save
-        @second_collection = Collection.create(:name => "second_collection")
+        @second_collection = Collection.create(name: "second_collection")
         @second_collection.users = [@current_user]
         @second_collection[:origin_id] = @second_collection.id
         @second_collection[:site_id] = PEER_SITE_ID
         @second_collection.save
-        @item = Collection.create(:name => "collected_item")
+        @item = Collection.create(name: "collected_item")
         @item[:origin_id] = @item.id
         @item[:site_id] = PEER_SITE_ID
         @item.save
@@ -70,9 +70,9 @@ describe CollectionItemsController do
       
       it 'should save adding item to collection paramters in synchronization tables' do
       
-        post :create, :collection_item => {:collected_item_id => "#{@item.id}",
-                      :collected_item_type => "Collection"}, 
-                      :collection_id => ["#{@first_collection.id}","#{@second_collection.id}"]
+        post :create, collection_item: { collected_item_id: "#{@item.id}",
+                      collected_item_type: "Collection" }, 
+                      collection_id: ["#{@first_collection.id}","#{@second_collection.id}"]
          
           
         # created collections items   
@@ -105,15 +105,15 @@ describe CollectionItemsController do
         peer_log.sync_object_site_id.should == @first_collection.site_id
 
         # check log action parameters
-        collection_origin_ids_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "item_id")
+        collection_origin_ids_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "item_id")
         collection_origin_ids_parameter[0][:value].should == "#{@item.origin_id}"
-        collection_site_ids_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "item_site_id")
+        collection_site_ids_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "item_site_id")
         collection_site_ids_parameter[0][:value].should == "#{@item.site_id}"
     
     
-        collected_item_type_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collected_item_type")
+        collected_item_type_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "collected_item_type")
         collected_item_type_parameter[0][:value].should == "Collection"
-        collected_item_name_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collected_item_name")
+        collected_item_name_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "collected_item_name")
         collected_item_name_parameter[0][:value].should == "#{@item.summary_name}"
         
          # check peer logs
@@ -127,15 +127,15 @@ describe CollectionItemsController do
         second_peer_log.sync_object_site_id.should == @second_collection.site_id
 
         # check log action parameters
-        collection_origin_ids_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "item_id")
+        collection_origin_ids_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "item_id")
         collection_origin_ids_parameter[0][:value].should == "#{@item.origin_id}"
-        collection_site_ids_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "item_site_id")
+        collection_site_ids_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "item_site_id")
         collection_site_ids_parameter[0][:value].should == "#{@item.site_id}"
     
     
-        collected_item_type_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "collected_item_type")
+        collected_item_type_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "collected_item_type")
         collected_item_type_parameter[0][:value].should == "Collection"
-        collected_item_name_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "collected_item_name")
+        collected_item_name_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "collected_item_name")
         collected_item_name_parameter[0][:value].should == "#{@item.summary_name}"
     
     
@@ -160,23 +160,23 @@ describe CollectionItemsController do
         @current_user[:origin_id] = @current_user.id
         @current_user[:site_id] = PEER_SITE_ID
         @current_user.save
-        @collection = Collection.create(:name => "collection")
+        @collection = Collection.create(name: "collection")
         @collection[:origin_id] = @collection.id
         @collection[:site_id] = PEER_SITE_ID
         @collection.save
         @collection.users = [@current_user]
-        @item = Collection.create(:name => "collected_item")
+        @item = Collection.create(name: "collected_item")
         @item[:origin_id] = @item.id
         @item[:site_id] = PEER_SITE_ID
         @item.save
-        @collection_item = CollectionItem.create(:name => "#{@item.name}", :collected_item_type => "Collection",
-                              :collected_item_id => @item.id, :collection_id => @collection.id)
+        @collection_item = CollectionItem.create(name: "#{@item.name}", collected_item_type: "Collection",
+                              collected_item_id: @item.id, collection_id: @collection.id)
       end
       
       it 'should save updating collection item paramters in synchronization tables' do
       
-        post :update,  :id => "#{@collection_item.id}" , :collection_item => {:annotation => "annotation"}, 
-           :references => "reference"
+        post :update,  id: "#{@collection_item.id}" , collection_item: { annotation: "annotation" }, 
+           references: "reference"
         
         
         # updated collection item
@@ -211,7 +211,7 @@ describe CollectionItemsController do
         ref_peer_log.user_site_object_id.should == @current_user.id
 
         # check log action parameters
-        full_reference_parameter = SyncLogActionParameter.where(:peer_log_id => ref_peer_log.id, :parameter => "reference")
+        full_reference_parameter = SyncLogActionParameter.where(peer_log_id: ref_peer_log.id, parameter: "reference")
         full_reference_parameter[0][:value].should == "reference"
         
        
@@ -237,17 +237,16 @@ describe CollectionItemsController do
         peer_log.sync_object_site_id.should == @collection.site_id
 
         # check log action parameters
-        collection_origin_ids_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "item_id")
+        collection_origin_ids_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "item_id")
         collection_origin_ids_parameter[0][:value].should == "#{@item.origin_id}"
-        collection_site_ids_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "item_site_id")
+        collection_site_ids_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "item_site_id")
         collection_site_ids_parameter[0][:value].should == "#{@item.site_id}"
-        collected_item_type_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collected_item_type")
+        collected_item_type_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "collected_item_type")
         collected_item_type_parameter[0][:value].should == "Collection"
-        colllection_item_annotation_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "annotation")
+        colllection_item_annotation_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "annotation")
         colllection_item_annotation_parameter[0][:value].should == "annotation"
-        collection_item_refs_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "references")
+        collection_item_refs_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "references")
         collection_item_refs_parameter[0][:value].should == "reference"
-       
       end
     end    
   end

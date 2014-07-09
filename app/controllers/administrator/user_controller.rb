@@ -215,7 +215,7 @@ class Administrator::UserController  < AdminController
         redirect_to '/administrator/curator', status: :moved_permanently
       }
       format.js {
-        render partial: 'administrator/curator/user_row', locals: {column_class: params[:class] || 'odd', user: @user}
+        render partial: 'administrator/curator/user_row', locals: { column_class: params[:class] || 'odd', user: @user }
       }
     end
   end
@@ -227,7 +227,7 @@ class Administrator::UserController  < AdminController
         redirect_to '/administrator/curator', status: :moved_permanently
       }
       format.js {
-        render partial: 'administrator/curator/user_row', locals: {column_class: params[:class] || 'even', user: @user}
+        render partial: 'administrator/curator/user_row', locals: { column_class: params[:class] || 'even', user: @user }
       }
     end
   end
@@ -254,7 +254,7 @@ class Administrator::UserController  < AdminController
     @user_id = params[:user_id] || ''
     @user_list = User.users_with_activity_log
     @activity_id = params[:activity_id] || 'All'
-    @translated_activity_list = TranslatedActivity.all.sort_by {|a| a.name }
+    @translated_activity_list = TranslatedActivity.all.sort_by { |a| a.name }
     page = params[:page] || 1
     @activities = UserActivityLog.user_activity(@user_id, @activity_id, page)
   end
@@ -272,7 +272,7 @@ class Administrator::UserController  < AdminController
     @activities = UserActivityLog.most_common_combinations(activity_id)
     if(activity_id)
       @activity = Activity.find(activity_id)
-      @activities.delete_if {|value1,value2| !value1.include? @activity.name}
+      @activities.delete_if { |value1,value2| !value1.include? @activity.name }
     end
     b = DateTime.now
     time_elapsed = (Time.now - start)/60
@@ -305,8 +305,8 @@ private
     sync_params = SyncPeerLog.delete_keys([:email, :email_confirmation, :entered_password,
             :entered_password_confirmation, :requested_curator_level_id, :requested_curator_at], sync_params)
 
-    options = {user: admin, object: @user, action_id: SyncObjectAction.update_by_admin.id,
-            type_id: SyncObjectType.user.id, params: sync_params}
+    options = { user: admin, object: @user, action_id: SyncObjectAction.update_by_admin.id,
+            type_id: SyncObjectType.user.id, params: sync_params }
     SyncPeerLog.log_action(options)
   end
 end

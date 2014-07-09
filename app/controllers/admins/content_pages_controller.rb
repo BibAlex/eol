@@ -118,7 +118,7 @@ private
     set_content_pages_options
     set_translated_content_page_new_options
     @page_subheader = I18n.t(:admin_content_page_new_header)
-    @parent_content_pages = ContentPage.unscoped.all( select: 'id, page_name' ).delete_if{|p| p == @content_page}.compact
+    @parent_content_pages = ContentPage.unscoped.all( select: 'id, page_name' ).delete_if{ |p| p == @content_page }.compact
   end
 
   def set_translated_content_page_new_options
@@ -128,7 +128,7 @@ private
   def set_content_page_edit_options
     set_content_pages_options
     @page_subheader = I18n.t(:admin_content_page_edit_header, page_name: @content_page.page_name)
-    @parent_content_pages = ContentPage.unscoped.all( select: 'id, page_name' ).delete_if{|p| p == @content_page}.compact
+    @parent_content_pages = ContentPage.unscoped.all( select: 'id, page_name' ).delete_if{ |p| p == @content_page }.compact
     @navigation_tree = ContentPage.get_navigation_tree(@content_page.parent_content_page_id)
   end
   
@@ -143,30 +143,30 @@ private
                                             parent_content_page_site_id: parent_content_page.site_id)
     sync_params = SyncPeerLog.delete_keys([:language_id, :parent_content_page_id],sync_params)
     #sync_params.delete("language_id")
-    options = {user: current_user, object: @content_page, action_id: SyncObjectAction.create.id,
-               type_id: SyncObjectType.content_page.id, params: sync_params}
+    options = { user: current_user, object: @content_page, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.content_page.id, params: sync_params }
     SyncPeerLog.log_action(options)
   end
   
   def sync_update_content_page
-    options = {user: current_user, object: @content_page, action_id: SyncObjectAction.update.id,
-               type_id: SyncObjectType.content_page.id, params: params[:content_page]}
+    options = { user: current_user, object: @content_page, action_id: SyncObjectAction.update.id,
+               type_id: SyncObjectType.content_page.id, params: params[:content_page] }
     SyncPeerLog.log_action(options)
   end
   
   def sync_destroy_content_page(content_page)
-    options = {user: current_user, object: content_page, action_id: SyncObjectAction.delete.id,
-               type_id: SyncObjectType.content_page.id, params: {}}
+    options = { user: current_user, object: content_page, action_id: SyncObjectAction.delete.id,
+               type_id: SyncObjectType.content_page.id, params: {} }
     SyncPeerLog.log_action(options)
   end
   
   def sync_swap_order(content_page, swap_page, content_page_order, swap_page_order)
-    sync_params = {swap_page_origin_id: swap_page.origin_id,
+    sync_params = { swap_page_origin_id: swap_page.origin_id,
                    swap_page_site_id: swap_page.site_id,
                    swap_page_sort_order: swap_page_order,
-                   content_page_sort_order: content_page_order}
-    options = {user: current_user, object: content_page, action_id: SyncObjectAction.swap.id,
-               type_id: SyncObjectType.content_page.id, params: sync_params}
+                   content_page_sort_order: content_page_order }
+    options = { user: current_user, object: content_page, action_id: SyncObjectAction.swap.id,
+               type_id: SyncObjectType.content_page.id, params: sync_params }
     SyncPeerLog.log_action(options)
   end
 end

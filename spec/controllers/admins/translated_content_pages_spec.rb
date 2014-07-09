@@ -48,11 +48,11 @@ describe Admins::TranslatedContentPagesController do
       context "successful creation" do
         before do
           session[:user_id] = @admin.id
-          post :create, {translated_content_page: {language_id: "3", title: "translated content page", 
+          post :create, {t ranslated_content_page: { language_id: "3", title: "translated content page", 
                                                    main_content: "<p>main_content</p>\r\n", 
                                                    left_content: "left_content", meta_keywords: "meta_keywords",
-                                                   meta_description: "meta_description", active_translation: "1"},
-                         content_page_id: content_page.id}
+                                                   meta_description: "meta_description", active_translation: "1" },
+                         content_page_id: content_page.id }
                          
         end
 
@@ -127,10 +127,10 @@ describe Admins::TranslatedContentPagesController do
       end
       context "when user have no privileges to create content page" do
         before do
-          post :create, {content_page_id: content_page.id, translated_content_page: {language_id: "3", title: "translated content page", 
+          post :create, { content_page_id: content_page.id, translated_content_page: { language_id: "3", title: "translated content page", 
                                                    main_content: "<p>main_content</p>\r\n", 
                                                    left_content: "left_content", meta_keywords: "meta_keywords",
-                                                   meta_description: "meta_description", active_translation: "1"}}
+                                                   meta_description: "meta_description", active_translation: "1" } }
         end
         it "doesn't create sync peer log" do
           expect(peer_log).to be_nil
@@ -148,10 +148,10 @@ describe Admins::TranslatedContentPagesController do
       context "invalid content pages parameters: missing body" do
         before(:each) do
           session[:user_id] = @admin.id
-          post :create, {translated_content_page: {language_id: "3", title: "translated content page", 
+          post :create, { translated_content_page: { language_id: "3", title: "translated content page", 
                                                    left_content: "left_content", meta_keywords: "meta_keywords",
-                                                   meta_description: "meta_description", active_translation: "1"},
-                         content_page_id: content_page.id}
+                                                   meta_description: "meta_description", active_translation: "1" },
+                         content_page_id: content_page.id }
         end
         it "doesn't create sync peer log" do
           expect(peer_log).to be_nil
@@ -169,11 +169,11 @@ describe Admins::TranslatedContentPagesController do
       context "invalid content pages parameters: missing title" do
         before(:each) do
           session[:user_id] = @admin.id
-          post :create, {translated_content_page: {language_id: "3",
+          post :create, { translated_content_page: { language_id: "3",
                                                    main_content: "<p>main_content</p>\r\n", 
                                                    left_content: "left_content", meta_keywords: "meta_keywords",
-                                                   meta_description: "meta_description", active_translation: "1"},
-                         content_page_id: content_page.id}
+                                                   meta_description: "meta_description", active_translation: "1" },
+                         content_page_id: content_page.id }
         end
         it "doesn't create sync peer log" do
           expect(peer_log).to be_nil
@@ -197,11 +197,11 @@ describe Admins::TranslatedContentPagesController do
       context "successful update" do
         before(:each) do
           session[:user_id] = @admin.id
-          put :update, {content_page: {last_update_user_id: @admin.id}, 
-                        translated_content_page: {title: "new title", main_content: "<p>main_content</p>\r\n",
+          put :update, { content_page: { last_update_user_id: @admin.id }, 
+                        translated_content_page: { title: "new title", main_content: "<p>main_content</p>\r\n",
                                                  left_content: "left_content", meta_keywords: "meta_keywords", 
-                                                 meta_description: "meta_description", active_translation: "1"},
-                        content_page_id: content_page.id, id: translated_content_page.id}
+                                                 meta_description: "meta_description", active_translation: "1" },
+                        content_page_id: content_page.id, id: translated_content_page.id }
         end
 
         it "creates sync peer log" do
@@ -275,11 +275,11 @@ describe Admins::TranslatedContentPagesController do
       end
       context "failed update: user havn't privilige to update content page" do
         before(:each) do
-          put :update, {content_page: {last_update_user_id: @admin.id}, 
-                        translated_content_page: {title: "new title", main_content: "<p>main_content</p>\r\n",
+          put :update, { content_page: { last_update_user_id: @admin.id }, 
+                        translated_content_page: { title: "new title", main_content: "<p>main_content</p>\r\n",
                                                  left_content: "left_content", meta_keywords: "meta_keywords", 
-                                                 meta_description: "meta_description", active_translation: "1"},
-                        content_page_id: content_page.id, id: translated_content_page.id}
+                                                 meta_description: "meta_description", active_translation: "1" },
+                        content_page_id: content_page.id, id: translated_content_page.id }
         end
         it "doesn't create sync peer log" do
           expect(peer_log).to be_nil
@@ -297,11 +297,11 @@ describe Admins::TranslatedContentPagesController do
       context "failed update: missing title" do
         before(:each) do
           session[:user_id] = @admin.id
-          put :update, {content_page: {last_update_user_id: @admin.id}, 
-                        translated_content_page: {title: "", main_content: "<p>main_content</p>\r\n",
+          put :update, { content_page: { last_update_user_id: @admin.id }, 
+                        translated_content_page: { title: "", main_content: "<p>main_content</p>\r\n",
                                                  left_content: "left_content", meta_keywords: "meta_keywords", 
-                                                 meta_description: "meta_description", active_translation: "1"},
-                        content_page_id: content_page.id, id: translated_content_page.id}
+                                                 meta_description: "meta_description", active_translation: "1" },
+                        content_page_id: content_page.id, id: translated_content_page.id }
         end
         it "doesn't create sync peer log" do
           expect(peer_log).to be_nil
@@ -319,11 +319,11 @@ describe Admins::TranslatedContentPagesController do
       context "failed update: missing body" do
         before(:each) do
           session[:user_id] = @admin.id
-          put :update, {content_page: {last_update_user_id: @admin.id}, 
-                        translated_content_page: {title: "new title", main_content: "",
+          put :update, { content_page: { last_update_user_id: @admin.id }, 
+                        translated_content_page: { title: "new title", main_content: "",
                                                  left_content: "left_content", meta_keywords: "meta_keywords", 
-                                                 meta_description: "meta_description", active_translation: "1"},
-                        content_page_id: content_page.id, id: translated_content_page.id}
+                                                 meta_description: "meta_description", active_translation: "1" },
+                        content_page_id: content_page.id, id: translated_content_page.id }
         end
         it "doesn't create sync peer log" do
           expect(peer_log).to be_nil
@@ -341,13 +341,13 @@ describe Admins::TranslatedContentPagesController do
     
     describe "DELETE #destroy" do
      
-     let(:peer_log) {SyncPeerLog.first} 
-     subject(:translated_content_page) {TranslatedContentPage.gen(content_page: content_page)} 
+     let(:peer_log) { SyncPeerLog.first } 
+     subject(:translated_content_page) { TranslatedContentPage.gen(content_page: content_page) } 
      
       context "successful deletion" do
         before(:each) do
           session[:user_id] = @admin.id
-          delete :destroy, {content_page_id: content_page.id, id: translated_content_page.id}
+          delete :destroy, { content_page_id: content_page.id, id: translated_content_page.id }
         end
 
         it "creates sync peer log" do

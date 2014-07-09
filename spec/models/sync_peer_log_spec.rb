@@ -11,8 +11,8 @@ describe SyncPeerLog do
       SpecialCollection.create_enumerated
       Visibility.create_enumerated
       Activity.create_enumerated
-      TocItem.gen_if_not_exists(:label => 'overview')
-      SpecialCollection.create(:name => "watch")
+      TocItem.gen_if_not_exists(label: 'overview')
+      SpecialCollection.create(name: "watch")
     end
     
     describe "common names" do
@@ -25,7 +25,7 @@ describe SyncPeerLog do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
           user.update_attributes(active: true, origin_id: user.id, site_id: PEER_SITE_ID)
-          user.update_attributes(curator_level_id: CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id,
+          user.update_attributes(curator_level_id: CuratorLevel.find_or_create_by_id(1, label: "master", rating_weight: 1).id,
                                   curator_approved: 1)
           tsr = TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id)
   
@@ -35,7 +35,7 @@ describe SyncPeerLog do
           tar = TranslatedAgentRole.gen()
           tar.update_attributes(label: "Contributor", agent_role_id: ar.id, language_id: Language.first.id)
   
-          Visibility.create(:id => 1)
+          Visibility.create(id: 1)
           TranslatedVisibility.gen()
           TranslatedVisibility.first.update_attributes(label: "Visibile", language_id: Language.first.id, visibility_id: Visibility.first.id)
           
@@ -43,7 +43,7 @@ describe SyncPeerLog do
   
           taxon_concept = TaxonConcept.first
           taxon_concept.update_column(:origin_id, taxon_concept.id)
-          TaxonConceptPreferredEntry.create(:taxon_concept_id => taxon_concept.id, :hierarchy_entry_id => he.id)
+          TaxonConceptPreferredEntry.create(taxon_concept_id: taxon_concept.id, hierarchy_entry_id: he.id)
         
           #create sync_peer_log
           @sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id,
@@ -88,11 +88,11 @@ describe SyncPeerLog do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
           user.update_attributes(active: true, origin_id: user.id, site_id: PEER_SITE_ID)
-          user.update_attributes(curator_level_id: CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id,
+          user.update_attributes(curator_level_id: CuratorLevel.find_or_create_by_id(1, label: "master", rating_weight: 1).id,
                                  curator_approved: 1)
           name.update_attributes(origin_id: name.id, site_id: PEER_SITE_ID)
   
-          SynonymRelation.create(:id => 1)
+          SynonymRelation.create(id: 1)
   
           tsr = TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id)
   
@@ -102,7 +102,7 @@ describe SyncPeerLog do
           tar = TranslatedAgentRole.gen()
           tar.update_attributes(label: "Contributor", agent_role_id: ar.id, language_id: Language.first.id)
   
-          Visibility.create(:id => 1)
+          Visibility.create(id: 1)
           TranslatedVisibility.gen()
           TranslatedVisibility.first.update_attributes(label: "Visibile", language_id: Language.first.id,
                                                        visibility_id: Visibility.first.id)
@@ -112,7 +112,7 @@ describe SyncPeerLog do
           taxon_concept = TaxonConcept.gen()
           taxon_concept.update_column(:origin_id, taxon_concept.id)
           
-          TaxonConceptPreferredEntry.create(:taxon_concept_id => taxon_concept.id, :hierarchy_entry_id => HierarchyEntry.gen().id)
+          TaxonConceptPreferredEntry.create(taxon_concept_id: taxon_concept.id, hierarchy_entry_id: HierarchyEntry.gen().id)
   
           tcn = TaxonConceptName.gen()
           tcn.update_attributes(taxon_concept_id: taxon_concept.id, name_id: name.id, preferred: 0)
@@ -175,7 +175,7 @@ describe SyncPeerLog do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
           user.update_attributes(active: true, origin_id: user.id, site_id: PEER_SITE_ID)
-          user.update_attributes(curator_level_id: CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id,
+          user.update_attributes(curator_level_id: CuratorLevel.find_or_create_by_id(1, label: "master", rating_weight: 1).id,
                                  curator_approved: 1)
           name.update_column(:origin_id, name.id)
           tc.update_column(:origin_id, tc.id)
@@ -231,7 +231,7 @@ describe SyncPeerLog do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
           user.update_attributes(active: true, origin_id: user.id, site_id: PEER_SITE_ID)
-          user.update_attributes(curator_level_id: CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id,
+          user.update_attributes(curator_level_id: CuratorLevel.find_or_create_by_id(1, label: "master", rating_weight: 1).id,
                                  curator_approved: 1)
           name.update_column(:origin_id, name.id)
           tc.update_column(:origin_id, tc.id)
@@ -302,10 +302,10 @@ describe SyncPeerLog do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
           truncate_table(ActiveRecord::Base.connection, "curated_data_objects_hierarchy_entries", {})
-          @cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
-                         :visibility_id => Visibility.invisible.id, :user_id => user.id, 
-                         :data_object_guid => data_object.guid, :hierarchy_entry_id => he.id,
-                         :data_object_id => data_object.id) 
+          @cdoh = CuratedDataObjectsHierarchyEntry.create(vetted_id: Vetted.first.id,
+                                                          visibility_id: Visibility.invisible.id, user_id: user.id, 
+                                                          data_object_guid: data_object.guid, hierarchy_entry_id: he.id,
+                                                          data_object_id: data_object.id) 
           sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.curate_associations.id,
                                           sync_object_type_id: SyncObjectType.data_object.id,
                                           user_site_object_id: user.origin_id,
@@ -364,10 +364,10 @@ describe SyncPeerLog do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
           truncate_table(ActiveRecord::Base.connection, "curated_data_objects_hierarchy_entries", {})
-          cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
-                  :visibility_id => Visibility.visible.id, :user_id => user.id, 
-                  :data_object_guid => data_object.guid, :hierarchy_entry_id => he.id,
-                  :data_object_id => data_object.id) 
+          cdoh = CuratedDataObjectsHierarchyEntry.create(vetted_id: Vetted.first.id,
+                  visibility_id: Visibility.visible.id, user_id: user.id, 
+                  data_object_guid: data_object.guid, hierarchy_entry_id: he.id,
+                  data_object_id: data_object.id) 
          
           sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.remove_association.id,
                                           sync_object_type_id: SyncObjectType.data_object.id,
@@ -514,7 +514,6 @@ describe SyncPeerLog do
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
           truncate_table(ActiveRecord::Base.connection, "refs", {})
           truncate_table(ActiveRecord::Base.connection, "data_objects_refs", {})
-#          data_object = taxon_concept.add_user_submitted_text(:user => user)
           data_object.refs << Ref.new(full_reference: "Test reference", user_submitted: true, published: 1,
                                       visibility: Visibility.visible)
           # create sync peer log for creating ref                                         
@@ -552,7 +551,7 @@ describe SyncPeerLog do
           update_data_object_peer_log.process_entry
         end
         after(:all) do
-          DataObject.where(:object_title => "Test update").each {|data| data.destroy}
+          DataObject.where(object_title: "Test update").each {|data| data.destroy}
         end
         let(:ref) {Ref.last}
         let(:data_obj) {DataObject.last}
@@ -574,7 +573,7 @@ describe SyncPeerLog do
           expect(data_obj.toc_items[0].id).to eq(TocItem.overview.id)
         end
         it "creates data_object_taxon_concept" do
-          data_obj_taxon_concept = DataObjectsTaxonConcept.find(:first, :conditions => "data_object_id = #{data_obj.id} and taxon_concept_id = #{taxon_concept.id}")
+          data_obj_taxon_concept = DataObjectsTaxonConcept.find(:first, conditions: "data_object_id = #{data_obj.id} and taxon_concept_id = #{taxon_concept.id}")
           expect(data_obj_taxon_concept).not_to be_nil
         end
       end
@@ -690,7 +689,7 @@ describe SyncPeerLog do
         before(:all) do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-          SpecialCollection.create(:name => "watch")
+          SpecialCollection.create(name: "watch")
           load_scenario_with_caching(:communities)
           
           community.update_attributes(name:"name", description: "desc", origin_id: community.id, site_id: PEER_SITE_ID)
@@ -1000,7 +999,7 @@ describe SyncPeerLog do
     describe ".create_comment" do
       
       let(:user) {User.gen} 
-      let(:comment_parent) {Collection.gen(:name => "collection")}
+      let(:comment_parent) {Collection.gen(name: "collection")}
       subject(:comment) {Comment.first}
       
       context "successful creation" do
@@ -1302,17 +1301,17 @@ describe SyncPeerLog do
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
         truncate_table(ActiveRecord::Base.connection, "users", {})
 
-        CuratorLevel.create(:id => 1, :label => "Master Curator", :rating_weight => 1)
-        CuratorLevel.create(:id => 2, :label => "Full Curator", :rating_weight => 1)
-        CuratorLevel.create(:id => 3, :label => "Assistant Curator", :rating_weight => 1)
+        CuratorLevel.create(id: 1, label: "Master Curator", rating_weight: 1)
+        CuratorLevel.create(id: 2, label: "Full Curator", rating_weight: 1)
+        CuratorLevel.create(id: 3, label: "Assistant Curator", rating_weight: 1)
 
-        user = User.create(:origin_id => 84, :site_id => 2, :username => "name3",
-        :credentials => "Faculty, staff, or graduate student status in a relevant university or college departme",
-        :curator_scope => "Rodents of Borneo")
+        user = User.create(origin_id: 84, site_id: 2, username: "name3",
+        credentials: "Faculty, staff, or graduate student status in a relevant university or college departme",
+        curator_scope: "Rodents of Borneo")
         #create sync_object_action
-        SyncObjectAction.create(:object_action => 'update_by_admin')
+        SyncObjectAction.create(object_action: 'update_by_admin')
         #create sync_object_type
-        SyncObjectType.create(:object_type => 'User')
+        SyncObjectType.create(object_type: 'User')
         #create sync_peer_log
         @peer_log = SyncPeerLog.new
         @peer_log.sync_event_id = 7 #pull event
@@ -1375,14 +1374,14 @@ describe SyncPeerLog do
           truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
           Activity.create_enumerated
 
-          @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
+          @user = User.create(origin_id: 86, site_id: 2, username: "username")
           @last_collection_count = EOL::GlobalStatistics.solr_count('Collection')
 
           #create sync_object_action
-          SyncObjectAction.create(:object_action => 'create')
-          SyncObjectAction.create(:object_action => 'add_item')
+          SyncObjectAction.create(object_action: 'create')
+          SyncObjectAction.create(object_action: 'add_item')
           #create sync_object_type
-          SyncObjectType.create(:object_type => 'Collection')
+          SyncObjectType.create(object_type: 'Collection')
           #create sync_peer_log
           @peer_log = SyncPeerLog.new
           @peer_log.sync_event_id = 5 #pull event
@@ -1481,13 +1480,13 @@ describe SyncPeerLog do
           truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
           Activity.create_enumerated
 
-          @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
-          @collection = Collection.create(:origin_id => 30, :site_id => 2, :name => "name")
+          @user = User.create(origin_id: 86, site_id: 2, username: "username")
+          @collection = Collection.create(origin_id: 30, site_id: 2, name: "name")
 
           #create sync_object_action
-          SyncObjectAction.create(:object_action => 'update')
+          SyncObjectAction.create(object_action: 'update')
           #create sync_object_type
-          SyncObjectType.create(:object_type => 'Collection')
+          SyncObjectType.create(object_type: 'Collection')
           #create sync_peer_log
           @peer_log = SyncPeerLog.new
           @peer_log.sync_event_id = 5 #pull event

@@ -45,10 +45,10 @@ describe CollectionJobsController do
     describe "sync copy collection" do
       it 'should save creating copy from collection paramters in synchronization tables' do
 
-         post :create, {collection_job: {collection_id: @collection.id, 
+         post :create, { collection_job: { collection_id: @collection.id, 
                        command: "copy", all_items: true, overwrite: 0,
-                       collection_ids: ["0", @empty_collection]}, collection_name: "copy_data_col", 
-                       commit: "Copy", scope: "all_items"}
+                       collection_ids: ["0", @empty_collection] }, collection_name: "copy_data_col", 
+                       commit: "Copy", scope: "all_items" }
                         
            # new created collection
           new_collection =  Collection.find(5)

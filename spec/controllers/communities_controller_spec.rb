@@ -21,12 +21,12 @@ describe CommunitiesController do
       truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
     end
     describe "#create_community" do
-      let(:user) {User.first}
-      let(:collection) {Collection.first}
-      let(:action) {SyncObjectAction.create}
-      let(:type) {SyncObjectType.community }
-      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id)}
-      let(:created_community) {Community.last}
+      let(:user) { User.first }
+      let(:collection) { Collection.first }
+      let(:action) { SyncObjectAction.create }
+      let(:type) { SyncObjectType.community }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id) }
+      let(:created_community) { Community.last }
       before(:all) do
         user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
         collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
@@ -35,8 +35,8 @@ describe CommunitiesController do
         allow(controller).to receive(:current_user) { user }
              log_in_for_controller(controller, user)
              
-        post :create, {community: {name: "created_name", description: "created_desc"},
-                       collection_id: collection.id}
+        post :create, { community: { name: "created_name", description: "created_desc" },
+                       collection_id: collection.id }
       end
       it "creates sync peer log" do
         expect(peer_log).not_to be_nil
@@ -80,12 +80,12 @@ describe CommunitiesController do
       end
     end
     describe "#add_collection" do
-      let(:user) {User.first}
-      let(:collection) {Collection.first}
-      let(:action) {SyncObjectAction.add}
-      let(:type) {SyncObjectType.community }
-      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id)}
-      let(:community) {Community.gen}
+      let(:user) { User.first }
+      let(:collection) { Collection.first }
+      let(:action) { SyncObjectAction.add }
+      let(:type) { SyncObjectType.community }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id) }
+      let(:community) { Community.gen }
       before(:all) do
         user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
         collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
@@ -97,7 +97,7 @@ describe CommunitiesController do
       before do
         allow(controller).to receive(:current_user) { user }
         log_in_for_controller(controller, user)
-        post :make_editors, {collection_id: collection.id, community_id: [community.id] }
+        post :make_editors, { collection_id: collection.id, community_id: [community.id] }
       end
       it "creates sync peer log" do
         expect(peer_log).not_to be_nil
@@ -133,12 +133,12 @@ describe CommunitiesController do
       end
     end
     describe "#update_community" do
-      let(:user) {User.first}
-      let(:collection) {Collection.first}
-      let(:action) {SyncObjectAction.update}
-      let(:type) {SyncObjectType.community }
-      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id)}
-      let(:community) {Community.gen}
+      let(:user) { User.first }
+      let(:collection) { Collection.first }
+      let(:action) { SyncObjectAction.update }
+      let(:type) { SyncObjectType.community }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id) }
+      let(:community) { Community.gen }
       before(:all) do
         user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
         collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
@@ -150,11 +150,11 @@ describe CommunitiesController do
       before do
         allow(controller).to receive(:current_user) { user }
         log_in_for_controller(controller, user)
-        put :update, {community_id: community.id, id: community.id,
-                      community: {id: community.id,
+        put :update, { community_id: community.id, id: community.id,
+                       community: { id: community.id,
                                   name: "new_name",
-                                  description: "new_desc"},
-                      collection_id: collection.id}
+                                  description: "new_desc" },
+                       collection_id: collection.id }
       end
       it "creates sync peer log" do
         expect(peer_log).not_to be_nil
@@ -190,12 +190,12 @@ describe CommunitiesController do
       end
     end
     describe "#delete_community" do
-      let(:user) {User.first}
-      let(:collection) {Collection.first}
-      let(:action) {SyncObjectAction.delete}
-      let(:type) {SyncObjectType.community }
-      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id)}
-      let(:community) {Community.gen}
+      let(:user) { User.first }
+      let(:collection) { Collection.first }
+      let(:action) { SyncObjectAction.delete }
+      let(:type) { SyncObjectType.community }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id) }
+      let(:community) { Community.gen }
       before do
         user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
         collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
@@ -205,12 +205,12 @@ describe CommunitiesController do
         community.members[0].update_column(:manager, 1)   
         allow(controller).to receive(:current_user) { user }
         log_in_for_controller(controller, user)
-        get :delete, {community_id: community.id,
-                      id: community.id,
-                      community: {id: community.id,
-                                  name: "name",
-                                  description: "desc"},
-                      collection_id: collection.id}
+        get :delete, { community_id: community.id,
+                       id: community.id,
+                       community: { id: community.id,
+                                   name: "name",
+                                   description: "desc" },
+                       collection_id: collection.id }
       end
       it "creates sync peer log" do
         expect(peer_log).not_to be_nil
@@ -239,12 +239,12 @@ describe CommunitiesController do
     end
     
     describe "#join_community" do
-      let(:user) {User.first}
-      let(:collection) {Collection.first}
-      let(:action) {SyncObjectAction.join}
-      let(:type) {SyncObjectType.community }
-      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id)}
-      let(:community) {Community.gen}
+      let(:user) { User.first }
+      let(:collection) { Collection.first }
+      let(:action) { SyncObjectAction.join }
+      let(:type) { SyncObjectType.community }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id) }
+      let(:community) { Community.gen }
       
       before(:all) do
         CuratorCommunity.build
@@ -256,11 +256,11 @@ describe CommunitiesController do
                                     name: "name", description: "desc", published: 1)
         allow(controller).to receive(:current_user) { user }
         log_in_for_controller(controller, user)
-        get :join, {community_id: community.id, id: community.id,
-                    community: {id: community.id,
-                                name: "new_name",
-                                description: "new_desc"},
-                    collection_id: collection.id}
+        get :join, { community_id: community.id, id: community.id,
+                     community: { id: community.id,
+                                 name: "new_name",
+                                 description: "new_desc" },
+                     collection_id: collection.id }
       end
       it "creates sync peer log" do
         expect(peer_log).not_to be_nil
@@ -289,12 +289,12 @@ describe CommunitiesController do
     end
     
     describe "#leave_community" do
-      let(:user) {User.first}
-      let(:collection) {Collection.first}
-      let(:action) {SyncObjectAction.leave}
-      let(:type) {SyncObjectType.community }
-      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id)}
-      let(:community) {Community.gen}
+      let(:user) { User.first }
+      let(:collection) { Collection.first }
+      let(:action) { SyncObjectAction.leave }
+      let(:type) { SyncObjectType.community }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id) }
+      let(:community) { Community.gen }
       
       before(:all) do
         CuratorCommunity.build
@@ -307,11 +307,11 @@ describe CommunitiesController do
         community.add_member(user)
         allow(controller).to receive(:current_user) { user }
         log_in_for_controller(controller, user)
-        get :leave, {community_id: community.id, id: community.id,
-                     community: {id: community.id,
-                                 name: "new_name",
-                                 description: "new_desc"},
-                     collection_id: collection.id}
+        get :leave, { community_id: community.id, id: community.id,
+                      community: { id: community.id,
+                                  name: "new_name",
+                                  description: "new_desc" },
+                      collection_id: collection.id }
       end
       it "creates sync peer log" do
         expect(peer_log).not_to be_nil

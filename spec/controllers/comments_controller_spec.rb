@@ -11,10 +11,10 @@ describe CommentsController do
       
     describe "POST #create" do
         
-      let(:peer_log) {SyncPeerLog.first}
-      let(:user) {User.gen}
-      let(:comment_parent) {Collection.gen(name: "collection")}
-      subject(:comment) {Comment.first}
+      let(:peer_log) { SyncPeerLog.first }
+      let(:user) { User.gen }
+      let(:comment_parent) { Collection.gen(name: "collection") }
+      subject(:comment) { Comment.first }
       
       context "successful creation" do
         
@@ -27,9 +27,9 @@ describe CommentsController do
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
           comment_parent.update_attributes(origin_id: comment_parent.id, site_id: PEER_SITE_ID)
           session[:user_id] = user.id
-          post :create, comment: {parent_type: "Collection", parent_id: "#{comment_parent.id}", 
-                                  reply_to_type: "", reply_to_id: "", body: "comment_on_collection",
-                                  from_curator: "0", visible_at: Time.now, hidden: "0"}
+          post :create, comment: { parent_type: "Collection", parent_id: "#{comment_parent.id}", 
+                                   reply_to_type: "", reply_to_id: "", body: "comment_on_collection",
+                                   from_curator: "0", visible_at: Time.now, hidden: "0" }
         end
         
         it "creates sync peer log" do
@@ -90,9 +90,9 @@ describe CommentsController do
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
           comment_parent.update_attributes(origin_id: comment_parent.id, site_id: PEER_SITE_ID)
-          post :create, comment: {parent_type: "Collection", parent_id: "#{comment_parent.id}", 
-                                  reply_to_type: "", reply_to_id: "", body: "comment_on_collection",
-                                  from_curator: "0", visible_at: Time.now, hidden: "0"}
+          post :create, comment: { parent_type: "Collection", parent_id: "#{comment_parent.id}", 
+                                   reply_to_type: "", reply_to_id: "", body: "comment_on_collection",
+                                   from_curator: "0", visible_at: Time.now, hidden: "0" }
         end
         
         it "doesn't create sync peer log" do
@@ -115,9 +115,9 @@ describe CommentsController do
           session[:user_id] = user.id
           Comment.gen(body: "comment_on_collection", parent: comment_parent, user: user,
                       parent_type: "Collection")
-          post :create, comment: {parent_type: "Collection", parent_id: "#{comment_parent.id}", 
-                                  reply_to_type: "", reply_to_id: "", body: "comment_on_collection",
-                                  from_curator: "0", visible_at: Time.now, hidden: "0"}
+          post :create, comment: { parent_type: "Collection", parent_id: "#{comment_parent.id}", 
+                                   reply_to_type: "", reply_to_id: "", body: "comment_on_collection",
+                                   from_curator: "0", visible_at: Time.now, hidden: "0" }
         end
         
         it "doesn't create sync peer log" do
@@ -131,11 +131,11 @@ describe CommentsController do
     
     describe "PUT #update" do
         
-      let(:peer_log) {SyncPeerLog.first}
-      let(:user) {User.gen}
-      let(:comment_parent) {Collection.gen(name: "collection")}
-      subject(:comment) {Comment.gen(body: "comment_on_collection", parent: comment_parent, user: user,
-                                     parent_type: "Collection")}
+      let(:peer_log) { SyncPeerLog.first }
+      let(:user) { User.gen }
+      let(:comment_parent) { Collection.gen(name: "collection") }
+      subject(:comment) { Comment.gen(body: "comment_on_collection", parent: comment_parent, user: user,
+                                     parent_type: "Collection") }
       
       context "successful update" do
         
@@ -149,7 +149,7 @@ describe CommentsController do
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
           comment_parent.update_attributes(origin_id: comment_parent.id, site_id: PEER_SITE_ID)
           comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID)
-          put :update, {id: comment.id, comment: {body: "new text"}}
+          put :update, { id: comment.id, comment: { body: "new text" } }
         end
         
         it "creates sync peer log" do
@@ -196,7 +196,7 @@ describe CommentsController do
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
           comment_parent.update_attributes(origin_id: comment_parent.id, site_id: PEER_SITE_ID)
           comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID)
-          put :update, {id: comment.id, comment: {body: "new text"}}
+          put :update, { id: comment.id, comment: { body: "new text" } }
         end
         
         it "doesn't create sync peer log" do
@@ -210,11 +210,11 @@ describe CommentsController do
     
     describe "DELETE #destroy" do
         
-      let(:peer_log) {SyncPeerLog.first}
-      let(:user) {User.gen}
-      let(:comment_parent) {Collection.gen(name: "collection")}
-      subject(:comment) {Comment.gen(body: "comment_on_collection", parent: comment_parent, user: user,
-                                     parent_type: "Collection")}
+      let(:peer_log) { SyncPeerLog.first }
+      let(:user) { User.gen }
+      let(:comment_parent) { Collection.gen(name: "collection") }
+      subject(:comment) { Comment.gen(body: "comment_on_collection", parent: comment_parent, user: user,
+                                     parent_type: "Collection") }
       
       context "successful deletion" do
         
@@ -228,8 +228,8 @@ describe CommentsController do
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
           comment_parent.update_attributes(origin_id: comment_parent.id, site_id: PEER_SITE_ID)
           comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID)
-          delete :destroy, {id: comment.id, 
-                            return_to: "http://localhost:300#{PEER_SITE_ID}/collections/#{comment_parent.id}/newsfeed#Comment-#{comment.id}"}
+          delete :destroy, { id: comment.id, 
+                            return_to: "http://localhost:300#{PEER_SITE_ID}/collections/#{comment_parent.id}/newsfeed#Comment-#{comment.id}" }
         end
         
         it "creates sync peer log" do
@@ -276,8 +276,8 @@ describe CommentsController do
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
           comment_parent.update_attributes(origin_id: comment_parent.id, site_id: PEER_SITE_ID)
           comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID)
-          delete :destroy, {id: comment.id, 
-                            return_to: "http://localhost:300#{PEER_SITE_ID}/collections/#{comment_parent.id}/newsfeed#Comment-#{comment.id}"}
+          delete :destroy, { id: comment.id, 
+                            return_to: "http://localhost:300#{PEER_SITE_ID}/collections/#{comment_parent.id}/newsfeed#Comment-#{comment.id}" }
         end
         
         it "doesn't create sync peer log" do
