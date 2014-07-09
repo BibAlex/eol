@@ -257,24 +257,23 @@ class SyncPeerLog < ActiveRecord::Base
     collection_owner = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     collection = Collection.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if collection
-      if collection.updated_at < parameters[:updated_at]
+      if collection.updated_at.nil? ||  collection.updated_at < parameters[:updated_at]
         parameters[:site_id] = parameters[:sync_object_site_id]
         parameters[:origin_id] = parameters[:sync_object_id] 
         base_url = parameters[:base_url]  
         # remove extra parameters which not needed in creating collection
         parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                                          :action_taken_at, :language , :updated_at, :base_url],parameters)
-        if collection
-          collection.update_attributes(parameters)
-          name_changed = parameters[:name] != collection.name
-          description_changed = parameters[:description] != collection.description
-          # log create collection action
-          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_changed
-          CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_changed
-           
-          parameters[:base_url] = base_url
-          download_object_logo("Collection", collection, parameters)        
-        end
+
+        collection.update_attributes(parameters)
+        name_changed = parameters[:name] != collection.name
+        description_changed = parameters[:description] != collection.description
+        # log create collection action
+        CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_name }) if name_changed
+        CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_changed
+         
+        parameters[:base_url] = base_url
+        download_object_logo("Collection", collection, parameters)        
       end
     end  
   end
@@ -295,7 +294,7 @@ class SyncPeerLog < ActiveRecord::Base
     dummy_type_id = SyncObjectType.dummy_type.id
     # find copied items
     peer_logs = SyncPeerLog.joins(:sync_log_action_parameter).where("sync_object_type_id = ?  and parameter = ? and value = ?", 
-               dummy_type_id, "unique_job_id", unique_job_id)
+               dummy_type_id,  "unique_job_id", unique_job_id)
      collection_items = get_collection_items_ids(peer_logs, origin_collection)
      collections = get_collections_ids(peer_logs) unless parameters[:command] == "remove"
      
@@ -318,15 +317,15 @@ class SyncPeerLog < ActiveRecord::Base
   def self.get_collection_items_ids(peer_logs, origin_col)
     collected_items_ids = []
     peer_logs.each do |peer_log|
-      item_type_action_parameter = SyncLogActionParameter.where("peer_log_id = ? and parameter = ? ", peer_log.id, "collected_item_type").first
-      item_type = item_type_action_parameter.value if item_type_action_parameter
-      item_origin_id_action_parameter = SyncLogActionParameter.where("peer_log_id = ? and parameter = ? ", peer_log.id, "item_id").first
-      item_origin_id = item_origin_id_action_parameter.value if item_origin_id_action_parameter
-      item_site_id_action_parameter = SyncLogActionParameter.where("peer_log_id = ? and parameter = ? ", peer_log.id, "item_site_id").first
-      item_site_id = item_site_id_action_parameter.value if item_site_id_action_parameter
+      item_type_action_parameter = SyncLogActionParameter.where("peer_log_id = ? and parameter = ? ", peer_log.id, "collected_item_type")
+      item_type = item_type_action_parameter.first.value if item_type_action_parameter.first
+      item_origin_id_action_parameter = SyncLogActionParameter.where("peer_log_id = ? and parameter = ? ", peer_log.id, "item_id")
+      item_origin_id = item_origin_id_action_parameter.first.value if item_origin_id_action_parameter.first
+      item_site_id_action_parameter = SyncLogActionParameter.where("peer_log_id = ? and parameter = ? ", peer_log.id, "item_site_id")
+      item_site_id = item_site_id_action_parameter.first.value if item_site_id_action_parameter.first
       item = item_type.constantize.find_site_specific(item_origin_id, item_site_id)
-      collected_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", origin_col.id, item.id).first
-      collected_items_ids << collected_item.id if collected_item
+      collected_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", origin_col.id, item.id)
+      collected_items_ids << collected_item.first.id if collected_item.first
     end
     collected_items_ids = collected_items_ids.uniq
     collected_items_ids.map(&:to_s)

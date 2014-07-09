@@ -21,7 +21,6 @@ class CollectionJobsController < ApplicationController
       @collection_job.has_items?
     
     create_collection_if_asked  
-    
     unless @collection_job.missing_targets?
       if @collection_job.save
         # TODO - we really want to decide if this is a "big" job and delay it, if so.

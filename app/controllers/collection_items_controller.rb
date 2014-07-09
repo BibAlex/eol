@@ -167,9 +167,6 @@ private
       @notices << I18n.t(:item_not_added_to_itself_notice,
                                collection_name: @collection_item.collection.name)
     elsif @collection_item.save
-      @collection_item[:origin_id] =  @collection_item.id
-      @collection_item[:site_id] =  PEER_SITE_ID
-      @collection_item.save
       CollectionActivityLog.create(collection: @collection_item.collection, user: current_user,
                                    activity: Activity.collect, collection_item: @collection_item)
       @collection_item.collection.updated_at = Time.now.to_s

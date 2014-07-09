@@ -11,6 +11,7 @@ describe SyncPeerLog do
       SyncObjectAction.create_enumerated
       SpecialCollection.create_enumerated
       Visibility.create_enumerated
+      Activity.create_enumerated
     end
     
     describe("data_object Synchronization") do
@@ -700,7 +701,7 @@ describe SyncPeerLog do
         end
         
         it "creates new comment" do
-          expect(user).not_to be_nil          
+          expect(comment).not_to be_nil          
         end
         
         it "has the correct 'body'" do
@@ -1324,77 +1325,16 @@ describe SyncPeerLog do
 
     end
 
-    describe "pulling becoming curator action" do
-      before(:all) do
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        truncate_table(ActiveRecord::Base.connection, "users", {})
-
-        CuratorLevel.create(:id => 1, :label => "Master Curator", :rating_weight => 1)
-        CuratorLevel.create(:id => 2, :label => "Full Curator", :rating_weight => 1)
-        CuratorLevel.create(:id => 3, :label => "Assistant Curator", :rating_weight => 1)
-
-        user = User.create(:origin_id => 84, :site_id => 2, :username => "name3",
-        :credentials => "Faculty, staff, or graduate student status in a relevant university or college departme",
-        :curator_scope => "Rodents of Borneo")
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'update_by_admin')
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'User')
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 7 #pull event
-        @peer_log.user_site_id = 2
-        @peer_log.user_site_object_id = 83
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update_by_admin').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('User').id
-        @peer_log.sync_object_id = user.origin_id
-        @peer_log.sync_object_site_id = 2
-        @peer_log.save
-        #create sync_action_parameters
-
-        parameters = ["username", "given_name", "family_name" , "remote_ip", "origin_id", "site_id", "curator_approved", "curator_level_id", "credentials", "curator_scope"]
-        values = ["myusername", "user" ,"family","127.0.0.2", "84", "2", "1", "2", "Faculty, staff, or graduate student status in a relevant university or college departme", "Rodents of Borneo"]
-
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.param_object_type_id = nil
-          lap.param_object_id = nil
-          lap.param_object_site_id = nil
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
-        end
-
-        #call process entery
-        @peer_log.process_entry
-      end
-
-      it "should update user" do
-        user = User.first
-        #user must not have a password or an email
-        user.email.should be_nil
-        user.hashed_password.should be_nil
-
-        #user.curator_verdict_by_id.should == "83"
-        user.curator_approved.should == true
-        user.curator_level_id.should == 2
-
-      end
-
-    end
-
-    # test collections actions synchronization
-    describe "process pulling for collections actions " do
-      describe "pulling create collection" do
-        before(:each) do
-        # prepare database for testing
-          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+ 
+    
+    describe "collections synchronization" do
+    describe ".create_collection" do
+      
+      let(:user) {User.gen} 
+      let(:collection_item) {CollectionItem.first}
+      subject(:collection) {Collection.last}
+      context "successful creation" do
+        before(:all) do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
           truncate_table(ActiveRecord::Base.connection, "users", {})
@@ -1403,677 +1343,580 @@ describe SyncPeerLog do
           truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
           truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
           truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
-          Activity.create_enumerated
-
-          @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
-          @last_collection_count = EOL::GlobalStatistics.solr_count('Collection')
-
-          #create sync_object_action
-          SyncObjectAction.create(:object_action => 'create')
-          SyncObjectAction.create(:object_action => 'add_item')
-          #create sync_object_type
-          SyncObjectType.create(:object_type => 'Collection')
-          #create sync_peer_log
-          @peer_log = SyncPeerLog.new
-          @peer_log.sync_event_id = 5 #pull event
-          @peer_log.user_site_id = 2
-          @peer_log.user_site_object_id = @user.origin_id
-          @peer_log.action_taken_at = Time.now
-          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
-          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
-          @peer_log.sync_object_id = 30
-          @peer_log.sync_object_site_id = 2
-          @peer_log.save
-
-          #create sync_action_parameters
+          
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          
+          create_collection_sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id, 
+                                                            sync_object_type_id: SyncObjectType.collection.id,
+                                                            user_site_object_id: user.origin_id, 
+                                                            sync_object_id: 30, user_site_id: user.site_id,
+                                                            sync_object_site_id: PEER_SITE_ID)
           parameters = ["name"]
           values = ["newcollection"]
 
-          for i in 0..parameters.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @peer_log.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = parameters[i]
-            lap.value = values[i]
-            lap.save
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: create_collection_sync_peer_log, parameter: param,
+                                             value: values[i])
           end
-
-          #call process entery
-          @peer_log.process_entry
-
-          #create sync_peer_log for adding item
-          @peer_log_for_add_item = SyncPeerLog.new
-          @peer_log_for_add_item.sync_event_id = 5 #pull event
-          @peer_log_for_add_item.user_site_id = 2
-          @peer_log_for_add_item.user_site_object_id = @user.origin_id
-          @peer_log_for_add_item.action_taken_at = Time.now
-          @peer_log_for_add_item.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
-          @peer_log_for_add_item.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
-          @peer_log_for_add_item.sync_object_id = 30
-          @peer_log_for_add_item.sync_object_site_id = 2
-          @peer_log_for_add_item.save
-
-          #create sync_action_parameters
+          
+          add_collection_item_sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.add.id, 
+                                                              sync_object_type_id: SyncObjectType.collection_item.id,
+                                                              user_site_object_id: user.origin_id, 
+                                                              sync_object_id: 30, user_site_id: user.site_id,
+                                                              sync_object_site_id: PEER_SITE_ID)
           parameters_for_add_item = [ "item_id", "item_site_id", "collected_item_type", "collected_item_name", "base_item"]
-          values_for_add_item = [ "86", "2", "User", "#{@user.username}", true]
+          values_for_add_item = [ "#{user.id}", "#{user.site_id}", "User", "#{user.username}", true]
 
-          for i in 0..parameters_for_add_item.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @peer_log_for_add_item.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = parameters_for_add_item[i]
-            lap.value = values_for_add_item[i]
-            lap.save
+          parameters_for_add_item.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: add_collection_item_sync_peer_log, parameter: param,
+                                             value: values_for_add_item[i])
           end
-
-          #call process entery
-          @peer_log_for_add_item.process_entry
-
+          create_collection_sync_peer_log.process_entry
+          add_collection_item_sync_peer_log.process_entry
         end
-
-        it "should create collection" do
-        # test creating collection
-          collection = Collection.first
-          collection.name.should == "newcollection"
-
-          # test creating user collection record
-          user_collection = collection.users.first
-          user_collection.id.should == @user.id
-
-          #test creating collection item
-          collection_item = CollectionItem.first
-          collection_item.name.should == "#{@user.username}"
-          collection_item.collected_item_type.should == "User"
-          collection_item.collected_item_id.should == "#{@user.id}".to_i
-          collection_item.collection_id.should == "#{collection.id}".to_i
-
-          Rails.cache.read(EOL::GlobalStatistics.key_for_type("collections")).should == @last_collection_count + 1
-
+        
+        it "creates new collection" do
+          expect(collection).not_to be_nil          
         end
-      end
-
-      describe "pulling update collection" do
-
-        before(:each) do
-          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-          truncate_table(ActiveRecord::Base.connection, "users", {})
-          truncate_table(ActiveRecord::Base.connection, "collections", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
-          Activity.create_enumerated
-
-          @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
-          @collection = Collection.create(:origin_id => 30, :site_id => 2, :name => "name")
-
-          #create sync_object_action
-          SyncObjectAction.create(:object_action => 'update')
-          #create sync_object_type
-          SyncObjectType.create(:object_type => 'Collection')
-          #create sync_peer_log
-          @peer_log = SyncPeerLog.new
-          @peer_log.sync_event_id = 5 #pull event
-          @peer_log.user_site_id = 2
-          @peer_log.user_site_object_id = @user.origin_id
-          @peer_log.action_taken_at = Time.now
-          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
-          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
-          @peer_log.sync_object_id = @collection.origin_id
-          @peer_log.sync_object_site_id = 2
-          @peer_log.save
-          #create sync_action_parameters
-
-          parameters = ["name", "updated_at"]
-          values = ["newname", Time.now+2]
-
-          for i in 0..parameters.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @peer_log.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = parameters[i]
-            lap.value = values[i]
-            lap.save
-          end
-          #call process entery
-          @peer_log.process_entry
+        
+        it "has the correct 'name'" do
+          expect(collection.name).to eq("newcollection")
         end
-
-        it "should update collection" do
-        # test updating collection
-          collection = Collection.first
-          collection.name.should == "newname"
-
+      
+        it "has the correct 'user_id'" do
+          expect(collection.users.first.id).to eq(user.id)
         end
-      end
-      describe "pulling delete collection" do
-        before :all do
-          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-          truncate_table(ActiveRecord::Base.connection, "users", {})
-          truncate_table(ActiveRecord::Base.connection, "collections", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
-          Activity.create_enumerated
-
-          @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
-          @collection = Collection.create(:origin_id => 30, :site_id => 2, :name => "name")
-          @collection.update_column(:published, true)
-
-          #create sync_object_action
-          SyncObjectAction.create(:object_action => 'delete')
-          #create sync_object_type
-          SyncObjectType.create(:object_type => 'Collection')
-          #create sync_peer_log
-          @peer_log = SyncPeerLog.new
-          @peer_log.sync_event_id = 5 #pull event
-          @peer_log.user_site_id = 2
-          @peer_log.user_site_object_id = @user.origin_id
-          @peer_log.action_taken_at = Time.now
-          @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('delete').id
-          @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
-          @peer_log.sync_object_id = @collection.origin_id
-          @peer_log.sync_object_site_id = 2
-          @peer_log.save
-
-          #call process entery
-          @peer_log.process_entry
+        
+        it "creates collection item for new collection" do
+          expect(collection_item).not_to be_nil 
         end
-        it "should delete collection" do
-          Collection.first.published.should == false
+        
+        it "has correct 'collected item name'" do
+          expect(collection_item.name).to eq("#{user.summary_name}")
         end
-      end
-      describe "pulling copy collection" do
-        before(:each) do
-          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-          truncate_table(ActiveRecord::Base.connection, "users", {})
-          truncate_table(ActiveRecord::Base.connection, "taxon_concepts", {})
-          truncate_table(ActiveRecord::Base.connection, "collections", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
-
-          SpecialCollection.create_enumerated
-          Activity.create_enumerated
-
-          @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
-          @collection = Collection.create(:origin_id => 30, :site_id => 2, :name => "name")
-          @collection.users = [@user]
-
-          @second_collection = Collection.create(:origin_id => 29, :site_id => 2, :name => "second_name")
-          @second_collection.users = [@user]
-          @item = Collection.create(:origin_id => 100, :site_id => 2, :name => "item")
-
-          CollectionItem.create(:name => "#{@item.name}", :collected_item_type => "Collection",
-          :collected_item_id => @item.id, :collection_id => @collection.id)
-
-          #create sync_object_action
-          SyncObjectAction.create(:object_action => 'create')
-          SyncObjectAction.create(:object_action => 'create_job')
-          SyncObjectAction.create(:object_action => 'add_item')
-          #create sync_object_type
-          SyncObjectType.create(:object_type => 'Collection')
-          #create sync_peer_log for creating new collection
-          @peer_log_craeting_new_collection = SyncPeerLog.new
-          @peer_log_craeting_new_collection.sync_event_id = 5 #pull event
-          @peer_log_craeting_new_collection.user_site_id = 2
-          @peer_log_craeting_new_collection.user_site_object_id = @user.origin_id
-          @peer_log_craeting_new_collection.action_taken_at = Time.now
-          @peer_log_craeting_new_collection.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
-          @peer_log_craeting_new_collection.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
-          @peer_log_craeting_new_collection.sync_object_id = 31
-          @peer_log_craeting_new_collection.sync_object_site_id = 2
-          @peer_log_craeting_new_collection.save
-          #create sync_action_parameters
-
-          parameters_craeting_new_collection = ["name"]
-          values_craeting_new_collection = [ "new_copy"]
-
-          for i in 0..parameters_craeting_new_collection.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @peer_log_craeting_new_collection.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = parameters_craeting_new_collection[i]
-            lap.value = values_craeting_new_collection[i]
-            lap.save
-          end
-
-          #call process entery
-          @peer_log_craeting_new_collection.process_entry
-
-          # create sync peer log for collection job
-          @peer_log_collection_job = SyncPeerLog.new
-          @peer_log_collection_job.sync_event_id = 5 #pull event
-          @peer_log_collection_job.user_site_id = 2
-          @peer_log_collection_job.user_site_object_id = @user.origin_id
-          @peer_log_collection_job.action_taken_at = Time.now
-          @peer_log_collection_job.sync_object_action_id = SyncObjectAction.find_by_object_action('create_job').id
-          @peer_log_collection_job.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
-          @peer_log_collection_job.sync_object_id = @collection.origin_id
-          @peer_log_collection_job.sync_object_site_id = @collection.site_id
-          @peer_log_collection_job.save
-
-          parameters_collection_job = [ "command", "item_count", "all_items", "overwrite", "copied_collections_origin_ids",
-            "copied_collections_site_ids", "collection_items_origin_ids", "collection_items_site_ids",
-            "collection_items_names", "collection_items_types"]
-          values_collection_job = [ "copy", "1", "1", "0", "29,31,", "2,2,", "100,", "2,",
-            "item,", "Collection,"]
-
-          for i in 0..parameters_collection_job.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @peer_log_collection_job.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = parameters_collection_job[i]
-            lap.value = values_collection_job[i]
-            lap.save
-          end
-
-          #call process entery
-          @peer_log_collection_job.process_entry
-
-          # create sync peer log for adding item to collection
-          @peer_log_add_item = SyncPeerLog.new
-          @peer_log_add_item.sync_event_id = 5 #pull event
-          @peer_log_add_item.user_site_id = 2
-          @peer_log_add_item.user_site_object_id = @user.origin_id
-          @peer_log_add_item.action_taken_at = Time.now
-          @peer_log_add_item.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
-          @peer_log_add_item.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
-          @peer_log_add_item.sync_object_id = 31
-          @peer_log_add_item.sync_object_site_id = 2
-          @peer_log_add_item.save
-
-          parameters_add_item = ["collected_item_name" ,"collected_item_type", "item_id", "item_site_id", "add_item"]
-          values_add_item = [ "item", "Collection" ,"100", "2", true]
-
-          for i in 0..parameters_add_item.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @peer_log_add_item.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = parameters_add_item[i]
-            lap.value = values_add_item[i]
-            lap.save
-          end
-          #call process entery
-          @peer_log_add_item.process_entry
-
-          # create sync peer log for adding item to collection
-          @peer_log_add_item_second = SyncPeerLog.new
-          @peer_log_add_item_second.sync_event_id = 5 #pull event
-          @peer_log_add_item_second.user_site_id = 2
-          @peer_log_add_item_second.user_site_object_id = @user.origin_id
-          @peer_log_add_item_second.action_taken_at = Time.now
-          @peer_log_add_item_second.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
-          @peer_log_add_item_second.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
-          @peer_log_add_item_second.sync_object_id = 29
-          @peer_log_add_item_second.sync_object_site_id = 2
-          @peer_log_add_item_second.save
-
-          parameters_add_item_second = ["collected_item_name" ,"collected_item_type", "item_id", "item_site_id", "add_item"]
-          values_add_item_second = [ "item", "Collection" ,"100", "2", true]
-
-          for i in 0..parameters_add_item_second.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @peer_log_add_item_second.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = parameters_add_item_second[i]
-            lap.value = values_add_item_second[i]
-            lap.save
-          end
-          #call process entery
-          @peer_log_add_item_second.process_entry
+        
+        it "has correct 'collected item type'" do
+          expect(collection_item.collected_item_type).to eq("User")
         end
-
-        it "should copy collection" do
-        # test copying collection
-          new_collection = Collection.find_by_site_id_and_origin_id( 2, 31)
-          new_collection.name.should == "new_copy"
-          new_collection.users.first.should == @user
-
-          # test creating collection job
-          collection_job = CollectionJob.first
-          collection_job.command.should == "copy"
-          collection_job.user_id.should == @user.id
-          collection_job.collection_id.should == @collection.id
-          collection_job.all_items.should == true
-
-          job_collections = collection_job.collections
-          job_collections.count.should == 2
-          job_collections[0].id.should == @second_collection.id
-          job_collections[1].id.should == new_collection.id
-
-          # test creating collection items
-          CollectionItem.find_by_collection_id_and_collected_item_id(@second_collection.id, @item.id).should_not be nil
-          CollectionItem.find_by_collection_id_and_collected_item_id(new_collection.id, @item.id).should_not be nil
+        
+        it "has correct 'collected item id'" do
+          expect(collection_item.collected_item_id).to eq(user.id)
         end
-      end
-
-      describe "pulling add item to collections" do
-        before(:each) do
-          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-          truncate_table(ActiveRecord::Base.connection, "users", {})
-          truncate_table(ActiveRecord::Base.connection, "collections", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
-
-          Activity.create_enumerated
-
-          @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
-          @first_collection = Collection.create(:origin_id => 30, :site_id => 1, :name => "name")
-          @first_collection.users = [@user]
-
-          @second_collection = Collection.create(:origin_id => 31, :site_id => 1, :name => "second_name")
-          @second_collection.users = [@user]
-          @item = Collection.create(:origin_id => 100, :site_id => 1, :name => "item")
-
-          #create sync_object_action
-          SyncObjectAction.create(:object_action => 'add_item')
-          #create sync_object_type
-          SyncObjectType.create(:object_type => 'Collection')
-          #create sync_peer_log
-          @peer_log_add_item_first = SyncPeerLog.new
-          @peer_log_add_item_first.sync_event_id = 5 #pull event
-          @peer_log_add_item_first.user_site_id = 2
-          @peer_log_add_item_first.user_site_object_id = @user.origin_id
-          @peer_log_add_item_first.action_taken_at = Time.now
-          @peer_log_add_item_first.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
-          @peer_log_add_item_first.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
-          @peer_log_add_item_first.sync_object_id = @first_collection.origin_id
-          @peer_log_add_item_first.sync_object_site_id = @first_collection.site_id
-          @peer_log_add_item_first.save
-          #create sync_action_parameters
-
-          parameters_add_item_first = ["collected_item_type", "collected_item_name" ,"item_id", "item_site_id", "add_item"]
-          values_add_item_first = ["Collection", "item", "100", "1", true]
-
-          for i in 0..parameters_add_item_first.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @peer_log_add_item_first.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = parameters_add_item_first[i]
-            lap.value = values_add_item_first[i]
-            lap.save
-          end
-          #call process entery
-          @peer_log_add_item_first.process_entry
-
-          @peer_log_add_item_second = SyncPeerLog.new
-          @peer_log_add_item_second.sync_event_id = 5 #pull event
-          @peer_log_add_item_second.user_site_id = 2
-          @peer_log_add_item_second.user_site_object_id = @user.origin_id
-          @peer_log_add_item_second.action_taken_at = Time.now
-          @peer_log_add_item_second.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
-          @peer_log_add_item_second.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
-          @peer_log_add_item_second.sync_object_id = @second_collection.origin_id
-          @peer_log_add_item_second.sync_object_site_id = @second_collection.site_id
-          @peer_log_add_item_second.save
-          #create sync_action_parameters
-
-          parameters_add_item_second = ["collected_item_type", "collected_item_name" , "item_id", "item_site_id", "add_item"]
-          values_add_item_second = ["Collection", "item", "100", "1", true]
-
-          for i in 0..parameters_add_item_second.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @peer_log_add_item_second.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = parameters_add_item_second[i]
-            lap.value = values_add_item_second[i]
-            lap.save
-          end
-          #call process entery
-          @peer_log_add_item_second.process_entry
-        end
-
-        it "should add items to collection" do
-
-        # created collections items
-          CollectionItem.find(:first, :conditions => "collection_id = #{@first_collection.id} and collected_item_id =  #{@item.id}").should_not be nil
-          CollectionItem.find(:first, :conditions => "collection_id = #{@second_collection.id} and collected_item_id =  #{@item.id}").should_not be nil
-
-        # CollectionItem.find_by_collection_id_and_collected_item_id(@first_collection.id, @item.id).should_not be nil
-        # CollectionItem.find_by_collection_id_and_collected_item_id(@second_collection.id, @item.id).should_not be nil
-
-        end
-      end
-
-      describe "pulling update collection item" do
-        before(:each) do
-          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-          truncate_table(ActiveRecord::Base.connection, "users", {})
-          truncate_table(ActiveRecord::Base.connection, "collections", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
-
-          Activity.create_enumerated
-          Visibility.create_enumerated
-
-          @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
-          @collection = Collection.create(:origin_id => 30, :site_id => 1, :name => "name")
-          @collection.users = [@user]
-
-          @item = Collection.create(:origin_id => 100, :site_id => 1, :name => "item")
-          @collection_item = CollectionItem.create(:name => "#{@item.name}", :collected_item_type => "Collection",
-                              :collected_item_id => @item.id, :collection_id => @collection.id)
-
-          #create sync_object_action
-          SyncObjectAction.create(:object_action => 'create')
-          SyncObjectAction.create(:object_action => 'update')
-          #create sync_object_type
-          SyncObjectType.create(:object_type => 'Ref')
-          SyncObjectType.create(:object_type => 'collection_item')
-          #create sync_peer_log
-          @peer_log_create_ref = SyncPeerLog.new
-          @peer_log_create_ref.sync_event_id = 5 #pull event
-          @peer_log_create_ref.user_site_id = 2
-          @peer_log_create_ref.user_site_object_id = @user.origin_id
-          @peer_log_create_ref.action_taken_at = Time.now
-          @peer_log_create_ref.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
-          @peer_log_create_ref.sync_object_type_id = SyncObjectType.find_by_object_type('Ref').id
-          @peer_log_create_ref.save
-          #create sync_action_parameters
-
-          parameters_create_ref = ["reference"]
-          values_create_ref = ["reference"]
-
-          for i in 0..parameters_create_ref.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @peer_log_create_ref.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = parameters_create_ref[i]
-            lap.value = values_create_ref[i]
-            lap.save
-          end
-          #call process entery
-          @peer_log_create_ref.process_entry
-
-          @peer_log_update_collection_item = SyncPeerLog.new
-          @peer_log_update_collection_item.sync_event_id = 5 #pull event
-          @peer_log_update_collection_item.user_site_id = 2
-          @peer_log_update_collection_item.user_site_object_id = @user.origin_id
-          @peer_log_update_collection_item.action_taken_at = Time.now
-          @peer_log_update_collection_item.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
-          @peer_log_update_collection_item.sync_object_type_id = SyncObjectType.find_by_object_type('collection_item').id
-          @peer_log_update_collection_item.sync_object_id = @collection.origin_id
-          @peer_log_update_collection_item.sync_object_site_id = @collection.site_id
-          @peer_log_update_collection_item.save
-          #create sync_action_parameters
-
-          parameters_update_collection_item = ["collected_item_type", "item_id", "item_site_id", "annotation", "references", "updated_at"]
-          values_update_collection_item = ["Collection", "100", "1", "annotation", "reference", Time.now.utc]
-
-          for i in 0..parameters_update_collection_item.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @peer_log_update_collection_item.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = parameters_update_collection_item[i]
-            lap.value = values_update_collection_item[i]
-            lap.save
-          end
-          #call process entery
-          @peer_log_update_collection_item.process_entry
-        end
-
-        it "should update collection item" do
-
-        # created collections items
-          collection_item = CollectionItem.first
-          collection_item.annotation.should == "annotation"
-          # check created references
-          ref = Ref.first
-          ref.full_reference.should == "reference"
-          ref.user_submitted.should == true
-          ref.visibility_id.should == Visibility.visible.id
-          ref.published.should == 1
-          # collection item references
-          collection_items_refs = collection_item.refs
-          collection_items_refs[0].id.should == ref.id
-
-        end
-      end
-
-      describe "pulling remove items from collection" do
-        before(:each) do
-          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-          truncate_table(ActiveRecord::Base.connection, "users", {})
-          truncate_table(ActiveRecord::Base.connection, "collections", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
-          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
-          Activity.create_enumerated
-
-          @user = User.create(:origin_id => 86, :site_id => 2, :username => "username")
-          @collection = Collection.create(:origin_id => 30, :site_id => 1, :name => "name")
-          @collection.users = [@user]
-
-          @item = Collection.create(:origin_id => 100, :site_id => 1, :name => "item")
-
-          @collection_item = CollectionItem.create(:name => "#{@item.name}", :collected_item_type => "Collection",
-                              :collected_item_id => @item.id, :collection_id => @collection.id)
-
-          #create sync_object_action
-          SyncObjectAction.create(:object_action => 'create_job')
-          SyncObjectAction.create(:object_action => 'remove_item')
-          #create sync_object_type
-          SyncObjectType.create(:object_type => 'Collection')
-          #create sync_peer_log
-          @peer_log_create_job = SyncPeerLog.new
-          @peer_log_create_job.sync_event_id = 5 #pull event
-          @peer_log_create_job.user_site_id = 2
-          @peer_log_create_job.user_site_object_id = @user.origin_id
-          @peer_log_create_job.action_taken_at = Time.now
-          @peer_log_create_job.sync_object_action_id = SyncObjectAction.find_by_object_action('create_job').id
-          @peer_log_create_job.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
-          @peer_log_create_job.sync_object_id = @collection.origin_id
-          @peer_log_create_job.sync_object_site_id = 1
-          @peer_log_create_job.save
-          #create sync_action_parameters
-
-          parameters_create_job = ["command", "item_count", "all_items",
-            "overwrite", "collection_items_origin_ids", "collection_items_site_ids",
-            "collection_items_names", "collection_items_types", "copied_collections_origin_ids", "copied_collections_site_ids"]
-          values_create_job = ["remove", "0", "1",  "0", "100,", "1,", "item,", "Collection", "", ""]
-
-          for i in 0..parameters_create_job.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @peer_log_create_job.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = parameters_create_job[i]
-            lap.value = values_create_job[i]
-            lap.save
-          end
-          #call process entery
-          @peer_log_create_job.process_entry
-
-          # create sync peer log for removing items from collection
-          @peer_log_remove_item = SyncPeerLog.new
-          @peer_log_remove_item.sync_event_id = 5 #pull event
-          @peer_log_remove_item.user_site_id = 2
-          @peer_log_remove_item.user_site_object_id = @user.origin_id
-          @peer_log_remove_item.action_taken_at = Time.now
-          @peer_log_remove_item.sync_object_action_id = SyncObjectAction.find_by_object_action('remove_item').id
-          @peer_log_remove_item.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
-          @peer_log_remove_item.sync_object_id = @collection.origin_id
-          @peer_log_remove_item.sync_object_site_id = @collection.site_id
-          @peer_log_remove_item.save
-
-          parameters_remove_item = ["collected_item_type", "item_id", "item_site_id"]
-          values_remove_item = [ "Collection" , "100", "1"]
-
-          for i in 0..parameters_remove_item.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @peer_log_remove_item.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = parameters_remove_item[i]
-            lap.value = values_remove_item[i]
-            lap.save
-          end
-          #call process entery
-          @peer_log_remove_item.process_entry
-        end
-
-        it "should remove items from collection" do
-
-        # test remove items
-          CollectionItem.all.should == []
-
-          # test creating collection job
-          collection_job = CollectionJob.first
-          collection_job.command.should == "remove"
-          collection_job.user_id.should == @user.id
-          collection_job.collection_id.should == @collection.id
-          collection_job.all_items.should == true
+        
+        it "has correct 'collection id'" do
+          expect(collection_item.collection_id).to eq(collection.id)
         end
       end
     end
     
+    describe ".update_collection" do
+      let(:user) {User.gen(username: "name")}
+      subject(:collection) {Collection.gen(name: "collection")}
+      
+      context "successful update" do
+        
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
+          
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
+          
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id, sync_object_type_id: SyncObjectType.collection.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: collection.origin_id, user_site_id: user.site_id,
+                                          sync_object_site_id: collection.site_id)
+                                        
+          parameters = ["name", "updated_at"]
+          values = ["newname", collection.updated_at + 2]
+
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          sync_peer_log.process_entry
+          collection.reload
+        end
+        
+        it "updates 'name'" do
+          expect(collection.name).to eq("newname")
+        end
+      end
+      
+      
+      #TODO handle pull failures    
+      context "failed update: collection not founde" do
+      end
+      
+      # handle synchronization conflict: last update wins
+      context "failed update: elder update" do
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
+          
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID,
+                                       updated_at: Time.now)
+          
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id, sync_object_type_id: SyncObjectType.collection.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: collection.origin_id, user_site_id: user.site_id,
+                                          sync_object_site_id: collection.site_id)
+                                        
+          parameters = ["name", "updated_at"]
+          values = ["newname", collection.updated_at - 2]
+
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          sync_peer_log.process_entry
+          collection.reload
+        end
+        
+        it "doesn't update 'name'" do
+          expect(collection.name).to eq("collection")
+        end
+      end
+    end
+    
+    describe ".delete_collection" do
+        
+      let(:user) {User.gen(username: "name")}
+      subject(:collection) {Collection.gen(name: "collection")}
+      
+      context "successful deletion" do
+        
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
+          
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID,
+                                       updated_at: Time.now)
+          
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.delete.id, sync_object_type_id: SyncObjectType.collection.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: collection.origin_id, user_site_id: user.site_id,
+                                          sync_object_site_id: collection.site_id)
+         
+          sync_peer_log.process_entry
+          collection.reload
+        end
+        
+        it "deletes comment" do        
+          expect(collection.published).to eq(false)
+        end
+      end
+      #TODO handle pull failures  
+      context "failed deletion: collection not found" do
+      end
+    end
+  end
+  
+  describe "collection items synchronization" do
+    describe ".add_collection_item" do
+      
+      let(:user) {User.gen} 
+      subject(:collection_item) {CollectionItem.first}
+      let(:collection) {Collection.gen(name: "collection")}
+      let(:item) {Collection.gen(name: "item")}
+      context "successful creation" do
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
+          
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
+          collection.users = [user]
+          item.update_attributes(origin_id: item.id, site_id: PEER_SITE_ID)
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.add.id, 
+                                                            sync_object_type_id: SyncObjectType.collection_item.id,
+                                                            user_site_object_id: user.origin_id, 
+                                                            sync_object_id: collection.origin_id, user_site_id: user.site_id,
+                                                            sync_object_site_id: collection.site_id)
+          parameters = ["collected_item_type", "collected_item_name" ,"item_id", "item_site_id", "add_item"]
+          values = ["Collection", "item", "#{item.origin_id}", "#{item.site_id}", true]
+
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          sync_peer_log.process_entry
+        end
+        
+        it "creates new collection item" do
+          expect(collection_item).not_to be_nil          
+        end
+        
+        it "has the correct 'collected item type'" do
+          expect(collection_item.collected_item_type).to eq("Collection")
+        end
+  
+        
+        it "has correct 'collected item name'" do
+          expect(collection_item.name).to eq("#{item.summary_name}")
+        end
+        
+        it "has correct 'collected item id'" do
+          expect(collection_item.collected_item_id).to eq(item.id)
+        end
+        
+        it "has correct 'collection id'" do
+          expect(collection_item.collection_id).to eq(collection.id)
+        end
+      end
+    end
+    
+    describe ".update_collection_item" do
+      let(:user) {User.gen} 
+      subject(:collection_item) {CollectionItem.gen(name: "#{item.name}", collected_item_type: "Collection",
+                                                    collected_item_id: item.id, collection_id: collection.id)}
+      let(:collection) {Collection.gen(name: "collection")}
+      let(:item) {Collection.gen(name: "item")}
+      let(:ref) {Ref.first}
+      
+      context "successful update" do
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
+          
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
+          collection.users = [user]
+          item.update_attributes(origin_id: item.id, site_id: PEER_SITE_ID)
+          
+          sync_peer_log_create_ref = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id, 
+                                                            sync_object_type_id: SyncObjectType.ref.id,
+                                                            user_site_object_id: user.origin_id, 
+                                                            user_site_id: user.site_id)
+          parameters_create_ref = ["reference"]
+          values_create_ref = ["reference"]
+
+          parameters_create_ref.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log_create_ref, parameter: param,
+                                             value: values_create_ref[i])
+          end
+          
+          sync_peer_log_update_collection_item = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id, 
+                                                            sync_object_type_id: SyncObjectType.collection_item.id,
+                                                            user_site_object_id: user.origin_id, 
+                                                            sync_object_id: collection.origin_id, user_site_id: user.site_id,
+                                                            sync_object_site_id: collection.site_id)
+          parameters_update_collection_item = ["collected_item_type", "item_id", "item_site_id", "annotation", "updated_at"]
+          values_update_collection_item = ["Collection", "#{item.origin_id}", "#{item.site_id}", "annotation", collection_item.updated_at + 2]
+
+          parameters_update_collection_item.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log_update_collection_item, parameter: param,
+                                             value: values_update_collection_item[i])
+          end
+          
+          sync_peer_log_add_refs_collection_item = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.add_refs.id, 
+                                                            sync_object_type_id: SyncObjectType.collection_item.id,
+                                                            user_site_object_id: user.origin_id, 
+                                                            sync_object_id: collection.origin_id, user_site_id: user.site_id,
+                                                            sync_object_site_id: collection.site_id)
+          parameters_add_refs_collection_item = ["collected_item_type", "item_id", "item_site_id", "references"]
+          values_add_refs_collection_item = ["Collection", "#{item.origin_id}", "#{item.site_id}", "reference"]
+
+          parameters_add_refs_collection_item.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log_add_refs_collection_item, parameter: param,
+                                             value: values_add_refs_collection_item[i])
+          end
+          sync_peer_log_create_ref.process_entry
+          sync_peer_log_update_collection_item.process_entry
+          sync_peer_log_add_refs_collection_item.process_entry
+          collection_item.reload
+        end
+
+        it "creates new reference" do
+          expect(ref).not_to be_nil
+        end
+        
+        it "sets 'full_reference' to 'reference'" do
+          expect(ref.full_reference).to eq("reference")
+        end
+        
+        it "sets 'user_submitted' to 'true'" do
+          expect(ref.user_submitted).to eq(true)
+        end
+        
+        it "sets 'visibility_id' to 'visible'" do
+          expect(ref.visibility_id).to eq(Visibility.visible.id)
+        end
+        
+        it "sets 'published' to '1'" do
+          expect(ref.published).to eq(1)
+        end
+        
+        it "updates 'annotation'" do
+          expect(collection_item.annotation).to eq("annotation")
+        end
+        
+        it "adds new reference to collection item" do
+          collection_items_refs = collection_item.refs
+          expect(collection_items_refs[0].id).to eq(ref.id)
+        end
+      end
+      
+      
+      #TODO handle pull failures    
+      context "failed update: collection not founde" do
+      end
+      
+      # handle synchronization conflict: last update wins
+      context "failed update: elder update" do
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
+          
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID,
+                                       updated_at: Time.now)
+          
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id, sync_object_type_id: SyncObjectType.collection.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: collection.origin_id, user_site_id: user.site_id,
+                                          sync_object_site_id: collection.site_id)
+                                        
+          parameters = ["name", "updated_at"]
+          values = ["newname", collection.updated_at - 2]
+
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          sync_peer_log.process_entry
+          collection.reload
+        end
+        
+        it "doesn't update 'name'" do
+          expect(collection.name).to eq("collection")
+        end
+      end
+    end
+  end
+  
+  describe "collection jobs synchronization" do
+    describe ".create_collection_job 'copy'" do
+      
+      let(:collection_item) { CollectionItem.where("collection_id = ? and collected_item_id = ?", empty_collection.id, item.id).first }
+      let(:item) {Collection.gen(name: "item")}
+      let(:empty_collection) { Collection.gen(name: "empty_collection") }
+      let(:collection_job) { CollectionJob.first }
+      
+      context "successful creation" do
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
+          
+          user = User.gen
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          collection = Collection.gen(name: "collection")
+          collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
+          collection.users = [user]
+          item.update_attributes(origin_id: item.id, site_id: PEER_SITE_ID)
+          empty_collection.update_attributes(origin_id: empty_collection.id, site_id: PEER_SITE_ID)
+          empty_collection.users = [user]
+          CollectionItem.gen(name: "#{item.name}", collected_item_type: "Collection",
+                                                    collected_item_id: item.id, collection_id: collection.id)
+          collection_job_sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id, 
+                                                            sync_object_type_id: SyncObjectType.collection_job.id,
+                                                            user_site_object_id: user.origin_id, 
+                                                            sync_object_id: collection.origin_id, user_site_id: user.site_id,
+                                                            sync_object_site_id: collection.site_id)
+          collection_job_parameters = ["command", "all_items" ,"overwrite", "item_count", "unique_job_id"]
+          collection_job_values = ["copy", "1", "0", "1", "1#{PEER_SITE_ID}"]
+
+          collection_job_parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: collection_job_sync_peer_log, parameter: param,
+                                             value: collection_job_values[i])
+          end
+          
+          dummy_type_sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.add.id, 
+                                                            sync_object_type_id: SyncObjectType.dummy_type.id,
+                                                            user_site_object_id: user.origin_id, 
+                                                            sync_object_id: empty_collection.origin_id, 
+                                                            user_site_id: user.site_id,
+                                                            sync_object_site_id: empty_collection.site_id)
+
+          dummy_type_parameters = ["collected_item_type", "item_id", "item_site_id", "collected_item_name", "unique_job_id"]
+          dummy_type_job_values = ["Collection", "#{item.origin_id}", "#{item.site_id}", "#{item.summary_name}", "1#{PEER_SITE_ID}"]
+
+          dummy_type_parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: dummy_type_sync_peer_log, parameter: param,
+                                             value: dummy_type_job_values[i])
+          end
+          collection_job_sync_peer_log.process_entry
+        end
+        
+        it "creates new collection job" do
+          expect(collection_job).not_to be_nil          
+        end
+        
+        it "has the correct 'overwrite'" do
+          expect(collection_job.overwrite).to eq(false)
+        end
+        
+        it "has correct 'item_count'" do
+          expect(collection_job.item_count).to eq(1)
+        end
+        
+        it "has correct 'all_items'" do
+          expect(collection_job.all_items).to eq(true)
+        end
+        
+        it "has correct 'command'" do
+          expect(collection_job.command).to eq("copy")
+        end
+        
+        it "has creates 'collection_jobs_collection'" do
+          job_collections = collection_job.collections
+          expect(job_collections[0].id).to eq(empty_collection.id)
+        end
+        
+        it "copies collection item to 'empty_collection'" do
+          expect(collection_item).not_to be_nil
+        end
+        
+        it "has correct 'name'" do
+          expect(collection_item.name).to eq("item")
+        end
+        
+        it "has correct 'collected_item_type'" do
+          expect(collection_item.collected_item_type).to eq("Collection")
+        end
+        
+        it "has correct 'collected_item_id'" do
+          expect(collection_item.collected_item_id).to eq(item.id)
+        end
+        
+         it "has correct 'collection_id'" do
+          expect(collection_item.collection_id).to eq(empty_collection.id)
+        end
+      end
+    end
+    
+    describe ".create_collection_job 'remove'" do
+      
+      let(:collection_item) { CollectionItem.first }
+      let(:item) {Collection.gen(name: "item")}
+      let(:collection) { Collection.gen(name: "collection") }
+      let(:collection_job) { CollectionJob.first }
+      
+      context "successful creation" do
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_jobs_collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items_collection_jobs", {})
+          
+          user = User.gen
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
+          collection.users = [user]
+          item.update_attributes(origin_id: item.id, site_id: PEER_SITE_ID)
+          CollectionItem.gen(name: "#{item.name}", collected_item_type: "Collection",
+                                                    collected_item_id: item.id, collection_id: collection.id)
+          collection_job_sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id, 
+                                                            sync_object_type_id: SyncObjectType.collection_job.id,
+                                                            user_site_object_id: user.origin_id, 
+                                                            sync_object_id: collection.origin_id, user_site_id: user.site_id,
+                                                            sync_object_site_id: collection.site_id)
+          collection_job_parameters = ["command", "all_items" ,"overwrite", "item_count", "unique_job_id"]
+          collection_job_values = ["remove", "1", "0", "1", "1#{PEER_SITE_ID}"]
+
+          collection_job_parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: collection_job_sync_peer_log, parameter: param,
+                                             value: collection_job_values[i])
+          end
+          
+          dummy_type_sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.remove.id, 
+                                                            sync_object_type_id: SyncObjectType.dummy_type.id,
+                                                            user_site_object_id: user.origin_id, 
+                                                            sync_object_id: collection.origin_id, 
+                                                            user_site_id: user.site_id,
+                                                            sync_object_site_id: collection.site_id)
+
+          dummy_type_parameters = ["collected_item_type", "item_id", "item_site_id", "unique_job_id"]
+          dummy_type_job_values = ["Collection", "#{item.origin_id}", "#{item.site_id}", "1#{PEER_SITE_ID}"]
+
+          dummy_type_parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: dummy_type_sync_peer_log, parameter: param,
+                                             value: dummy_type_job_values[i])
+          end
+          collection_job_sync_peer_log.process_entry
+        end
+        
+        it "creates new collection job" do
+          expect(collection_job).not_to be_nil          
+        end
+        
+        it "has the correct 'overwrite'" do
+          expect(collection_job.overwrite).to eq(false)
+        end
+        
+        it "has correct 'item_count'" do
+          expect(collection_job.item_count).to eq(1)
+        end
+        
+        it "has correct 'all_items'" do
+          expect(collection_job.all_items).to eq(true)
+        end
+        
+        it "has correct 'command'" do
+          expect(collection_job.command).to eq("remove")
+        end
+        
+        it "removes collection item from 'collection'" do
+          expect(collection_item).to be_nil
+        end
+      end
+    end
+  end
+
     # test admin content pages actions synchronization
     describe "process pulling for content pages actions " do
       describe "pulling create content page" do

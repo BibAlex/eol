@@ -87,195 +87,301 @@ describe CollectionsController do
       end
     end
   end
-
+  
   # sync collections actions
   describe "collections actions synchronization" do
-  # sync craete action 
-  # creating collection of users
-    describe 'create collection synchronization' do
-      before(:each) do
-        # prepare database for testing
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "users", {})
-        truncate_table(ActiveRecord::Base.connection, "collections", {})
-        truncate_table(ActiveRecord::Base.connection, "collection_items", {})
-        truncate_table(ActiveRecord::Base.connection, "special_collections", {})
-        SpecialCollection.create_enumerated
+    before(:all) do
+      truncate_all_tables
+      SyncObjectType.create_enumerated
+      SyncObjectAction.create_enumerated
+      SpecialCollection.create_enumerated
+      Activity.create_enumerated
+      ViewStyle.create_enumerated
+    end
+    
+    describe "POST #create" do
         
-               
-        user_params = {:username => 'user_1', 
-                         :given_name => 'user', 
-                         :email => "user1@yahoo.com", 
-                         :email_confirmation => "user1@yahoo.com", 
-                         :entered_password => "HELLO", 
-                         :entered_password_confirmation => "HELLO", 
-                         :agreed_with_terms => 1,
-                         :active => true}        
-        @user = User.new(user_params)
-        @user.save   
-        @user[:site_id] = PEER_SITE_ID
-        @user[:origin_id] = @user.id        
-        @user.save             
-        session[:user_id] = @user.id
+      let(:create_collection_peer_log) {SyncPeerLog.first}
+      let(:add_collection_item_peer_log) {SyncPeerLog.last}
+      let(:user) {User.gen}
+      subject(:collection) {Collection.last}
       
+      context "successful creation" do
+        
+        before do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          session[:user_id] = user.id
+          post :create, {collection: {name: 'newcollection' }, item_id: user.id,
+                         item_type: 'User'}
+        end
+        
+        it "creates sync peer log for 'creating new collection'" do
+          expect(create_collection_peer_log).not_to be_nil
+        end
+        
+        it "has correct action for 'creating new collection'" do
+          expect(create_collection_peer_log.sync_object_action_id).to eq(SyncObjectAction.create.id)
+        end
+        
+        it "has correct type for 'creating new collection'" do
+          expect(create_collection_peer_log.sync_object_type_id).to eq(SyncObjectType.collection.id)
+        end
+        
+        it "has correct 'user_site_id' for 'creating new collection'" do
+          expect(create_collection_peer_log.user_site_id).to eq(PEER_SITE_ID)
+        end
+        
+        it "has correct 'user_id' for 'creating new collection'" do
+          expect(create_collection_peer_log.user_site_object_id).to eq(user.origin_id)
+        end
+        
+        it "has correct 'object_site_id' for 'creating new collection'" do
+          expect(create_collection_peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
+        end
+        
+        it "has correct 'object_id' for 'creating new collection'" do
+          expect(create_collection_peer_log.sync_object_id).to eq(collection.origin_id)
+        end
+        
+        it "creates sync log action parameter for 'name'" do
+          collectionname_parameter = SyncLogActionParameter.where(peer_log_id: create_collection_peer_log.id, parameter: "name")
+          expect(collectionname_parameter[0][:value]).to eq("newcollection")
+        end
+        
+        it "creates sync peer log for 'add collection item'" do
+          expect(add_collection_item_peer_log).not_to be_nil
+        end
+        
+        it "has correct action for 'add collection item'" do
+          expect(add_collection_item_peer_log.sync_object_action_id).to eq(SyncObjectAction.add.id)
+        end
+        
+        it "has correct type for 'add collection item'" do
+          expect(add_collection_item_peer_log.sync_object_type_id).to eq(SyncObjectType.collection_item.id)
+        end
+        
+        it "has correct 'user_site_id' for 'add collection item'" do
+          expect(add_collection_item_peer_log.user_site_id).to eq(PEER_SITE_ID)
+        end
+        
+        it "has correct 'user_id' for 'add collection item'" do
+          expect(add_collection_item_peer_log.user_site_object_id).to eq(user.origin_id)
+        end
+        
+        it "has correct 'object_site_id' for 'add collection item'" do
+          expect(add_collection_item_peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
+        end
+        
+        it "has correct 'object_id' for 'add collection item'" do
+          expect(add_collection_item_peer_log.sync_object_id).to eq(collection.origin_id)
+        end
+
+        it "creates sync log action parameter for 'item_id'" do
+          collection_origin_ids_parameter = SyncLogActionParameter.where(peer_log_id: add_collection_item_peer_log.id, parameter: "item_id")
+          expect(collection_origin_ids_parameter[0][:value]).to eq("#{user.origin_id}")
+        end
+        
+        it "creates sync log action parameter for 'item_site_id'" do
+          collection_site_ids_parameter = SyncLogActionParameter.where(peer_log_id: add_collection_item_peer_log.id, parameter: "item_site_id")
+          expect(collection_site_ids_parameter[0][:value]).to eq("#{user.site_id}")
+        end
+        
+        it "creates sync log action parameter for 'collected_item_type'" do
+          collected_item_type_parameter = SyncLogActionParameter.where(peer_log_id: add_collection_item_peer_log.id, parameter: "collected_item_type")
+          expect(collected_item_type_parameter[0][:value]).to eq("User")
+        end
+        
+        it "creates sync log action parameter for 'collected_item_name'" do
+          collected_item_name_parameter = SyncLogActionParameter.where(peer_log_id: add_collection_item_peer_log.id, parameter: "collected_item_name")
+          expect(collected_item_name_parameter[0][:value]).to eq("#{user.summary_name}")
+        end
       end
-      it 'should save creating collection paramters in synchronization tables' do
-        put :create, {:collection => { :name => 'newcollection' },
-                                       :item_id => @user.id,
-                                       :item_type => 'User'}
-
-        # created collection
-        created_collection =  Collection.find(2)
-        created_collection.name.should == 'newcollection'
+      
+      context "failed creation: user should login" do
+        before do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          post :create, {collection: {name: 'newcollection' }, item_id: user.id,
+                         item_type: 'User'}
+        end
         
-        user_collection = created_collection.users.first
-        user_collection.id.should == @user.id
-        
-        collection_item = CollectionItem.first
-        collection_item.name.should == "#{@user.username}"
-        collection_item.collected_item_type.should == "User"
-        collection_item.collected_item_id.should == "#{@user.id}".to_i
-        collection_item.collection_id.should == "#{created_collection.id}".to_i
-
-        # check sync_object_type
-        type = SyncObjectType.first
-        type.should_not be_nil
-        type.object_type.should == "Collection"
-
-        # check sync_object_actions
-        action = SyncObjectAction.first
-        action.should_not be_nil
-        action.object_action.should == "create"
-        
-        # check sync_object_action for adding new item
-        add_item_action = SyncObjectAction.find(2)
-        add_item_action.should_not be_nil
-        add_item_action.object_action.should == "add_item"
-
-        # check peer log for creating new collection
-        peer_log = SyncPeerLog.first
-        peer_log.should_not be_nil
-        peer_log.sync_object_action_id.should == action.id
-        peer_log.sync_object_type_id.should == type.id
-        peer_log.user_site_id .should == PEER_SITE_ID
-        peer_log.user_site_object_id.should == @user.id
-        peer_log.sync_object_id.should == created_collection.id
-        peer_log.sync_object_site_id.should == created_collection.site_id
-
-        # check log action parameters
-        collectionname_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "name")
-        collectionname_parameter[0][:value].should == "newcollection"
-        
-         # check peer log for adding item to collection
-        second_peer_log = SyncPeerLog.find(2)
-        second_peer_log.should_not be_nil
-        second_peer_log.sync_object_action_id.should == add_item_action.id
-        second_peer_log.sync_object_type_id.should == type.id
-        second_peer_log.user_site_id .should == PEER_SITE_ID
-        second_peer_log.user_site_object_id.should == @user.id
-        second_peer_log.sync_object_id.should == created_collection.id
-        second_peer_log.sync_object_site_id.should == created_collection.site_id
-
-        # check log action parameters
-        collection_origin_ids_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "item_id")
-        collection_origin_ids_parameter[0][:value].should == "#{@user.origin_id}"
-        collection_site_ids_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "item_site_id")
-        collection_site_ids_parameter[0][:value].should == "#{@user.site_id}"
-    
-    
-        collected_item_type_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "collected_item_type")
-        collected_item_type_parameter[0][:value].should == "User"
-        collected_item_name_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "collected_item_name")
-        collected_item_name_parameter[0][:value].should == "#{@user.summary_name}"
-    
+        it "doesn't create sync peer log for 'creating new collection'" do
+          expect(create_collection_peer_log).to be_nil
+        end
+        it "doesn't create sync peer log for 'add collection item'" do
+          expect(add_collection_item_peer_log).to be_nil
+        end
+        it "doesn't create sync log action parameters" do
+          expect(SyncLogActionParameter.all).to be_blank
+        end
       end
     end
     
-    # sync update action
-    describe 'update collection synchronization' do
-      before(:each) do
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "users", {})
-        truncate_table(ActiveRecord::Base.connection, "collections", {})
-        truncate_table(ActiveRecord::Base.connection, "collection_items", {})
-        Activity.create_enumerated
-        ViewStyle.create_enumerated
+    describe "PUT #update" do
+        
+      let(:peer_log) {SyncPeerLog.first}
+      let(:user) {User.gen}
+      subject(:collection) {Collection.gen}
+      
+      context "successful update" do
+        
+        before do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          session[:user_id] = user.id
+          collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
+          collection.users = [user]
+          put :update,  id: collection.id, view_as: 2,
+                        commit_edit_collection: 'Submit', collection: {name: 'newname'}
+        end
+        
+        it "creates sync peer log" do
+          expect(peer_log).not_to be_nil
+        end
+        
+        it "has correct action" do
+          expect(peer_log.sync_object_action_id).to eq(SyncObjectAction.update.id)
+        end
+        
+        it "has correct type" do
+          expect(peer_log.sync_object_type_id).to eq(SyncObjectType.collection.id)
+        end
+        
+        it "has correct 'user_site_id'" do
+          expect(peer_log.user_site_id).to eq(PEER_SITE_ID)
+        end
+        
+        it "has correct 'user_id'" do
+          expect(peer_log.user_site_object_id).to eq(user.origin_id)
+        end
+        
+        it "has correct 'object_site_id'" do
+          expect(peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
+        end
+        
+        it "has correct 'object_id'" do
+          expect(peer_log.sync_object_id).to eq(collection.origin_id)
+        end
        
-        @current_user = User.gen
-        session[:user_id] = @current_user.id
-        @current_user[:origin_id] = @current_user.id
-        @current_user[:site_id] = PEER_SITE_ID
-        @current_user.save
-        @collection = Collection.create(:name => "collection")
-        @collection.update_column(:origin_id, @collection.id)
-        @collection.update_column(:site_id, PEER_SITE_ID)
-        @collection.users = [@current_user]
-       
+        it "creates sync log action parameter for 'name'" do
+          collectionname_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "name")
+          expect(collectionname_parameter[0][:value]).to eq("newname")
+        end
+        
+        it "creates sync log action parameter for 'updated_at'" do
+          collection.reload
+          updated_at_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "updated_at")
+          expect(updated_at_parameter[0][:value]).to eq(collection.updated_at.utc.to_s(:db))
+        end
       end
       
-      it 'should save updating collection paramters in synchronization tables' do
-         @file = ActionDispatch::Http::UploadedFile.new({
-            :filename => "test.jpg",
-            :type => "image/jpeg",
-            :tempfile => File.new(Rails.root.join("test/fixtures/files/test.jpg")) })
-       
-      
-        post :update, :id => @collection.id, :view_as => 2,
-        :commit_edit_collection => 'Submit', :collection => { :name => 'newname', :logo =>  @file}
-          
-        # updated collection        
-        created_collection =  @collection.reload
-        created_collection.name.should == 'newname'
-
-        # check sync_object_type
-        type = SyncObjectType.first
-        type.should_not be_nil
-        type.object_type.should == "Collection"
-
-        # check sync_object_actions
-        action = SyncObjectAction.first
-        action.should_not be_nil
-        action.object_action.should == "update"
-
-        # check peer logs
-        peer_log = SyncPeerLog.first
-        peer_log.should_not be_nil
-        peer_log.sync_object_action_id.should == action.id
-        peer_log.sync_object_type_id.should == type.id
-        peer_log.user_site_id .should == PEER_SITE_ID
-        peer_log.user_site_object_id.should == @current_user.id
-        peer_log.sync_object_id.should == created_collection.id
-        peer_log.sync_object_site_id.should == PEER_SITE_ID
-
-        # check log action parameters
-        collectionname_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "name")
-        collectionname_parameter[0][:value].should == "newname"
+      context "failed update: user should login" do
+        before do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
+          collection.users = [user]
+          expect{put :update,  id: collection.id, view_as: 2,
+                        commit_edit_collection: 'Submit', collection: {name: 'newname'}}.to raise_error(EOL::Exceptions::MustBeLoggedIn)
+        end
         
-        updated_at_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "updated_at")
-        updated_at_parameter[0][:value].should == created_collection.updated_at.utc.to_s(:db)
-        # # test sync upload logo
-        # logo_file_name_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_file_name")
-        # logo_file_name_parameter[0][:value].should == created_collection.logo_file_name
-#                     
-        # logo_content_type_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_content_type")
-        # logo_content_type_parameter[0][:value].should == "#{created_collection.logo_content_type}"
-#                     
-        # logo_file_size_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_file_size")
-        # logo_file_size_parameter[0][:value].should == "#{created_collection.logo_file_size}"
-#           
-        # base_url_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "base_url")
-        # base_url_parameter[0][:value].should == "#{$CONTENT_SERVER}content/"
-#         
-       # logo_cache_url_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "logo_cache_url")
-       # logo_cache_url_parameter[0][:value].should == created_collection.logo_cache_url
-      
+        it "doesn't create sync peer log" do
+          expect(peer_log).to be_nil
+        end
+        it "doesn't create sync log action parameters" do
+          expect(SyncLogActionParameter.all).to be_blank
+        end
       end
     end
+    
+    describe "DELETE #destroy" do
+        
+      let(:peer_log) {SyncPeerLog.first}
+      let(:user) {User.gen}
+      subject(:collection) {Collection.gen}
+      
+      context "successful deletion" do
+        
+        before do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          session[:user_id] = user.id
+          collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
+          collection.users = [user]
+          delete :destroy,  id: collection.id
+        end
+        
+        it "creates sync peer log" do
+          expect(peer_log).not_to be_nil
+        end
+        
+        it "has correct action" do
+          expect(peer_log.sync_object_action_id).to eq(SyncObjectAction.delete.id)
+        end
+        
+        it "has correct type" do
+          expect(peer_log.sync_object_type_id).to eq(SyncObjectType.collection.id)
+        end
+        
+        it "has correct 'user_site_id'" do
+          expect(peer_log.user_site_id).to eq(PEER_SITE_ID)
+        end
+        
+        it "has correct 'user_id'" do
+          expect(peer_log.user_site_object_id).to eq(user.origin_id)
+        end
+        
+        it "has correct 'object_site_id'" do
+          expect(peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
+        end
+        
+        it "has correct 'object_id'" do
+          expect(peer_log.sync_object_id).to eq(collection.origin_id)
+        end
+      end
+      
+      context "failed deletion: user should login" do
+        before do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "collections", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "users", {})
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
+          collection.users = [user]
+          expect{delete :destroy,  id: collection.id}.to raise_error(EOL::Exceptions::MustBeLoggedIn)
+        end
+        
+        it "doesn't create sync peer log" do
+          expect(peer_log).to be_nil
+        end
+        it "doesn't create sync log action parameters" do
+          expect(SyncLogActionParameter.all).to be_blank
+        end
+      end
+    end
+    
   end
 end
