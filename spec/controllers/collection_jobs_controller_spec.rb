@@ -22,33 +22,33 @@ describe CollectionJobsController do
         @current_user[:origin_id] = @current_user.id
         @current_user[:site_id] = PEER_SITE_ID
         @current_user.save
-        @collection = Collection.create(:name => "collection")
+        @collection = Collection.create(name: "collection")
         @collection[:origin_id] = @collection.id
         @collection[:site_id] = PEER_SITE_ID
         @collection.save
         @collection.users = [@current_user]
         # empty collection
-        @empty_collection = Collection.create(:name => "empty_collection")
+        @empty_collection = Collection.create(name: "empty_collection")
         @empty_collection[:origin_id] = @empty_collection.id
         @empty_collection[:site_id] = PEER_SITE_ID
         @empty_collection.save
         @empty_collection.users = [@current_user]
         
-        @item = Collection.create(:name => "collected_item")
+        @item = Collection.create(name: "collected_item")
         @item[:origin_id] = @item.id
         @item[:site_id] = PEER_SITE_ID
         @item.save
-        @collection_item = CollectionItem.create(:name => "#{@item.name}", :collected_item_type => "Collection",
-                              :collected_item_id => @item.id, :collection_id => @collection.id)
+        @collection_item = CollectionItem.create(name: "#{@item.name}", collected_item_type: "Collection",
+                              collected_item_id: @item.id, collection_id: @collection.id)
         
       end
     describe "sync copy collection" do
       it 'should save creating copy from collection paramters in synchronization tables' do
 
-         post :create, {:collection_job => {:collection_id => @collection.id, 
-                       :command => "copy", :all_items => true, :overwrite => 0,
-                       :collection_ids => ["0", @empty_collection]}, :collection_name => "copy_data_col", 
-                       :commit => "Copy", :scope => "all_items"}
+         post :create, {collection_job: {collection_id: @collection.id, 
+                       command: "copy", all_items: true, overwrite: 0,
+                       collection_ids: ["0", @empty_collection]}, collection_name: "copy_data_col", 
+                       commit: "Copy", scope: "all_items"}
                         
            # new created collection
           new_collection =  Collection.find(5)
@@ -57,8 +57,8 @@ describe CollectionJobsController do
           user_new_collection.id.should == @current_user.id
           
           # testing coping collection items
-          CollectionItem.find(:first, :conditions => "collection_id = #{@empty_collection.id} and collected_item_id =  #{@item.id}").should_not be nil
-          CollectionItem.find(:first, :conditions => "collection_id = #{new_collection.id} and collected_item_id =  #{@item.id}").should_not be nil
+          CollectionItem.find(:first, conditions: "collection_id = #{@empty_collection.id} and collected_item_id =  #{@item.id}").should_not be nil
+          CollectionItem.find(:first, conditions: "collection_id = #{new_collection.id} and collected_item_id =  #{@item.id}").should_not be nil
     
           # test for creating collection job(copy)
           collection_job = CollectionJob.first
@@ -105,7 +105,7 @@ describe CollectionJobsController do
   
           # check log action parameters
           # parameters for new collection
-          collectionname_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "name")
+          collectionname_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "name")
           collectionname_parameter[0][:value].should == "#{new_collection.name}"
           
           # check peer log creating  collection job
@@ -120,18 +120,18 @@ describe CollectionJobsController do
           
           
           # parameters for collection job
-          collection_job_command_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "command")
+          collection_job_command_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "command")
           collection_job_command_parameter[0][:value].should == "copy"
-          item_count_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "item_count")
+          item_count_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "item_count")
           item_count_parameter[0][:value].should == "2"
-          all_items_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "all_items")
+          all_items_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "all_items")
           all_items_parameter[0][:value].should == "1"    
-          overwrite_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "overwrite")
+          overwrite_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "overwrite")
           overwrite_parameter[0][:value].should == "0"
       
-          copied_collections_origin_ids_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "copied_collections_origin_ids")
+          copied_collections_origin_ids_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "copied_collections_origin_ids")
           copied_collections_origin_ids_parameter[0][:value].should == "#{@empty_collection.origin_id},#{new_collection.origin_id},"
-          copied_collections_site_ids_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "copied_collections_site_ids")
+          copied_collections_site_ids_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "copied_collections_site_ids")
           copied_collections_site_ids_parameter[0][:value].should == "1,1,"
           
           
@@ -146,15 +146,15 @@ describe CollectionJobsController do
           add_item_peer_log.sync_object_site_id.should == @empty_collection.site_id
   
           # check log action parameters
-          collection_origin_ids_parameter = SyncLogActionParameter.where(:peer_log_id => add_item_peer_log.id, :parameter => "item_id")
+          collection_origin_ids_parameter = SyncLogActionParameter.where(peer_log_id: add_item_peer_log.id, parameter: "item_id")
           collection_origin_ids_parameter[0][:value].should == "#{@item.origin_id}"
-          collection_site_ids_parameter = SyncLogActionParameter.where(:peer_log_id => add_item_peer_log.id, :parameter => "item_site_id")
+          collection_site_ids_parameter = SyncLogActionParameter.where(peer_log_id: add_item_peer_log.id, parameter: "item_site_id")
           collection_site_ids_parameter[0][:value].should == "#{@item.site_id}"
       
       
-          collected_item_type_parameter = SyncLogActionParameter.where(:peer_log_id => add_item_peer_log.id, :parameter => "collected_item_type")
+          collected_item_type_parameter = SyncLogActionParameter.where(peer_log_id: add_item_peer_log.id, parameter: "collected_item_type")
           collected_item_type_parameter[0][:value].should == "Collection"
-          collected_item_name_parameter = SyncLogActionParameter.where(:peer_log_id => add_item_peer_log.id, :parameter => "collected_item_name")
+          collected_item_name_parameter = SyncLogActionParameter.where(peer_log_id: add_item_peer_log.id, parameter: "collected_item_name")
           collected_item_name_parameter[0][:value].should == "#{@item.summary_name}"
        
                    
@@ -169,15 +169,15 @@ describe CollectionJobsController do
           second_add_item_peer_log.sync_object_site_id.should == new_collection.site_id
   
           # check log action parameters
-          collection_origin_ids_parameter = SyncLogActionParameter.where(:peer_log_id => second_add_item_peer_log.id, :parameter => "item_id")
+          collection_origin_ids_parameter = SyncLogActionParameter.where(peer_log_id: second_add_item_peer_log.id, parameter: "item_id")
           collection_origin_ids_parameter[0][:value].should == "#{@item.origin_id}"
-          collection_site_ids_parameter = SyncLogActionParameter.where(:peer_log_id => second_add_item_peer_log.id, :parameter => "item_site_id")
+          collection_site_ids_parameter = SyncLogActionParameter.where(peer_log_id: second_add_item_peer_log.id, parameter: "item_site_id")
           collection_site_ids_parameter[0][:value].should == "#{@item.site_id}"
       
       
-          collected_item_type_parameter = SyncLogActionParameter.where(:peer_log_id => second_add_item_peer_log.id, :parameter => "collected_item_type")
+          collected_item_type_parameter = SyncLogActionParameter.where(peer_log_id: second_add_item_peer_log.id, parameter: "collected_item_type")
           collected_item_type_parameter[0][:value].should == "Collection"
-          collected_item_name_parameter = SyncLogActionParameter.where(:peer_log_id => second_add_item_peer_log.id, :parameter => "collected_item_name")
+          collected_item_name_parameter = SyncLogActionParameter.where(peer_log_id: second_add_item_peer_log.id, parameter: "collected_item_name")
           collected_item_name_parameter[0][:value].should == "#{@item.summary_name}"
        
       end
@@ -185,8 +185,8 @@ describe CollectionJobsController do
     
      describe "sync remove items from collection" do
       it 'should save removing items from collection paramters in synchronization tables' do
-         post :create, {:collection_job => {:collection_id => @collection.id, 
-                       :command => "remove", :all_items => true}, :scope => "all_items"}
+         post :create, {collection_job: {collection_id: @collection.id, 
+                       command: "remove", all_items: true}, scope: "all_items"}
        
           # testing removing collection items 
           CollectionItem.all.should == []
@@ -226,23 +226,23 @@ describe CollectionJobsController do
           # check log action parameters         
           
           # parameters for collection job
-          collection_job_command_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "command")
+          collection_job_command_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "command")
           collection_job_command_parameter[0][:value].should == "remove"
-          item_count_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "item_count")
+          item_count_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "item_count")
           item_count_parameter[0][:value].should == "1"
-          all_items_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "all_items")
+          all_items_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "all_items")
           all_items_parameter[0][:value].should == "1"    
-          overwrite_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "overwrite")
+          overwrite_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "overwrite")
           overwrite_parameter[0][:value].should == "0"
                   
           # parameters for collected items
-          items_ids_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collection_items_origin_ids")
+          items_ids_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "collection_items_origin_ids")
           items_ids_parameter[0][:value].should == "#{@item.origin_id},"
-          items_sites__parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collection_items_site_ids")
+          items_sites__parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "collection_items_site_ids")
           items_sites__parameter[0][:value].should == "1,"
-          items_names_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collection_items_names")
+          items_names_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "collection_items_names")
           items_names_parameter[0][:value].should == "#{@item.name},"
-          items_types__parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "collection_items_types")
+          items_types__parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "collection_items_types")
           items_types__parameter[0][:value].should == "Collection,"
           
             # check peer log for removing item
@@ -256,13 +256,13 @@ describe CollectionJobsController do
           remove_item_peer_log.sync_object_site_id.should == @collection.site_id
   
           # check log action parameters
-          collection_origin_ids_parameter = SyncLogActionParameter.where(:peer_log_id => remove_item_peer_log.id, :parameter => "item_id")
+          collection_origin_ids_parameter = SyncLogActionParameter.where(peer_log_id: remove_item_peer_log.id, parameter: "item_id")
           collection_origin_ids_parameter[0][:value].should == "#{@item.origin_id}"
-          collection_site_ids_parameter = SyncLogActionParameter.where(:peer_log_id => remove_item_peer_log.id, :parameter => "item_site_id")
+          collection_site_ids_parameter = SyncLogActionParameter.where(peer_log_id: remove_item_peer_log.id, parameter: "item_site_id")
           collection_site_ids_parameter[0][:value].should == "#{@item.site_id}"
       
       
-          collected_item_type_parameter = SyncLogActionParameter.where(:peer_log_id => remove_item_peer_log.id, :parameter => "collected_item_type")
+          collected_item_type_parameter = SyncLogActionParameter.where(peer_log_id: remove_item_peer_log.id, parameter: "collected_item_type")
           collected_item_type_parameter[0][:value].should == "Collection"
                 
 

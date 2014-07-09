@@ -11,8 +11,8 @@ class SyncEvent < ActiveRecord::Base
     sync_event.save 
 
     # update all peer_log_actions with the new sync_event.id
-    sync_peer_logs = SyncPeerLog.find(:all, :conditions => "sync_event_id is null", 
-                                            :select => 'id, user_site_id, user_site_object_id, action_taken_at, 
+    sync_peer_logs = SyncPeerLog.find(:all, conditions: "sync_event_id is null", 
+                                            select: 'id, user_site_id, user_site_object_id, action_taken_at, 
                                                         sync_object_action_id, sync_object_type_id, 
                                                         sync_object_id, sync_object_site_id')
     
@@ -22,7 +22,7 @@ class SyncEvent < ActiveRecord::Base
           lap[:value] = Language.find_by_id(lap[:value]).iso_639_1 if lap[:value]
         end
       end
-      s.attributes.merge!(:parameters => s.sync_log_action_parameter).merge(:object_type => s.sync_object_type.object_type).merge(:object_action => s.sync_object_action.object_action)
+      s.attributes.merge!(parameters: s.sync_log_action_parameter).merge(object_type: s.sync_object_type.object_type).merge(object_action: s.sync_object_action.object_action)
       #TODO: need to filter columns in SyncLogActionParameter (simply remove the ID and peer_log_id)
     end
 

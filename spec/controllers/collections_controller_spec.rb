@@ -106,14 +106,14 @@ describe CollectionsController do
         SpecialCollection.create_enumerated
         
                
-        user_params = {:username => 'user_1', 
-                         :given_name => 'user', 
-                         :email => "user1@yahoo.com", 
-                         :email_confirmation => "user1@yahoo.com", 
-                         :entered_password => "HELLO", 
-                         :entered_password_confirmation => "HELLO", 
-                         :agreed_with_terms => 1,
-                         :active => true}        
+        user_params = {username: 'user_1', 
+                       given_name: 'user', 
+                       email: "user1@yahoo.com", 
+                       email_confirmation: "user1@yahoo.com", 
+                       entered_password: "HELLO", 
+                       entered_password_confirmation: "HELLO", 
+                       agreed_with_terms: 1,
+                       active: true}        
         @user = User.new(user_params)
         @user.save   
         @user[:site_id] = PEER_SITE_ID
@@ -123,9 +123,9 @@ describe CollectionsController do
       
       end
       it 'should save creating collection paramters in synchronization tables' do
-        put :create, {:collection => { :name => 'newcollection' },
-                                       :item_id => @user.id,
-                                       :item_type => 'User'}
+        put :create, {collection: { name: 'newcollection' },
+                                    item_id: @user.id,
+                                    item_type: 'User'}
 
         # created collection
         created_collection =  Collection.find(2)
@@ -166,7 +166,7 @@ describe CollectionsController do
         peer_log.sync_object_site_id.should == created_collection.site_id
 
         # check log action parameters
-        collectionname_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "name")
+        collectionname_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "name")
         collectionname_parameter[0][:value].should == "newcollection"
         
          # check peer log for adding item to collection
@@ -180,15 +180,15 @@ describe CollectionsController do
         second_peer_log.sync_object_site_id.should == created_collection.site_id
 
         # check log action parameters
-        collection_origin_ids_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "item_id")
+        collection_origin_ids_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "item_id")
         collection_origin_ids_parameter[0][:value].should == "#{@user.origin_id}"
-        collection_site_ids_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "item_site_id")
+        collection_site_ids_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "item_site_id")
         collection_site_ids_parameter[0][:value].should == "#{@user.site_id}"
     
     
-        collected_item_type_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "collected_item_type")
+        collected_item_type_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "collected_item_type")
         collected_item_type_parameter[0][:value].should == "User"
-        collected_item_name_parameter = SyncLogActionParameter.where(:peer_log_id => second_peer_log.id, :parameter => "collected_item_name")
+        collected_item_name_parameter = SyncLogActionParameter.where(peer_log_id: second_peer_log.id, parameter: "collected_item_name")
         collected_item_name_parameter[0][:value].should == "#{@user.summary_name}"
     
       end
@@ -212,7 +212,7 @@ describe CollectionsController do
         @current_user[:origin_id] = @current_user.id
         @current_user[:site_id] = PEER_SITE_ID
         @current_user.save
-        @collection = Collection.create(:name => "collection")
+        @collection = Collection.create(name: "collection")
         @collection.update_column(:origin_id, @collection.id)
         @collection.update_column(:site_id, PEER_SITE_ID)
         @collection.users = [@current_user]
@@ -221,13 +221,13 @@ describe CollectionsController do
       
       it 'should save updating collection paramters in synchronization tables' do
          @file = ActionDispatch::Http::UploadedFile.new({
-            :filename => "test.jpg",
-            :type => "image/jpeg",
-            :tempfile => File.new(Rails.root.join("test/fixtures/files/test.jpg")) })
+            filename: "test.jpg",
+            type: "image/jpeg",
+            tempfile: File.new(Rails.root.join("test/fixtures/files/test.jpg")) })
        
       
-        post :update, :id => @collection.id, :view_as => 2,
-        :commit_edit_collection => 'Submit', :collection => { :name => 'newname', :logo =>  @file}
+        post :update, id: @collection.id, view_as: 2,
+        commit_edit_collection: 'Submit', collection: { name: 'newname', logo: @file}
           
         # updated collection        
         created_collection =  @collection.reload

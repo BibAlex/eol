@@ -42,7 +42,7 @@ describe Taxa::NamesController do
         truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
         session[:user_id] = current_user.id
-        get :delete, :taxon_id => @testy[:taxon_concept].id.to_i, :synonym_id => @testy[:synonym]["synonym"].id
+        get :delete, taxon_id: @testy[:taxon_concept].id.to_i, synonym_id: @testy[:synonym]["synonym"].id
       end
       
       it "creates sync peer log" do
@@ -88,8 +88,8 @@ describe Taxa::NamesController do
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
         session[:user_id] = @testy[:curator].id
         approved_language_id = approved_languages.first
-        post :create, :name => { :synonym => { :language_id => approved_language_id }, :string => "snake" }, 
-                      :commit_add_common_name => "Add name", :taxon_id => @testy[:taxon_concept].id.to_i
+        post :create, name: { synonym: { language_id: approved_language_id }, string: "snake" }, 
+                      commit_add_common_name: "Add name", taxon_id: @testy[:taxon_concept].id.to_i
       end
       it "creates sync peer log" do
         expect(peer_log).not_to be_nil
@@ -151,7 +151,7 @@ describe Taxa::NamesController do
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
         session[:user_id] = current_user.id
         approved_language_id = approved_languages.first
-        post :update, :preferred_name_id => @testy[:name].id, :language_id => approved_language_id, :taxon_id => @testy[:taxon_concept].id.to_i
+        post :update, preferred_name_id: @testy[:name].id, language_id: approved_language_id, taxon_id: @testy[:taxon_concept].id.to_i
       end
       it "creates sync peer log" do
         expect(peer_log).not_to be_nil
@@ -203,7 +203,7 @@ describe Taxa::NamesController do
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
         session[:user_id] = current_user.id
         approved_language_id = approved_languages.first
-        get :vet_common_name, :id => @testy[:name].id, :language_id => approved_language_id, :vetted_id => Vetted.first.id, :taxon_id => @testy[:taxon_concept].id.to_i
+        get :vet_common_name, id: @testy[:name].id, language_id: approved_language_id, vetted_id: Vetted.first.id, taxon_id: @testy[:taxon_concept].id.to_i
       end
       it "creates sync peer log" do
         expect(peer_log).not_to be_nil
@@ -247,7 +247,7 @@ describe Taxa::NamesController do
   
   describe 'GET common_names' do
     before :each do
-      get :common_names, :taxon_id => @testy[:taxon_concept].id.to_i
+      get :common_names, taxon_id: @testy[:taxon_concept].id.to_i
     end
     it_should_behave_like 'taxa/names controller'
     it 'should instantiate common names' do
@@ -258,7 +258,7 @@ describe Taxa::NamesController do
 
   describe 'GET synonyms' do
     before :each do
-      get :synonyms, :taxon_id => @testy[:taxon_concept].id.to_i
+      get :synonyms, taxon_id: @testy[:taxon_concept].id.to_i
     end
     it_should_behave_like 'taxa/names controller'
     it 'should preload synonym associations' do

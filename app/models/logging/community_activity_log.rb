@@ -19,12 +19,12 @@ class CommunityActivityLog < LoggingModel
   def log_activity_in_solr
     keyword = self.activity.name('en') rescue nil
     base_index_hash = {
-      'activity_log_unique_key' => "CommunityActivityLog_#{id}",
-      'activity_log_type' => 'CommunityActivityLog',
-      'activity_log_id' => self.id,
-      'action_keyword' => keyword,
-      'user_id' => self.user_id,
-      'date_created' => self.created_at.solr_timestamp }
+      activity_log_unique_key: "CommunityActivityLog_#{id}",
+      activity_log_type: 'CommunityActivityLog',
+      activity_log_id: self.id,
+      action_keyword: keyword,
+      user_id: self.user_id,
+      date_created: self.created_at.solr_timestamp }
     EOL::Solr::ActivityLog.index_notifications(base_index_hash, notification_recipient_objects)
   end
 

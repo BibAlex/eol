@@ -249,12 +249,12 @@ class CuratorActivityLog < LoggingModel
     keywords << self.changeable_object_type.ch_object_type.camelize if self.changeable_object_type
     keywords << self.activity.name('en') if self.activity
     base_index_hash = {
-      'activity_log_unique_key' => "CuratorActivityLog_#{id}",
-      'activity_log_type' => 'CuratorActivityLog',
-      'activity_log_id' => self.id,
-      'action_keyword' => keywords,
-      'user_id' => self.user_id,
-      'date_created' => self.created_at.solr_timestamp }
+      activity_log_unique_key: "CuratorActivityLog_#{id}",
+      activity_log_type: 'CuratorActivityLog',
+      activity_log_id: self.id,
+      action_keyword: keywords,
+      user_id: self.user_id,
+      date_created: self.created_at.solr_timestamp }
     EOL::Solr::ActivityLog.index_notifications(base_index_hash, notification_recipient_objects)
     LoggingModel.clear_taxon_activity_log_fragment_caches(notification_recipient_objects)
   end
