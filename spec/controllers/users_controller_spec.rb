@@ -120,8 +120,8 @@ describe UsersController do
       
       describe "POST #create" do
         
-        let(:peer_log) {SyncPeerLog.first}
-        subject(:user) {User.first}
+        let(:peer_log) { SyncPeerLog.first }
+        subject(:user) { User.first }
         
         context "successful creation" do
           
@@ -129,10 +129,10 @@ describe UsersController do
             truncate_table(ActiveRecord::Base.connection, "users", {})
             truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
             truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-            post :create, {user: {username: 'user_1', given_name: 'user', 
-                           email: "user1@yahoo.com",  email_confirmation: "user1@yahoo.com", 
-                           entered_password: "HELLO", entered_password_confirmation: "HELLO", 
-                           agreed_with_terms: 1}}
+            post :create, { user: { username: 'user_1', given_name: 'user', 
+                            email: "user1@yahoo.com",  email_confirmation: "user1@yahoo.com", 
+                            entered_password: "HELLO", entered_password_confirmation: "HELLO", 
+                            agreed_with_terms: 1 } }
           end
           
           it "creates sync peer log" do
@@ -196,10 +196,10 @@ describe UsersController do
             truncate_table(ActiveRecord::Base.connection, "users", {})
             truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
             truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-            post :create, {user: {given_name: 'user', 
-                           email: "user1@yahoo.com",  email_confirmation: "user1@yahoo.com", 
-                           entered_password: "HELLO", entered_password_confirmation: "HELLO", 
-                           agreed_with_terms: 1}}
+            post :create, { user: { given_name: 'user', 
+                            email: "user1@yahoo.com",  email_confirmation: "user1@yahoo.com", 
+                            entered_password: "HELLO", entered_password_confirmation: "HELLO", 
+                            agreed_with_terms: 1 } }
           end
           
           it "doesn't create sync peer log" do
@@ -215,9 +215,9 @@ describe UsersController do
             truncate_table(ActiveRecord::Base.connection, "users", {})
             truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
             truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-            post :create, {user: {username: 'user_1', given_name: 'user', 
-                           entered_password: "HELLO", entered_password_confirmation: "HELLO", 
-                           agreed_with_terms: 1}}
+            post :create, { user: { username: 'user_1', given_name: 'user', 
+                            entered_password: "HELLO", entered_password_confirmation: "HELLO", 
+                            agreed_with_terms: 1 } }
           end
           
           it "doesn't create sync peer log" do
@@ -233,9 +233,9 @@ describe UsersController do
             truncate_table(ActiveRecord::Base.connection, "users", {})
             truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
             truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-            post :create, {user: {username: 'user_1', given_name: 'user', 
+            post :create, { user: { username: 'user_1', given_name: 'user', 
                            email: "user1@yahoo.com",  email_confirmation: "user1@yahoo.com", 
-                           agreed_with_terms: 1}}
+                           agreed_with_terms: 1 } }
           end
           
           it "doesn't create sync peer log" do
@@ -352,8 +352,8 @@ describe UsersController do
       
       describe "PUT #update" do
         
-        let(:peer_log) {SyncPeerLog.first}
-        subject(:user) {User.gen}
+        let(:peer_log) { SyncPeerLog.first }
+        subject(:user) { User.gen }
         
         context "successful update" do
           
@@ -363,43 +363,34 @@ describe UsersController do
             truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
             user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
             session[:user_id] = user.id
-            put :update, {id: user.id, user: {id: user.id, username: 'newusername', 
-                          bio: 'My bio'}}
+            put :update, { id: user.id, user: {id: user.id, username: 'newusername', 
+                          bio: 'My bio' } }
           end
-          
           it "creates sync peer log" do
             expect(peer_log).not_to be_nil
           end
-          
           it "has correct action" do
             expect(peer_log.sync_object_action_id).to eq(SyncObjectAction.update.id)
           end
-          
           it "has correct type" do
             expect(peer_log.sync_object_type_id).to eq(SyncObjectType.user.id)
           end
-          
           it "has correct 'user_site_id'" do
             expect(peer_log.user_site_id).to eq(PEER_SITE_ID)
           end
-          
           it "has correct 'user_id'" do
             expect(peer_log.user_site_object_id).to eq(user.id)
           end
-          
           it "has correct 'object_site_id'" do
             expect(peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
           end
-          
           it "has correct 'object_id'" do
             expect(peer_log.sync_object_id).to eq(user.id)
           end
-          
           it "creates sync log action parameter for 'user_name'" do
             username_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "username")
             expect(username_parameter[0][:value]).to eq("newusername")
           end
-          
           it "creates sync log action parameter for 'bio'" do
             bio_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "bio")
             expect(bio_parameter[0][:value]).to eq("My bio")
@@ -413,8 +404,8 @@ describe UsersController do
             truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
             user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
             hashed_password = User.find(user).hashed_password
-            expect{put :update, {id: user.id, user: {id: user.id, entered_password: 'newpassword', 
-                                              entered_password_confirmation: 'newpassword' } }}.to raise_error(EOL::Exceptions::SecurityViolation)
+            expect{ put :update, { id: user.id, user: { id: user.id, entered_password: 'newpassword', 
+                                              entered_password_confirmation: 'newpassword' } } }.to raise_error(EOL::Exceptions::SecurityViolation)
           end
           
           it "doesn't create sync peer log" do

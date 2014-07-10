@@ -17,13 +17,13 @@ describe CollectionItemsController do
   # This method is used when JS is disabled, otherwise items are updated through Collection controller
   describe "POST update" do
     it "should NOT update the item if user not logged in" do
-      post :update, :id => @collection_item.id, :collection_item => {:annotation => "New Annotation"}
+      post :update, id: @collection_item.id, collection_item: { annotation: "New Annotation" }
       expect(response).to redirect_to(login_url)
     end
     it "should update the item if user has permission to update" do
       getter = lambda{
         session[:user_id] = @collection_editor.id
-        post :update, { :id => @collection_item.id, :collection_item => {:annotation => "New Annotation"} }
+        post :update, { id: @collection_item.id, collection_item: { annotation: "New Annotation" } }
         @collection_item.reload
         unless @collection_item.annotation == "New Annotation" # What happened?  Seems rare... must be another error.
           puts "Huh?"
@@ -345,7 +345,6 @@ describe CollectionItemsController do
           collection_item_refs_parameter = SyncLogActionParameter.where(peer_log_id: add_refs_to_collection_item_peer_log.id, parameter: "references")
           expect(collection_item_refs_parameter[0][:value]).to eq("reference")
         end
-        
       end
       
       context "failed update: user should login" do

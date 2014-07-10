@@ -11,11 +11,11 @@ describe Administrator::UserController do
     
     describe "PUT #update" do
     
-      let(:peer_log) {SyncPeerLog.first}
-      subject(:user) {User.gen(username: 'users_controller_spec', 
+      let(:peer_log) { SyncPeerLog.first }
+      subject(:user) { User.gen(username: 'users_controller_spec', 
                                requested_curator_level_id: 2, credentials: "Faculty, staff, or graduate student status in a relevant university or college department",
-                               curator_scope: "Rodents of Borneo")}
-      let(:admin) {User.gen(username: "admin", password: "admin")}
+                               curator_scope: "Rodents of Borneo") }
+      let(:admin) { User.gen(username: "admin", password: "admin") }
       
       context "successful update" do
         
@@ -27,7 +27,7 @@ describe Administrator::UserController do
           admin.update_attributes(origin_id: admin.id, site_id: PEER_SITE_ID)
           session[:user_id] = admin.id
           admin.grant_admin 
-          put :update, {id: user.id, user: {id: user.id, username: 'newusername', curator_level_id: 2}}
+          put :update, { id: user.id, user: { id: user.id, username: 'newusername', curator_level_id: 2 } }
         end
         
         it "creates sync peer log" do

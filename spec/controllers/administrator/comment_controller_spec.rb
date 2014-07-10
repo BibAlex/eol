@@ -10,11 +10,11 @@ describe Administrator::CommentController do
     end
     
     describe "PUT #update" do
-      let(:peer_log) {SyncPeerLog.first}
-      let(:admin) {User.gen(username: "admin", password: "admin")}
-      let(:comment_parent) {Collection.gen(name: "collection")}
-      subject(:comment) {Comment.gen(body: "comment_on_collection", parent: comment_parent,
-                                     parent_type: "Collection")}
+      let(:peer_log) { SyncPeerLog.first }
+      let(:admin) { User.gen(username: "admin", password: "admin") }
+      let(:comment_parent) { Collection.gen(name: "collection") }
+      subject(:comment) { Comment.gen(body: "comment_on_collection", parent: comment_parent,
+                                     parent_type: "Collection") }
       
       context "successful update" do
         
@@ -29,7 +29,7 @@ describe Administrator::CommentController do
           admin.grant_admin 
           comment_parent.update_attributes(origin_id: comment_parent.id, site_id: PEER_SITE_ID)
           comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID)
-          put :update, {id: comment.id, comment: {body: "new text"}}
+          put :update, { id: comment.id, comment: { body: "new text" } }
         end
         
         it "creates sync peer log" do
@@ -77,7 +77,7 @@ describe Administrator::CommentController do
           admin.update_attributes(origin_id: admin.id, site_id: PEER_SITE_ID)
           comment_parent.update_attributes(origin_id: comment_parent.id, site_id: PEER_SITE_ID)
           comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID)
-          expect{put :update, {id: comment.id, comment: {body: "new text"}}}.to raise_error(EOL::Exceptions::SecurityViolation)
+          expect{ put :update, { id: comment.id, comment: { body: "new text" } } }.to raise_error(EOL::Exceptions::SecurityViolation)
         end
         
         it "doesn't create sync peer log" do
@@ -90,11 +90,11 @@ describe Administrator::CommentController do
     end
     
     describe "PUT #hide" do
-      let(:peer_log) {SyncPeerLog.first}
-      let(:admin) {User.gen(username: "admin", password: "admin")}
-      let(:comment_parent) {Collection.gen(name: "collection")}
-      subject(:comment) {Comment.gen(body: "comment_on_collection", parent: comment_parent,
-                                     parent_type: "Collection")}
+      let(:peer_log) { SyncPeerLog.first }
+      let(:admin) { User.gen(username: "admin", password: "admin") }
+      let(:comment_parent) { Collection.gen(name: "collection") }
+      subject(:comment) { Comment.gen(body: "comment_on_collection", parent: comment_parent,
+                                     parent_type: "Collection") }
       
       context "successful hide" do
         
@@ -110,7 +110,7 @@ describe Administrator::CommentController do
           comment_parent.update_attributes(origin_id: comment_parent.id, site_id: PEER_SITE_ID)
           comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID)
           @request.env['HTTP_REFERER'] = 'http://localhost:300#{PEER_SITE_ID}/administrator/comment'
-          put :hide, {id: comment.id, test: true}
+          put :hide, { id: comment.id, test: true }
         end
         
         it "creates sync peer log" do
@@ -153,7 +153,7 @@ describe Administrator::CommentController do
           admin.update_attributes(origin_id: admin.id, site_id: PEER_SITE_ID)
           comment_parent.update_attributes(origin_id: comment_parent.id, site_id: PEER_SITE_ID)
           comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID)
-          expect{put :hide, {id: comment.id, test: true}}.to raise_error(EOL::Exceptions::SecurityViolation)
+          expect{ put :hide, { id: comment.id, test: true } }.to raise_error(EOL::Exceptions::SecurityViolation)
         end
         
         it "doesn't create sync peer log" do
@@ -166,11 +166,11 @@ describe Administrator::CommentController do
     end
     
     describe "PUT #show" do
-      let(:peer_log) {SyncPeerLog.first}
-      let(:admin) {User.gen(username: "admin", password: "admin")}
-      let(:comment_parent) {Collection.gen(name: "collection")}
-      subject(:comment) {Comment.gen(body: "comment_on_collection", parent: comment_parent,
-                                     parent_type: "Collection")}
+      let(:peer_log) { SyncPeerLog.first }
+      let(:admin) { User.gen(username: "admin", password: "admin") }
+      let(:comment_parent) { Collection.gen(name: "collection") }
+      subject(:comment) { Comment.gen(body: "comment_on_collection", parent: comment_parent,
+                                     parent_type: "Collection") }
       
       context "successful show" do
         
@@ -186,7 +186,7 @@ describe Administrator::CommentController do
           comment_parent.update_attributes(origin_id: comment_parent.id, site_id: PEER_SITE_ID)
           comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID)
           @request.env['HTTP_REFERER'] = 'http://localhost:300#{PEER_SITE_ID}/administrator/comment'
-          put :show, {id: comment.id, test: true}
+          put :show, { id: comment.id, test: true }
         end
         
         it "creates sync peer log" do
@@ -229,7 +229,7 @@ describe Administrator::CommentController do
           admin.update_attributes(origin_id: admin.id, site_id: PEER_SITE_ID)
           comment_parent.update_attributes(origin_id: comment_parent.id, site_id: PEER_SITE_ID)
           comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID)
-          expect{put :hide, {id: comment.id, test: true}}.to raise_exception(EOL::Exceptions::SecurityViolation)
+          expect{ put :hide, { id: comment.id, test: true } }.to raise_exception(EOL::Exceptions::SecurityViolation)
         end
         
         it "doesn't create sync peer log" do

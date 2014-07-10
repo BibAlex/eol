@@ -34,10 +34,10 @@ describe Taxa::NamesController do
 
   describe "Synchronization" do
     describe "GET #delete" do
-      let(:type) {SyncObjectType.common_name}
-      let(:action) {SyncObjectAction.delete}
-      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
-      let(:current_user) {@testy[:curator]}
+      let(:type) { SyncObjectType.common_name }
+      let(:action) { SyncObjectAction.delete }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id(action.id) }
+      let(:current_user) { @testy[:curator] }
       before do
         truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
@@ -77,11 +77,11 @@ describe Taxa::NamesController do
     end
     
     describe 'POST #create' do
-      let(:type) {SyncObjectType.common_name}
-      let(:action) {SyncObjectAction.create}
-      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
-      let(:current_user) {@testy[:curator]}
-      let(:approved_languages) {Language.approved_languages.collect{|l| l.id}}
+      let(:type) { SyncObjectType.common_name }
+      let(:action) { SyncObjectAction.create }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id(action.id) }
+      let(:current_user) { @testy[:curator] }
+      let(:approved_languages) { Language.approved_languages.collect{ |l| l.id } }
         
       before :each do
         truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
@@ -140,11 +140,11 @@ describe Taxa::NamesController do
     end
 
     describe 'POST #update' do
-      let(:type) {SyncObjectType.common_name}
-      let(:action) {SyncObjectAction.update}
-      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
-      let(:current_user) {@testy[:curator]}
-      let(:approved_languages) {Language.approved_languages.collect{|l| l.id}}
+      let(:type) { SyncObjectType.common_name }
+      let(:action) { SyncObjectAction.update }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id(action.id) }
+      let(:current_user) { @testy[:curator] }
+      let(:approved_languages) { Language.approved_languages.collect{ |l| l.id } }
         
       before do
         truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
@@ -193,11 +193,11 @@ describe Taxa::NamesController do
     end
     
     describe "GET #vet_common_name" do
-      let(:type) {SyncObjectType.common_name}
-      let(:action) {SyncObjectAction.vet}
-      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
-      let(:current_user) {@testy[:curator]}
-      let(:approved_languages) {Language.approved_languages.collect{|l| l.id}}
+      let(:type) { SyncObjectType.common_name }
+      let(:action) { SyncObjectAction.vet }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id(action.id) }
+      let(:current_user) { @testy[:curator] }
+      let(:approved_languages) { Language.approved_languages.collect{ |l| l.id } } 
       before do
         truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
         truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
