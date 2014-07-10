@@ -21,12 +21,12 @@ class CollectionActivityLog < LoggingModel
     return if self.collection_item.collection.watch_collection?
     keyword = self.collection_item.collected_item_type rescue nil
     base_index_hash = {
-      'activity_log_unique_key' => "CollectionActivityLog_#{id}",
-      'activity_log_type' => 'CollectionActivityLog',
-      'activity_log_id' => self.id,
-      'action_keyword' => keyword,
-      'user_id' => self.user_id,
-      'date_created' => self.created_at.solr_timestamp }
+      activity_log_unique_key: "CollectionActivityLog_#{id}",
+      activity_log_type: 'CollectionActivityLog',
+      activity_log_id: self.id,
+      action_keyword: keyword,
+      user_id: self.user_id,
+      date_created: self.created_at.solr_timestamp }
     EOL::Solr::ActivityLog.index_notifications(base_index_hash, notification_recipient_objects)
   end
   

@@ -4,6 +4,8 @@ describe Taxa::NamesController do
 
   before(:each) do
     truncate_all_tables
+    SyncObjectType.create_enumerated
+    SyncObjectAction.create_enumerated
     load_scenario_with_caching :testy
     @testy = EOL::TestInfo.load('testy')
   end
@@ -30,205 +32,222 @@ describe Taxa::NamesController do
     end
   end
 
-  describe "DELETE names" do
-    before :each do
-      session[:user_id] = @testy[:curator].id
+  describe "Synchronization" do
+    describe "GET #delete" do
+      let(:type) {SyncObjectType.common_name}
+      let(:action) {SyncObjectAction.delete}
+      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
+      let(:current_user) {@testy[:curator]}
+      before do
+        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        session[:user_id] = current_user.id
+        get :delete, taxon_id: @testy[:taxon_concept].id.to_i, synonym_id: @testy[:synonym]["synonym"].id
+      end
+      
+      it "creates sync peer log" do
+        expect(peer_log).not_to be_nil
+      end
+      it "creates sync peer log with correct sync_object_action" do
+        expect(peer_log.sync_object_action_id).to eq(action.id)
+      end
+      it "creates sync peer log with correct sync_object_type" do
+        expect(peer_log.sync_object_type_id).to eq(type.id)
+      end
+      it "creates sync peer log with correct user_site_id" do
+        expect(peer_log.user_site_id).to eq(current_user.site_id)
+      end
+      it "creates sync peer log with correct user_site_object_id" do
+        expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+      end
+      it "creates sync peer log with correct sync_object_id" do
+        expect(peer_log.sync_object_id).to eq(@testy[:synonym]["synonym"].origin_id)
+      end
+      it "creates sync peer log with correct sync_object_site_id" do
+        expect(peer_log.sync_object_site_id).to eq(@testy[:synonym]["synonym"].site_id)
+      end
+      it "creates sync log action parameter for taxon_concept_origin_id" do
+        taxon_concept_origin_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "taxon_concept_origin_id")
+        expect(taxon_concept_origin_id_parameter[0][:value]).to eq(@testy[:taxon_concept].origin_id)
+      end
+      it "creates sync log action parameter for taxon_concept_site_id" do
+        taxon_concept_site_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "taxon_concept_site_id")
+        expect(taxon_concept_site_id_parameter[0][:value]).to eq("#{@testy[:taxon_concept].site_id}")
+      end
     end
-    it "should prepare data for syncronization" do
-      truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-      truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-      truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-      truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
+    
+    describe 'POST #create' do
+      let(:type) {SyncObjectType.common_name}
+      let(:action) {SyncObjectAction.create}
+      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
+      let(:current_user) {@testy[:curator]}
+      let(:approved_languages) {Language.approved_languages.collect{|l| l.id}}
         
-      tcn = TaxonConceptName.find_by_synonym_id_and_taxon_concept_id(@testy[:synonym]["synonym"].id,  @testy[:taxon_concept].id.to_i)
-      tcn.should_not be_nil
-      get :delete, :taxon_id => @testy[:taxon_concept].id.to_i, :synonym_id => @testy[:synonym]["synonym"].id
-      tcn = TaxonConceptName.find_by_synonym_id_and_taxon_concept_id(@testy[:synonym]["synonym"].id,  @testy[:taxon_concept].id.to_i)
-      tcn.should be_nil
-      
-      
-      # check sync_object_type
-      type = SyncObjectType.first
-      type.should_not be_nil
-      type.object_type.should == "common_name"
-     
-      # check sync_object_actions
-      action = SyncObjectAction.first
-      action.should_not be_nil
-      action.object_action.should == "delete"
-     
-      # check peer logs
-      peer_log = SyncPeerLog.first
-      peer_log.should_not be_nil
-      peer_log.sync_object_action_id.should == action.id
-      peer_log.sync_object_type_id.should == type.id
-      peer_log.sync_object_id.should == @testy[:synonym]["synonym"].origin_id
-      peer_log.sync_object_site_id.should == @testy[:synonym]["synonym"].site_id
-     
-      # check log action parameters
-      taxon_concept_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_origin_id")
-      taxon_concept_origin_id_parameter[0][:value].should ==  @testy[:taxon_concept].origin_id
-           
-      taxon_concept_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_site_id")
-      taxon_concept_site_id_parameter[0][:value].should ==  @testy[:taxon_concept].site_id.to_s
+      before :each do
+        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        session[:user_id] = @testy[:curator].id
+        approved_language_id = approved_languages.first
+        post :create, name: { synonym: { language_id: approved_language_id }, string: "snake" }, 
+                      commit_add_common_name: "Add name", taxon_id: @testy[:taxon_concept].id.to_i
+      end
+      it "creates sync peer log" do
+        expect(peer_log).not_to be_nil
+      end
+      it "creates sync peer log with correct sync_object_action" do
+        expect(peer_log.sync_object_action_id).to eq(action.id)
+      end
+      it "creates sync peer log with correct sync_object_type" do
+        expect(peer_log.sync_object_type_id).to eq(type.id)
+      end
+      it "creates sync peer log with correct user_site_id" do
+        expect(peer_log.user_site_id).to eq(current_user.site_id)
+      end
+      it "creates sync peer log with correct user_site_object_id" do
+        expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+      end
+      it "creates sync peer log with correct sync_object_id" do
+        expect(peer_log.sync_object_id).to eq(Synonym.last.origin_id)
+      end
+      it "creates sync peer log with correct sync_object_site_id" do
+        expect(peer_log.sync_object_site_id).to eq(Synonym.last.site_id)
+      end
+      it "creates sync log action parameter for taxon_concept_origin_id" do
+        taxon_concept_origin_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "taxon_concept_origin_id")
+        expect(taxon_concept_origin_id_parameter[0][:value]).to eq(@testy[:taxon_concept].origin_id)
+      end
+      it "creates sync log action parameter for taxon_concept_site_id" do
+        taxon_concept_site_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "taxon_concept_site_id")
+        expect(taxon_concept_site_id_parameter[0][:value]).to eq(@testy[:taxon_concept].site_id.to_s)
+      end
+      it "creates sync log action parameter for string" do
+        string_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "string")
+        expect(string_parameter[0][:value]).to eq('snake')
+      end
+      it "creates sync log action parameter for name_origin_id" do
+        name_origin_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "name_origin_id")
+        expect(name_origin_id_parameter[0][:value]).to eq(Name.last.origin_id.to_s)
+      end
+      it "creates sync log action parameter for name_site_id" do
+        name_site_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "name_site_id")
+        expect(name_site_id_parameter[0][:value]).to eq(Name.last.site_id.to_s)
+      end
+      after(:all) do
+        Name.last.destroy
+        Synonym.last.destroy
+        TaxonConceptName.last.destroy
+      end
+    end
+
+    describe 'POST #update' do
+      let(:type) {SyncObjectType.common_name}
+      let(:action) {SyncObjectAction.update}
+      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
+      let(:current_user) {@testy[:curator]}
+      let(:approved_languages) {Language.approved_languages.collect{|l| l.id}}
+        
+      before do
+        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        session[:user_id] = current_user.id
+        approved_language_id = approved_languages.first
+        post :update, preferred_name_id: @testy[:name].id, language_id: approved_language_id, taxon_id: @testy[:taxon_concept].id.to_i
+      end
+      it "creates sync peer log" do
+        expect(peer_log).not_to be_nil
+      end
+      it "creates sync peer log with correct sync_object_action" do
+        expect(peer_log.sync_object_action_id).to eq(action.id)
+      end
+      it "creates sync peer log with correct sync_object_type" do
+        expect(peer_log.sync_object_type_id).to eq(type.id)
+      end
+      it "creates sync peer log with correct user_site_id" do
+        expect(peer_log.user_site_id).to eq(current_user.site_id)
+      end
+      it "creates sync peer log with correct user_site_object_id" do
+        expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+      end
+      it "creates sync peer log with correct sync_object_id" do
+        expect(peer_log.sync_object_id).to eq(@testy[:synonym]["synonym"].origin_id)
+      end
+      it "creates sync peer log with correct sync_object_site_id" do
+        expect(peer_log.sync_object_site_id).to eq(@testy[:synonym]["synonym"].site_id)
+      end
+      it "creates sync log action parameter for taxon_concept_origin_id" do
+        taxon_concept_origin_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "taxon_concept_origin_id")
+        expect(taxon_concept_origin_id_parameter[0][:value]).to eq(@testy[:taxon_concept].origin_id)
+      end
+      it "creates sync log action parameter for taxon_concept_site_id" do
+        taxon_concept_site_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "taxon_concept_site_id")
+        expect(taxon_concept_site_id_parameter[0][:value]).to eq(@testy[:taxon_concept].site_id.to_s)
+      end
+      it "creates sync log action parameter for language" do
+        language_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "language")
+        expect(language_parameter[0][:value]).to eq(approved_languages.first.to_s)
+      end
+      it "creates sync log action parameter for string" do
+        string_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "string")
+        expect(string_parameter[0][:value]).to eq(@testy[:name].string)
+      end
+    end
+    
+    describe "GET #vet_common_name" do
+      let(:type) {SyncObjectType.common_name}
+      let(:action) {SyncObjectAction.vet}
+      let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
+      let(:current_user) {@testy[:curator]}
+      let(:approved_languages) {Language.approved_languages.collect{|l| l.id}}
+      before do
+        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        session[:user_id] = current_user.id
+        approved_language_id = approved_languages.first
+        get :vet_common_name, id: @testy[:name].id, language_id: approved_language_id, vetted_id: Vetted.first.id, taxon_id: @testy[:taxon_concept].id.to_i
+      end
+      it "creates sync peer log" do
+        expect(peer_log).not_to be_nil
+      end
+      it "creates sync peer log with correct sync_object_action" do
+        expect(peer_log.sync_object_action_id).to eq(action.id)
+      end
+      it "creates sync peer log with correct sync_object_type" do
+        expect(peer_log.sync_object_type_id).to eq(type.id)
+      end
+      it "creates sync peer log with correct user_site_id" do
+        expect(peer_log.user_site_id).to eq(current_user.site_id)
+      end
+      it "creates sync peer log with correct user_site_object_id" do
+        expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+      end
+      it "creates sync peer log with correct sync_object_id" do
+        expect(peer_log.sync_object_id).to eq(@testy[:synonym]["synonym"].origin_id)
+      end
+      it "creates sync peer log with correct sync_object_site_id" do
+        expect(peer_log.sync_object_site_id).to eq(@testy[:synonym]["synonym"].site_id)
+      end
+      it "creates sync log action parameter for taxon_concept_origin_id" do
+        taxon_concept_origin_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "taxon_concept_origin_id")
+        expect(taxon_concept_origin_id_parameter[0][:value]).to eq(@testy[:taxon_concept].origin_id)
+      end
+      it "creates sync log action parameter for taxon_concept_site_id" do
+        taxon_concept_site_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "taxon_concept_site_id")
+        expect(taxon_concept_site_id_parameter[0][:value]).to eq(@testy[:taxon_concept].site_id.to_s)
+      end
+      it "creates sync log action parameter for taxon_concept_site_id" do
+        language_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "language")
+        expect(language_parameter[0][:value]).to eq(approved_languages.first.to_s)
+      end
+      it "creates sync log action parameter for vetted_view_order" do
+        vetted_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "vetted_view_order")
+        expect(vetted_parameter[0][:value]).to eq(Vetted.first.view_order.to_s)
+      end
     end
   end
   
-  describe 'POST names' do
-    before :each do
-      session[:user_id] = @testy[:curator].id
-      @approved_languages = Language.approved_languages.collect{|l| l.id}
-    end
-    it 'should add a new common name in approved languages' do
-      approved_language_id = @approved_languages.first
-      post :create, :name => { :synonym => { :language_id => approved_language_id }, :string => "snake" }, 
-                    :commit_add_common_name => "Add name", :taxon_id => @testy[:taxon_concept].id.to_i
-      name = Name.find_by_string("snake").should be_true
-      TaxonConceptName.find_by_name_id_and_language_id(Name.find_by_string("snake").id, approved_language_id)
-      response.should redirect_to(common_names_taxon_names_path(@testy[:taxon_concept].id.to_i))
-    end
-    it 'should add a new common name in non-approved languages' do
-      non_approved_language_id = Language.find(:all, :conditions => ["id NOT IN (?)", @approved_languages]).first.id
-      post :create, :name => { :synonym => { :language_id => non_approved_language_id }, :string => "nag" }, 
-                    :commit_add_common_name => "Add name", :taxon_id => @testy[:taxon_concept].id.to_i
-      name = Name.find_by_string("nag").should be_true
-      TaxonConceptName.find_by_name_id_and_language_id(Name.find_by_string("nag").id, non_approved_language_id)
-      response.should redirect_to(common_names_taxon_names_path(@testy[:taxon_concept].id.to_i))
-    end
-    
-    it 'should prepare data when update common names for syncronization' do
-      truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-      truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-      truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-      truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        
-      approved_language_id = @approved_languages.first
-      post :update, :preferred_name_id => @testy[:name].id, :language_id => approved_language_id, :taxon_id => @testy[:taxon_concept].id.to_i
-      
-      # check sync_object_type
-      type = SyncObjectType.first
-      type.should_not be_nil
-      type.object_type.should == "common_name"
-      
-      # check sync_object_actions
-      action = SyncObjectAction.first
-      action.should_not be_nil
-      action.object_action.should == "update"
-      
-      # check peer logs
-      peer_log = SyncPeerLog.first
-      peer_log.should_not be_nil
-      peer_log.sync_object_action_id.should == action.id
-      peer_log.sync_object_type_id.should == type.id
-      peer_log.sync_object_id.should == @testy[:synonym]["synonym"].origin_id
-      peer_log.sync_object_site_id.should == @testy[:synonym]["synonym"].site_id
-      
-      # check log action parameters
-      taxon_concept_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_origin_id")
-      taxon_concept_origin_id_parameter[0][:value].should ==  @testy[:taxon_concept].origin_id
-      
-      taxon_concept_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_site_id")
-      taxon_concept_site_id_parameter[0][:value].should ==  @testy[:taxon_concept].site_id.to_s
-      
-      language_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "language")
-      language_parameter[0][:value].should ==   @approved_languages.first.to_s
-      
-      string_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "string")
-      string_parameter[0][:value].should ==   @testy[:name].string
-    end
-    
-    it 'should prepare data when add common names for syncronization' do
-      truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-      truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-      truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-      truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-      approved_language_id = @approved_languages.first
-      post :create, :name => { :synonym => { :language_id => approved_language_id }, :string => "snake" }, 
-                    :commit_add_common_name => "Add name", :taxon_id => @testy[:taxon_concept].id.to_i
-      
-      name = Name.find_by_string("snake")
-      name.should_not be_nil
-      
-      # check sync_object_type
-      type = SyncObjectType.first
-      type.should_not be_nil
-      type.object_type.should == "common_name"
-      
-      # check sync_object_actions
-      action = SyncObjectAction.first
-      action.should_not be_nil
-      action.object_action.should == "create"
-      
-      # check peer logs
-      peer_log = SyncPeerLog.first
-      peer_log.should_not be_nil
-      peer_log.sync_object_action_id.should == action.id
-      peer_log.sync_object_type_id.should == type.id
-      
-      # check log action parameters
-      taxon_concept_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_origin_id")
-      taxon_concept_origin_id_parameter[0][:value].should ==  @testy[:taxon_concept].origin_id
-      
-      taxon_concept_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_site_id")
-      taxon_concept_site_id_parameter[0][:value].should ==  @testy[:taxon_concept].site_id.to_s
-      
-      string_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "string")
-      string_parameter[0][:value].should ==  "snake" 
-    end
-  end
-
-  describe "vet common names" do
-    before :each do
-      session[:user_id] = @testy[:curator].id
-      @approved_languages = Language.approved_languages.collect{|l| l.id}
-    end
-    
-    it 'should prepare data when vet common names for syncronization' do
-      truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-      truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-      truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-      truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        
-      approved_language_id = @approved_languages.first
-      v = Vetted.first
-      get :vet_common_name, :id => @testy[:name].id, :language_id => approved_language_id, :vetted_id => Vetted.first.id, :taxon_id => @testy[:taxon_concept].id.to_i
-      
-      # check sync_object_type
-      type = SyncObjectType.first
-      type.should_not be_nil
-      type.object_type.should == "common_name"
-      
-      # check sync_object_actions
-      action = SyncObjectAction.first
-      action.should_not be_nil
-      action.object_action.should == "vet"
-      
-      # check peer logs
-      peer_log = SyncPeerLog.first
-      peer_log.should_not be_nil
-      peer_log.sync_object_action_id.should == action.id
-      peer_log.sync_object_type_id.should == type.id
-      peer_log.sync_object_id.should == @testy[:synonym]["synonym"].origin_id
-      peer_log.sync_object_site_id.should == @testy[:synonym]["synonym"].site_id
-      
-      # check log action parameters
-      taxon_concept_origin_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_origin_id")
-      taxon_concept_origin_id_parameter[0][:value].should == @testy[:taxon_concept].origin_id
-      
-      taxon_concept_site_id_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "taxon_concept_site_id")
-      taxon_concept_site_id_parameter[0][:value].should == @testy[:taxon_concept].site_id.to_s
-      
-      language_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "language")
-      language_parameter[0][:value].should == @approved_languages.first.to_s
-        
-      vetted_parameter = SyncLogActionParameter.where(:peer_log_id => peer_log.id, :parameter => "vetted_view_order")
-      vetted_parameter[0][:value].should == v.view_order.to_s
-
-    end
-  end
   describe 'GET common_names' do
     before :each do
-      get :common_names, :taxon_id => @testy[:taxon_concept].id.to_i
+      get :common_names, taxon_id: @testy[:taxon_concept].id.to_i
     end
     it_should_behave_like 'taxa/names controller'
     it 'should instantiate common names' do
@@ -239,7 +258,7 @@ describe Taxa::NamesController do
 
   describe 'GET synonyms' do
     before :each do
-      get :synonyms, :taxon_id => @testy[:taxon_concept].id.to_i
+      get :synonyms, taxon_id: @testy[:taxon_concept].id.to_i
     end
     it_should_behave_like 'taxa/names controller'
     it 'should preload synonym associations' do

@@ -88,7 +88,6 @@ describe CollectionsController do
     end
   end
   
-  # sync collections actions
   describe "collections actions synchronization" do
     before(:all) do
       truncate_all_tables

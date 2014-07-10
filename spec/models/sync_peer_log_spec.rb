@@ -2,8 +2,6 @@ require "spec_helper"
 
 describe SyncPeerLog do
 
-  describe "process pull" do
-    
     before(:all) do
       truncate_all_tables
       load_foundation_cache
@@ -12,19 +10,281 @@ describe SyncPeerLog do
       SpecialCollection.create_enumerated
       Visibility.create_enumerated
       Activity.create_enumerated
+      TocItem.gen_if_not_exists(:label => 'overview')
+      #SpecialCollection.create(:name => "watch")
     end
     
-    describe("data_object Synchronization") do
-      
-      before(:all) do
-        SpecialCollection.create(:name => "watch")
-      end
+    describe "common names" do
+      describe ".add_common_name" do
+        let(:user) {User.first}
+        let(:hi) {Hierarchy.first}
+        let(:he) {HierarchyEntry.first}
+        let(:sr) {SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id)}
+        before do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          user.update_attributes(active: true, origin_id: user.id, site_id: PEER_SITE_ID)
+          user.update_attributes(curator_level_id: CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id,
+                                  curator_approved: 1)
+          tsr = TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id)
+  
+          relation  = SynonymRelation.find_by_translated(:label, 'common name')
+  
+          ar = AgentRole.gen()
+          tar = TranslatedAgentRole.gen()
+          tar.update_attributes(label: "Contributor", agent_role_id: ar.id, language_id: Language.first.id)
+  
+          Visibility.create(:id => 1)
+          TranslatedVisibility.gen()
+          TranslatedVisibility.first.update_attributes(label: "Visibile", language_id: Language.first.id, visibility_id: Visibility.first.id)
+          
+          hi.update_column(:label, 'Encyclopedia of Life Contributors')
+  
+          taxon_concept = TaxonConcept.first
+          taxon_concept.update_column(:origin_id, taxon_concept.id)
+          TaxonConceptPreferredEntry.create(:taxon_concept_id => taxon_concept.id, :hierarchy_entry_id => he.id)
         
+          #create sync_peer_log
+          @sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id,
+                                           sync_object_type_id: SyncObjectType.common_name.id,
+                                           user_site_object_id: user.origin_id,
+                                           user_site_id: user.site_id, 
+                                           sync_object_id: 80, 
+                                           sync_object_site_id: PEER_SITE_ID)
+          parameters = ["taxon_concept_site_id", "taxon_concept_origin_id", "string", "language"]
+          values     = ["#{taxon_concept.site_id}", "#{taxon_concept.origin_id}", "add_name", "en"]
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: @sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+        end
+        it "adds new common name and its dependencies" do
+         # call process entery to execute "add common name" action
+         @sync_peer_log.process_entry
+         name = Name.find_by_string("add_name")
+         expect(name).not_to be_nil
+         synonym = Synonym.find_by_name_id(name.id)
+         expect(synonym).not_to be_nil
+         tcn = TaxonConceptName.find_by_name_id(name.id)
+         expect(tcn).not_to be_nil
+       end
+       after(:each) do
+         TranslatedAgentRole.last.destroy
+         TaxonConceptPreferredEntry.last.destroy
+         TranslatedVisibility.last.destroy
+         Name.find_by_string("add_name").destroy if Name.find_by_string("add_name")
+         Synonym.last.destroy 
+       end
+      end
+      
+      describe ".update_common_name" do
+        let(:user) {User.first}
+        let(:hi) {Hierarchy.first}
+        let(:he) {HierarchyEntry.first}
+        let(:sr) {SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id)}
+        let(:name) {Name.gen} 
+        before :each do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          user.update_attributes(active: true, origin_id: user.id, site_id: PEER_SITE_ID)
+          user.update_attributes(curator_level_id: CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id,
+                                 curator_approved: 1)
+          name.update_attributes(origin_id: name.id, site_id: PEER_SITE_ID)
+  
+          SynonymRelation.create(:id => 1)
+  
+          tsr = TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id)
+  
+          relation  = SynonymRelation.find_by_translated(:label, 'common name')
+  
+          ar = AgentRole.gen()
+          tar = TranslatedAgentRole.gen()
+          tar.update_attributes(label: "Contributor", agent_role_id: ar.id, language_id: Language.first.id)
+  
+          Visibility.create(:id => 1)
+          TranslatedVisibility.gen()
+          TranslatedVisibility.first.update_attributes(label: "Visibile", language_id: Language.first.id,
+                                                       visibility_id: Visibility.first.id)
+          hi = Hierarchy.gen()
+          hi.update_column(:label, 'Encyclopedia of Life Contributors')
+  
+          taxon_concept = TaxonConcept.gen()
+          taxon_concept.update_column(:origin_id, taxon_concept.id)
+          
+          TaxonConceptPreferredEntry.create(:taxon_concept_id => taxon_concept.id, :hierarchy_entry_id => HierarchyEntry.gen().id)
+  
+          tcn = TaxonConceptName.gen()
+          tcn.update_attributes(taxon_concept_id: taxon_concept.id, name_id: name.id, preferred: 0)
+  
+          synonym = Synonym.gen
+          synonym.update_attributes(name_id: name.id, hierarchy_id: hi.id, hierarchy_entry_id: 1,
+                                    synonym_relation_id: relation.id, language_id: Language.first.id,
+                                    site_id: PEER_SITE_ID, preferred: 0)
+          #create sync_peer_log
+          @sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id,
+                                           sync_object_type_id: SyncObjectType.common_name.id,
+                                           user_site_object_id: user.origin_id,
+                                           user_site_id: user.site_id, 
+                                           sync_object_id: name.origin_id, 
+                                           sync_object_site_id: name.site_id)
+          #create sync_action_parameters
+          parameters = ["language","taxon_concept_site_id", "taxon_concept_origin_id","string"]
+          values     = ["#{Language.first.iso_639_1}", "#{taxon_concept.site_id}", "#{taxon_concept.origin_id}","#{name.string}"]
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: @sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+        end
+        it "updates preferred column in synonym" do
+          #call process entery
+          @sync_peer_log.process_entry
+          expect(Synonym.find_by_name_id(name.id).preferred).not_to eq(0)
+        end
+  
+        it "ignores updates for deleted names" do
+          truncate_table(ActiveRecord::Base.connection, "synonyms", {})
+          #call process entery
+          lambda{@sync_peer_log.process_entry}.should_not raise_exception
+          expect(Synonym.all.count).to eq(0)
+        end
+        
+        after(:each) do
+          Name.last.destroy
+          Synonym.last.destroy if Synonym.last
+          TaxonConceptPreferredEntry.last.destroy
+          TaxonConcept.last.destroy
+          TaxonConceptName.last.destroy
+          Hierarchy.last.destroy
+          TranslatedAgentRole.last.destroy
+          AgentRole.last.destroy
+          TranslatedVisibility.last.destroy
+        end
+      end
+      
+      describe ".delete_common_name" do
+        let(:user) {User.first}
+        let(:hi) {Hierarchy.first}
+        let(:he) {HierarchyEntry.first}
+        let(:sr) {SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id)}
+        let(:name) {Name.gen} 
+        let(:tc) {TaxonConcept.first}
+        let(:synonym) {Synonym.gen}
+        
+        before :all do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          user.update_attributes(active: true, origin_id: user.id, site_id: PEER_SITE_ID)
+          user.update_attributes(curator_level_id: CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id,
+                                 curator_approved: 1)
+          name.update_column(:origin_id, name.id)
+          tc.update_column(:origin_id, tc.id)
+          synonym.update_column(:origin_id, synonym.id)
+          tcn = TaxonConceptName.gen()
+          tcn.update_attributes(taxon_concept_id: tc.id, name_id: name.id, synonym_id: synonym.id)
+  
+          #create peer log
+          @sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.delete.id,
+                                                     sync_object_type_id: SyncObjectType.common_name.id,
+                                                     user_site_object_id: user.origin_id,
+                                                     user_site_id: user.site_id, 
+                                                     sync_object_id: synonym.origin_id, 
+                                                     sync_object_site_id: synonym.site_id)
+          #create sync_action_parameters
+          parameters = ["taxon_concept_site_id", "taxon_concept_origin_id"]
+          values     = ["#{tc.site_id}", "#{tc.origin_id}"]
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: @sync_peer_log, parameter: param,
+                                             value: values[i])
+          end 
+          #call process entery
+          @sync_peer_log.process_entry
+        end
+  
+        it "should delete synonym and taxon_concept_name" do
+          expect(TaxonConceptName.find_by_synonym_id_and_taxon_concept_id(synonym.id, tc.id)).to be_nil
+          expect(Synonym.find_by_id(synonym.id)).to be_nil
+        end
+        it "should ignore dalete actions for already deleted names" do
+          truncate_table(ActiveRecord::Base.connection, "synonyms", {})
+          #call process entery
+          lambda{@sync_peer_log.process_entry}.should_not raise_exception
+          expect(Synonym.all.count).to eq(0)
+        end
+        after(:all) do
+          Synonym.last.destroy
+          Name.last.destroy
+          TaxonConceptName.last.destroy
+        end
+      end
+      
+      describe ".vet_common_name" do
+        let(:user) {User.first}
+        let(:hi) {Hierarchy.first}
+        let(:he) {HierarchyEntry.first}
+        let(:sr) {SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id)}
+        let(:name) {Name.gen} 
+        let(:tc) {TaxonConcept.first}
+        let(:synonym) {Synonym.gen}
+        
+        before :all do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          user.update_attributes(active: true, origin_id: user.id, site_id: PEER_SITE_ID)
+          user.update_attributes(curator_level_id: CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id,
+                                 curator_approved: 1)
+          name.update_column(:origin_id, name.id)
+          tc.update_column(:origin_id, tc.id)
+          synonym.update_column(:origin_id, synonym.id)
+  
+          tcn = TaxonConceptName.gen()
+          tcn.update_attributes(taxon_concept_id: tc.id, name_id: name.id, synonym_id: synonym.id)
+          
+          #create peer log
+          @sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.vet.id,
+                                           sync_object_type_id: SyncObjectType.common_name.id,
+                                           user_site_object_id: user.origin_id,
+                                           user_site_id: user.site_id, 
+                                           sync_object_id: name.origin_id, 
+                                           sync_object_site_id: name.site_id)
+          #create sync_action_parameters
+          parameters = ["vetted_view_order","taxon_concept_site_id", "taxon_concept_origin_id", "string"]
+          values     = ["#{Vetted.first.view_order}","#{tc.site_id}", "#{tc.origin_id}", "#{name.string}"]
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: @sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          #call process entery
+          @sync_peer_log.process_entry
+        end
+  
+        it "should vet common name" do
+          expect(TaxonConceptName.find_by_synonym_id_and_taxon_concept_id(synonym.id, tc.id).vetted_id).to eq(1)
+          expect(Synonym.find_by_id(synonym.id).vetted_id).to eq(1)
+        end
+        it "should ignore vet actions for already deleted names" do
+          truncate_table(ActiveRecord::Base.connection, "synonyms", {})
+          truncate_table(ActiveRecord::Base.connection, "taxon_concept_names", {})
+          #call process entery
+          lambda{@sync_peer_log.process_entry}.should_not raise_exception
+          expect(Synonym.all.count).to eq(0)
+        end
+        after(:all) do
+          Synonym.last.destroy
+          Name.last.destroy
+          TaxonConceptName.last.destroy
+        end
+      end
+    end
+    
+    describe "data_object Synchronization" do
+      
       let(:user) {User.first}
       let(:data_object) {DataObject.first}
       let(:he) {HierarchyEntry.first}
       let(:comment) {Comment.gen}
       let(:taxon_concept) {TaxonConcept.first}
+      let(:toc) {TocItem.find(TocItem.overview.id)}
+      
       before(:all) do
         user.update_attributes(curator_approved: 1, curator_level_id: 1)
         data_object.update_attributes(origin_id: data_object.id, site_id: PEER_SITE_ID)
@@ -32,21 +292,25 @@ describe SyncPeerLog do
         comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID)
         taxon_concept.update_attributes(origin_id: taxon_concept.id, site_id: PEER_SITE_ID)
         DataObjectsTaxonConcept.create(data_object_id: data_object.id, taxon_concept_id: taxon_concept.id)
-        UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id)
+        UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+        toc.update_attributes(origin_id: toc.id, site_id: PEER_SITE_ID)
       end
+        
       describe ".curate_association" do
-        before do
-          
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "curated_data_objects_hierarchy_entries", {})
           @cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
                          :visibility_id => Visibility.invisible.id, :user_id => user.id, 
                          :data_object_guid => data_object.guid, :hierarchy_entry_id => he.id,
                          :data_object_id => data_object.id) 
           sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.curate_associations.id,
                                           sync_object_type_id: SyncObjectType.data_object.id,
-                                          user_site_object_id: data_object.site_id, 
+                                          user_site_object_id: user.origin_id,
+                                          user_site_id: user.site_id, 
                                           sync_object_id: data_object.origin_id, 
-                                          user_site_id: user.site_id,
-                                          sync_object_site_id: user.origin_id)
+                                          sync_object_site_id: data_object.site_id)
           parameters = ["language", "vetted_view_order", "curation_comment_origin_id", 
                         "curation_comment_site_id", "untrust_reasons", 
                         "visibility_label", "taxon_concept_origin_id", "taxon_concept_site_id","hierarchy_entry_origin_id", "hierarchy_entry_site_id"]
@@ -62,19 +326,22 @@ describe SyncPeerLog do
         end
         
         it "should curate association" do
-          cdoh = CuratedDataObjectsHierarchyEntry.find(@cdoh.id)
-          expect(cdoh.visibility_id).to eq(Visibility.visible.id)
+          udo = UsersDataObject.find_by_user_id_and_data_object_id(user.id, data_object.id)
+          expect(udo.visibility_id).to eq(Visibility.visible.id)
         end
       end
       
       describe ".add_association" do
-        before(:each) do
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "curated_data_objects_hierarchy_entries", {})
           sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.save_association.id,
                                           sync_object_type_id: SyncObjectType.data_object.id,
-                                          user_site_object_id: data_object.site_id, 
+                                          user_site_object_id: user.origin_id,
+                                          user_site_id: user.site_id, 
                                           sync_object_id: data_object.origin_id, 
-                                          user_site_id: user.site_id,
-                                          sync_object_site_id: user.origin_id)
+                                          sync_object_site_id: data_object.site_id)
           parameters = ["hierarchy_entry_origin_id", "hierarchy_entry_site_id"]
           values = ["#{he.origin_id}", "#{he.site_id}"]
           parameters.each_with_index do |param, i|
@@ -92,18 +359,21 @@ describe SyncPeerLog do
       end
       
       describe ".remove_association" do
-        before(:each) do
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "curated_data_objects_hierarchy_entries", {})
           cdoh = CuratedDataObjectsHierarchyEntry.create(:vetted_id => Vetted.first.id,
                   :visibility_id => Visibility.visible.id, :user_id => user.id, 
                   :data_object_guid => data_object.guid, :hierarchy_entry_id => he.id,
                   :data_object_id => data_object.id) 
          
           sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.remove_association.id,
-                                                    sync_object_type_id: SyncObjectType.data_object.id,
-                                                    user_site_object_id: data_object.site_id, 
-                                                    sync_object_id: data_object.origin_id, 
-                                                    user_site_id: user.site_id,
-                                                    sync_object_site_id: user.origin_id)
+                                          sync_object_type_id: SyncObjectType.data_object.id,
+                                          user_site_object_id: user.origin_id,
+                                          user_site_id: user.site_id, 
+                                          sync_object_id: data_object.origin_id, 
+                                          sync_object_site_id: data_object.site_id)
           parameters = ["hierarchy_entry_origin_id", "hierarchy_entry_site_id"]
           values = ["#{he.origin_id}", "#{he.site_id}"]
           parameters.each_with_index do |param, i|
@@ -120,358 +390,417 @@ describe SyncPeerLog do
         end
       end
       
-    end
-    
-    
-    
-    
-    
-    
-    
-    describe "pulling create community action" do
-      before(:each) do
-        load_scenario_with_caching(:communities)
-        truncate_table(ActiveRecord::Base.connection, "communities", {})
-        truncate_table(ActiveRecord::Base.connection, "collections", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        SpecialCollection.create(:name => "watch")
-        
-      
-        user = User.first
-        user.origin_id = user.id
-        user.site_id = 1
-        user.save
-        
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'create')
-        
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'Community')
-        
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = user.origin_id
-        @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
-        @peer_log.sync_object_id = 80
-        @peer_log.sync_object_site_id = 2
-        @peer_log.save
+      describe ".create_data_object" do
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "refs", {})
+          truncate_table(ActiveRecord::Base.connection, "collection_items", {})
+          truncate_table(ActiveRecord::Base.connection, "data_objects_taxon_concepts", {})
           
-        parameters = ["community_name", "community_description", "collection_origin_id", "collection_site_id"]
-        values = ["comm_name", "community_description", "12", "2"]
- 
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.param_object_type_id = nil
-          lap.param_object_id = nil
-          lap.param_object_site_id = nil
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
+          # create sync peer log for creating ref
+          create_ref_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id,
+                                                sync_object_type_id: SyncObjectType.ref.id,
+                                                user_site_object_id: user.origin_id,
+                                                user_site_id: user.site_id)
+          create_ref_parameters = ["reference"]
+          create_ref_values = [ "Test reference."]
+          create_ref_parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: create_ref_peer_log, parameter: param,
+                                             value: create_ref_values[i])
+          end
+          #call process entery
+          create_ref_peer_log.process_entry
+          
+          # create sync peer log for creating data_object
+          create_data_object_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id,
+                                                        sync_object_type_id: SyncObjectType.data_object.id,
+                                                        user_site_object_id: user.origin_id,
+                                                        user_site_id: user.site_id, 
+                                                        sync_object_id: 10, 
+                                                        sync_object_site_id: 10)
+       
+          create_data_object_parameters = ["taxon_concept_origin_id", "taxon_concept_site_id", 
+            "references", "toc_id", "toc_site_id", "object_title", "description", "data_type_id",
+            "language_id", "license_id"]
+          create_data_object_values = ["#{taxon_concept.origin_id}", "#{taxon_concept.site_id}",
+             "Test reference.", toc.origin_id, toc.site_id, "Test Article",
+             "Test text", DataType.text.id.to_s, Language.english.id.to_s, License.public_domain.id.to_s]
+          create_data_object_parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: create_data_object_peer_log, parameter: param,
+                                             value: create_data_object_values[i])
+          end
+          #call process entery
+          create_data_object_peer_log.process_entry
+          
+          
+          # create sync peer log for creating data_object_ref
+          create_data_obj_ref_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.add_refs.id,
+                                                         sync_object_type_id: SyncObjectType.data_object.id,
+                                                         user_site_object_id: user.origin_id,
+                                                         user_site_id: user.site_id,
+                                                         sync_object_id: DataObject.last.origin_id, 
+                                                         sync_object_site_id: DataObject.last.site_id)
+          create_data_obj_ref_parameters = ["references"]
+          create_data_obj_ref_values = ["Test reference."]
+          create_data_obj_ref_parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: create_data_obj_ref_peer_log, parameter: param,
+                                             value: create_data_obj_ref_values[i])
+          end
+          #call process entery
+          create_data_obj_ref_peer_log.process_entry
+          
+          # create sync peer log for creating colection item
+          create_collection_item_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.add.id,
+                                                            sync_object_type_id: SyncObjectType.collection_item.id,
+                                                            user_site_object_id: user.origin_id,
+                                                            user_site_id: user.site_id, 
+                                                            sync_object_id: user.watch_collection.origin_id, 
+                                                            sync_object_site_id: user.watch_collection.site_id)
+          create_collection_item_parameters = ["item_id", "item_site_id", "collected_item_type", "collected_item_name", "add_item"]
+          create_collection_item_values = ["#{DataObject.last.origin_id}", "#{DataObject.last.site_id}", "DataObject", "Test Article", "1"]
+          create_collection_item_parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: create_collection_item_peer_log, parameter: param,
+                                             value: create_collection_item_values[i])
+          end
+          #call process entery
+          create_collection_item_peer_log.process_entry
         end
         
-        #call process entery
-        @peer_log.process_entry
+        after(:all) do
+          DataObject.find_by_origin_id_and_site_id(10,10).destroy
+        end
+        let(:ref) {Ref.last}
+        let(:data_obj) {DataObject.find_by_origin_id_and_site_id(10,10)}
+        it "creates a reference" do
+          expect(ref.full_reference).to eq("Test reference.") 
+          expect(ref.user_submitted).to eq(true)
+          expect(ref.visibility_id).to eq(Visibility.visible.id)
+          expect(ref.published).to eq(1)
+        end
+        it "creates data object" do
+          expect(data_obj.object_title).to eq("Test Article")
+          expect(data_obj.description).to eq("Test text")
+          expect(data_obj.license_id).to eq(License.public_domain.id)
+        end
+        it "creates user_data_object" do
+          user_data_obj = UsersDataObject.find_by_user_id_and_data_object_id(user.id, data_obj.id)
+          expect(user_data_obj.user_id).not_to be_nil 
+          expect(user_data_obj.user_id).to eq(user.id)
+          expect(data_obj.toc_items[0].id).to eq(TocItem.overview.id)
+        end
+        it "creates data_object_reference" do
+          data_obj_ref = data_obj.refs[0]
+          expect(data_obj_ref.id).to eq(ref.id) 
+        end
+        it "creates data_object_taxon_concept" do
+          data_obj_taxon_concept = DataObjectsTaxonConcept.last
+          expect(data_obj_taxon_concept.taxon_concept_id).to eq(taxon_concept.id)
+          expect(data_obj_taxon_concept.data_object_id).to eq(data_obj.id)
+        end
+        it "creates colection_item" do
+          col_item = CollectionItem.last
+          expect(col_item.collected_item_type).to eq("DataObject")
+          expect(col_item.name).to eq("Test Article")
+          expect(col_item.collected_item_id).to eq(data_obj.id)
+          expect(col_item.collection_id).to eq(user.watch_collection.id)
+        end
       end
       
-      it "should create community" do
-        Community.first.should_not be_nil
-        Community.first.name.should == "comm_name"
-        Community.first.description.should == "community_description"
-        Community.first.origin_id.should == 80
-        Community.first.site_id.should == 2
+      describe ".update_data_object" do
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "refs", {})
+          truncate_table(ActiveRecord::Base.connection, "data_objects_refs", {})
+#          data_object = taxon_concept.add_user_submitted_text(:user => user)
+          data_object.refs << Ref.new(full_reference: "Test reference", user_submitted: true, published: 1,
+                                      visibility: Visibility.visible)
+          # create sync peer log for creating ref                                         
+          create_ref_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id,
+                                                                      sync_object_type_id: SyncObjectType.ref.id,
+                                                                      user_site_object_id: user.origin_id,
+                                                                      user_site_id: user.site_id)
+          create_ref_parameters = ["reference"]
+          create_ref_values = [ "Test reference."]
+          create_ref_parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: create_ref_peer_log, parameter: param,
+                                           value: create_ref_values[i])
+          end          
+          #call process entery
+          create_ref_peer_log.process_entry
+          
+          # create sync peer log for updationg data_object
+          update_data_object_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id,
+                                                                      sync_object_type_id: SyncObjectType.data_object.id,
+                                                                      user_site_object_id: user.origin_id,
+                                                                      user_site_id: user.site_id, 
+                                                                      sync_object_id: data_object.origin_id, 
+                                                                      sync_object_site_id: data_object.site_id)
+          update_data_object_parameters = ["new_revision_origin_id", "new_revision_site_id",
+            "references", "toc_id", "toc_site_id", "object_title", "description", "data_type_id",
+            "language_id", "license_id"]
+          update_data_object_values = [3, PEER_SITE_ID,
+            "Test reference.", toc.origin_id, toc.site_id, "Test update",
+            "Test text", DataType.text.id.to_s, Language.english.id.to_s, License.public_domain.id.to_s]
+          update_data_object_parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: update_data_object_peer_log, parameter: param,
+                                             value: update_data_object_values[i])
+          end 
+          #call process entery
+          update_data_object_peer_log.process_entry
+        end
+        after(:all) do
+          DataObject.where(:object_title => "Test update").each {|data| data.destroy}
+        end
+        let(:ref) {Ref.last}
+        let(:data_obj) {DataObject.last}
+        
+        it "creates reference" do
+          expect(ref.full_reference).to eq("Test reference.") 
+          expect(ref.user_submitted).to eq(true)
+          expect(ref.visibility_id).to eq(Visibility.visible.id)
+          expect(ref.published).to eq(1)
+        end
+        it "updates data object" do
+          expect(data_obj.object_title).to eq("Test update")
+          expect(data_obj.description).to eq("Test text")
+          expect(data_obj.license_id).to eq(License.public_domain.id)
+        end
+        it "creates user_data_obj" do
+          user_data_obj = UsersDataObject.last
+          expect(user_data_obj.user_id).to eq(user.id)
+          expect(data_obj.toc_items[0].id).to eq(TocItem.overview.id)
+        end
+        it "creates data_object_taxon_concept" do
+          data_obj_taxon_concept = DataObjectsTaxonConcept.find(:first, :conditions => "data_object_id = #{data_obj.id} and taxon_concept_id = #{taxon_concept.id}")
+          expect(data_obj_taxon_concept).not_to be_nil
+        end
+      end
+      
+      describe "rate data object" do
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_table(ActiveRecord::Base.connection, "users_data_objects_ratings", {})
+          # create sync peer log for rating data object
+          rate_data_object_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.rate.id,
+                                                        sync_object_type_id: SyncObjectType.data_object.id,
+                                                        user_site_object_id: user.origin_id,
+                                                        user_site_id: user.site_id, 
+                                                        sync_object_id: data_object.origin_id, 
+                                                        sync_object_site_id: data_object.site_id)
+          rate_data_object_parameters = ["stars"]
+          rate_data_object_values = [3]
+          rate_data_object_parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: rate_data_object_peer_log, parameter: param,
+                                             value: rate_data_object_values[i])
+          end
+          #call process entery
+          rate_data_object_peer_log.process_entry
+        end
+        it "creates user_data_object_rating" do
+          user_data_obj_rate = UsersDataObjectsRating.find_by_user_id_and_data_object_guid(user.id, data_object.guid)
+          expect(user_data_obj_rate.user_id).to eq(user.id)
+          expect(user_data_obj_rate.data_object_guid).to eq(data_object.guid)
+          expect(user_data_obj_rate.rating).to eq(3)
+        end
       end
     end
     
-    describe "pulling add collection to community action" do
-      before(:each) do
-        load_scenario_with_caching(:communities)
-        truncate_table(ActiveRecord::Base.connection, "communities", {})
-        truncate_table(ActiveRecord::Base.connection, "collections", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        SpecialCollection.create(:name => "watch")
-        SyncObjectAction.create_enumerated
-        SyncObjectType.create_enumerated
-        
-        user = User.first
-        user.origin_id = user.id
-        user.site_id = 1
-        user.save
-        
-        @community = Community.gen
-        @community.name = "name"
-        @community.description = "desc"
-        @community.origin_id = @community.id
-        @community.site_id = 1
-        @community.save
-        @community.add_member(user)
-        @community.members[0].update_column(:manager, 1)
-        
-        @collection = Collection.gen
-        @collection.origin_id = @collection.id
-        @collection.site_id = 1
-        @collection.save
-        
-        # #create sync_object_action
-        # SyncObjectAction.create(:object_action => 'create')
-#         
-        # #create sync_object_type
-        # SyncObjectType.create(:object_type => 'Community')
-        
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = user.origin_id
-        @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.add.id
-        @peer_log.sync_object_type_id = SyncObjectType.community.id
-        @peer_log.sync_object_id = @community.origin_id
-        @peer_log.sync_object_site_id = @community.site_id
-        @peer_log.save
-          
-        parameters = ["collection_origin_id", "collection_site_id"]
-        values = [@collection.origin_id, @collection.site_id]
- 
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.param_object_type_id = nil
-          lap.param_object_id = nil
-          lap.param_object_site_id = nil
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
+    describe "community synchronization" do
+      let(:user) {User.first}
+      describe ".create_community" do
+        before(:all) do
+          load_scenario_with_caching(:communities)
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          #create sync_peer_log
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id,
+                                          sync_object_type_id: SyncObjectType.community.id,
+                                          user_site_object_id: user.origin_id,
+                                          user_site_id: user.site_id, 
+                                          sync_object_id: 80, 
+                                          sync_object_site_id: 2)
+          parameters = ["community_name", "community_description", "collection_origin_id", "collection_site_id"]
+          values = ["comm_name", "community_description", "12", "2"]
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          #call process entery
+          sync_peer_log.process_entry
         end
         
-        #call process entery
-        @peer_log.process_entry
-      end
-      
-      it "should add collection to community" do
-        @collection.communities.count.should == 1
-      end
-    end
-    
-    describe "pulling update community action" do
-      before(:each) do
-        truncate_table(ActiveRecord::Base.connection, "communities", {})
-        truncate_table(ActiveRecord::Base.connection, "collections", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        SpecialCollection.create(:name => "watch")
-        
-        load_scenario_with_caching(:communities)
-        
-        user = User.first
-        user.origin_id = user.id
-        user.site_id = 1
-        user.save
-        
-        community = Community.first
-        community.name = "name"
-        community.description = "desc"
-        community.origin_id = community.id
-        community.site_id = 1
-        community.save
-        
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'update')
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'Community')
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = user.origin_id
-        @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
-        @peer_log.sync_object_id = community.origin_id
-        @peer_log.sync_object_site_id = community.site_id
-        @peer_log.save
-          
-        parameters = ["community_name", "community_description", "name_change", "description_change"]
-        values = ["new_name", "new_description", "1", "1"]
- 
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.param_object_type_id = nil
-          lap.param_object_id = nil
-          lap.param_object_site_id = nil
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
+        it "creates community" do
+          comm = Community.find_by_origin_id_and_site_id(80,2)
+          expect(comm).not_to be_nil
+          expect(comm.name).to eq("comm_name")
+          expect(comm.description).to eq("community_description")
         end
-        #call process entery
-        @peer_log.process_entry
+        after(:all) do
+          Community.find_by_origin_id_and_site_id(80,2).destroy
+        end
       end
       
-      it "should update community" do
-        Community.first.should_not be_nil
-        Community.first.name.should == "new_name"
-        Community.first.description.should == "new_description"
+      describe ".add_collection_to_community" do
+        let(:collection) {Collection.gen}
+        before(:all) do
+          load_scenario_with_caching(:communities)
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          
+          community = Community.gen
+          community.update_attributes(name:"name", description: "desc", origin_id: community.id, site_id: PEER_SITE_ID)
+          community.add_member(user)
+          community.members[0].update_column(:manager, 1)
+          
+          collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
+       
+          #create sync_peer_log
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.add.id,
+                                          sync_object_type_id: SyncObjectType.community.id,
+                                          user_site_object_id: user.origin_id,
+                                          user_site_id: user.site_id, 
+                                          sync_object_id: community.origin_id, 
+                                          sync_object_site_id: community.site_id)
+          parameters = ["collection_origin_id", "collection_site_id"]
+          values = [collection.origin_id, collection.site_id]
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          #call process entery
+          sync_peer_log.process_entry
+        end
+        
+        it "adds collection to community" do
+          expect(collection.communities.count).to eq(1)
+        end
+        after(:all) do
+          Community.last.destroy
+          Collection.find_by_origin_id_and_site_id(origin_id: collection.id, site_id: PEER_SITE_ID).destroy
+        end
+      end
+      
+      describe ".update_community" do
+        let(:community) {Community.gen}
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          SpecialCollection.create(:name => "watch")
+          load_scenario_with_caching(:communities)
+          
+          community.update_attributes(name:"name", description: "desc", origin_id: community.id, site_id: PEER_SITE_ID)
+          #create sync_peer_log
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id,
+                                          sync_object_type_id: SyncObjectType.community.id,
+                                          user_site_object_id: user.origin_id,
+                                          user_site_id: user.site_id, 
+                                          sync_object_id: community.origin_id, 
+                                          sync_object_site_id: community.site_id)
+          parameters = ["community_name", "community_description", "name_change", "description_change"]
+          values = ["new_name", "new_description", "1", "1"]
+          parameters.each_with_index do |param, i|
+            lap = SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param,
+                                             value: values[i])
+          end
+          #call process entery
+          sync_peer_log.process_entry
+        end
+        it "updates community" do
+          new_community = Community.find(community.id)
+          expect(new_community).not_to be_nil
+          expect(new_community.name).to eq("new_name")
+          expect(new_community.description).to eq("new_description")
+        end
+      end
+      
+      describe ".delete_community" do
+        let(:community) {Community.gen}
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          load_scenario_with_caching(:communities)
+          community.update_attributes(name:"name", description: "desc", origin_id: community.id, site_id: PEER_SITE_ID)
+          community.add_member(user)
+          #create sync_peer_log
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.delete.id,
+                                          sync_object_type_id: SyncObjectType.community.id,
+                                          user_site_object_id: user.origin_id,
+                                          user_site_id: user.site_id, 
+                                          sync_object_id: community.origin_id, 
+                                          sync_object_site_id: community.site_id)
+          #call process entery
+          sync_peer_log.process_entry                               
+        end
+        it "deletes community" do
+          unpublished_community = Community.find(community.id)
+          expect(unpublished_community.published).to be_false
+        end
+        after(:all) do
+          Community.find(community.id).destroy
+        end
+      end
+      
+      describe ".join_community" do
+        let(:community) {Community.gen}
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          load_scenario_with_caching(:communities)
+          community.update_attributes(origin_id: community.id, site_id: PEER_SITE_ID)
+          #create sync_peer_log
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.join.id,
+                                          sync_object_type_id: SyncObjectType.community.id,
+                                          user_site_object_id: user.origin_id,
+                                          user_site_id: user.site_id, 
+                                          sync_object_id: community.origin_id, 
+                                          sync_object_site_id: community.site_id)
+          @prev_members_count = community.members.count
+          #call process entery
+          sync_peer_log.process_entry
+        end
+        it "should add member to community" do
+          comm = Community.find(community.id)
+          comm.members.count.should == @prev_members_count + 1
+        end
+        after(:all) do
+          Community.find(community.id).destroy
+        end
+      end
+      
+      describe ".leave_community" do
+        let(:community) {Community.gen}
+        let(:prev_members_count) {community.members.count}
+        before(:all) do
+          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
+          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          load_scenario_with_caching(:communities)
+          community.update_attributes(origin_id: community.id, site_id: PEER_SITE_ID)
+          community.add_member(user)
+          #create sync_peer_log
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.leave.id,
+                                          sync_object_type_id: SyncObjectType.community.id,
+                                          user_site_object_id: user.origin_id,
+                                          user_site_id: user.site_id, 
+                                          sync_object_id: community.origin_id, 
+                                          sync_object_site_id: community.site_id)
+          @prev_members_count = community.members.count
+          #call process entery
+          sync_peer_log.process_entry
+        end
+        it "should add member to community" do
+          comm = Community.find(community.id)
+          comm.members.count.should == @prev_members_count - 1
+        end
+        after(:all) do
+          Community.find(community.id).destroy
+        end
       end
     end
     
-    describe "pulling delete community action" do
-      before(:each) do
-        truncate_table(ActiveRecord::Base.connection, "communities", {})
-        truncate_table(ActiveRecord::Base.connection, "collections", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        SpecialCollection.create(:name => "watch")
-        load_scenario_with_caching(:communities)
-        user = User.first
-        user.origin_id = user.id
-        user.site_id = 1
-        user.save
-        
-        community = Community.first
-        community.name = "name"
-        community.description = "desc"
-        community.origin_id = community.id
-        community.site_id = 1
-        community.save
-        community.add_member(user)
-
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'delete')
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'Community')
-        
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = user.origin_id
-        @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('delete').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
-        @peer_log.sync_object_id = community.origin_id
-        @peer_log.sync_object_site_id = community.site_id
-        @peer_log.save
-      end
-     
-      it "should delete community" do
-        Community.first.published.should be_true
-        #call process entery
-        @peer_log.process_entry
-        Community.first.published.should be_false
-      end
-    end
-    
-    describe "pulling join community action" do
-      before(:each) do
-        truncate_table(ActiveRecord::Base.connection, "communities", {})
-        truncate_table(ActiveRecord::Base.connection, "collections", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        SpecialCollection.create(:name => "watch")
-        load_scenario_with_caching(:communities)
-        @user = User.first
-        @user.origin_id = @user.id
-        @user.site_id = 1
-        @user.save
-        
-        community = Community.first
-        community.name = "name"
-        community.description = "desc"
-        community.origin_id = community.id
-        community.site_id = 1
-        community.save
-        
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'join')
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'Community')
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = @user.origin_id
-        @peer_log.user_site_object_id = @user.site_id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('join').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
-        @peer_log.sync_object_id = community.origin_id
-        @peer_log.sync_object_site_id = community.site_id
-        @peer_log.save
-      end
-      
-      it "should add member to community" do
-        prev_members_count = Community.first.members.count
-        #call process entery
-        @peer_log.process_entry
-        Community.first.members.count.should == prev_members_count + 1
-      end
-    end
-   
-    describe "pulling leave community action" do
-      before(:each) do
-        truncate_table(ActiveRecord::Base.connection, "communities", {})
-        truncate_table(ActiveRecord::Base.connection, "collections", {})
-        truncate_table(ActiveRecord::Base.connection, "users", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        SpecialCollection.create(:name => "watch")
-        load_scenario_with_caching(:communities)
-        user = User.first
-        user.origin_id = user.id
-        user.site_id = 1
-        user.save
-        
-        community = Community.first
-        community.name = "name"
-        community.description = "desc"
-        community.origin_id = community.id
-        community.site_id = 1
-        community.save
-        community.add_member(user)
-        
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'leave')
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'Community')
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = user.origin_id
-        @peer_log.user_site_object_id = user.site_id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('leave').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Community').id
-        @peer_log.sync_object_id = community.origin_id
-        @peer_log.sync_object_site_id = community.site_id
-        @peer_log.save
-      end
-     
-      it "should add member to community" do
-        prev_count = Community.first.members.count
-        #call process entery
-        @peer_log.process_entry
-        Community.first.members.count.should == prev_count - 1
-      end
-    end
-  
   describe "user synchronization" do
     describe ".create_user" do
         
@@ -963,367 +1292,6 @@ describe SyncPeerLog do
       end
     end
   end
-
-    describe "pulling 'add common name' action" do
-      before :each do
-        truncate_all_tables
-        #        truncate_table(ActiveRecord::Base.connection, "users", {})
-        #        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        #        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        #        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        #        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        #        truncate_table(ActiveRecord::Base.connection, "names", {})
-        #create user
-        @user = User.gen(active: true)
-        @user.update_column(:site_id, 2)
-        @user.update_column(:origin_id, @user.id)
-        @user.update_column(:curator_level_id, CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id)
-        @user.update_column(:curator_approved, 1)
-
-        @name = Name.gen()
-        @name.update_column(:origin_id, @name.id)
-
-        @sr = SynonymRelation.create(:id => 1)
-        @sr.should_not be_nil
-
-        tsr = TranslatedSynonymRelation.gen()
-        tsr.should_not be_nil
-        tsr.update_column(:label, "common name")
-        tsr.update_column(:language_id, Language.first.id)
-        tsr.update_column(:synonym_relation_id, @sr.id)
-
-        relation  = SynonymRelation.find_by_translated(:label, 'common name')
-        relation.should_not be_nil
-
-        ar = AgentRole.gen()
-        tar = TranslatedAgentRole.gen()
-        tar.update_column(:label, "Contributor")
-        tar.update_column(:agent_role_id, ar.id)
-        tar.update_column(:language_id, Language.first.id)
-
-        Visibility.create(:id => 1)
-        TranslatedVisibility.gen()
-        TranslatedVisibility.first.update_column(:label, "Visibile")
-        TranslatedVisibility.first.update_column(:language_id, Language.first.id)
-        TranslatedVisibility.first.update_column(:visibility_id, Visibility.first.id)
-
-        @hi = Hierarchy.gen()
-        @hi.update_column(:label, 'Encyclopedia of Life Contributors')
-
-        @he = HierarchyEntry.gen()
-
-        taxon_concept = TaxonConcept.gen()
-        taxon_concept.update_column(:origin_id, taxon_concept.id)
-        TaxonConceptPreferredEntry.create(:taxon_concept_id => taxon_concept.id, :hierarchy_entry_id => @he.id)
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'create')
-
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'common_name')
-
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = @user.site_id
-        @peer_log.user_site_object_id = @user.id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('common_name').id
-        @peer_log.sync_object_id = @name.id
-        @peer_log.sync_object_site_id = @name.site_id
-        @peer_log.save
-
-        #create sync_action_parameters
-        parameters = ["taxon_concept_site_id", "taxon_concept_origin_id", "user_site_object_id",
-          "user_site_id", "string", "language", "sync_object_site_id", "sync_object_id"]
-        values     = ["#{taxon_concept.site_id}", "#{taxon_concept.origin_id}", "#{@user.origin_id}",
-          "#{@user.site_id}", "#{@name.string}", "en", "#{@name.site_id}", "#{@name.id}"]
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
-        end
-
-      end
-
-      it "should add common name" do
-      # call process entery to execute "add common name" action
-        @peer_log.process_entry
-        name = Name.find_by_string("#{@name.string}")
-        name.should_not be_nil
-        synonym = Synonym.find_by_name_id(name.id)
-        synonym.should_not be_nil
-        tcn = TaxonConceptName.find_by_name_id(name.id)
-        tcn.should_not be_nil
-      end
-
-      it "should ignore the already existed common name" do
-        truncate_table(ActiveRecord::Base.connection, "synonyms", {})
-        # make db already have a one
-        synonym = Synonym.create(:name_id => @name.id, :synonym_relation_id => @sr.id, :language_id => Language.first.id,
-        :hierarchy_entry_id => @he.id, :preferred => 0, :hierarchy_id => @hi.id,
-        :vetted_id => 1, :site_id => @user.site_id)
-        synonym_before = Synonym.all.count
-        # call process entery to execute "add common name" action
-        @peer_log.process_entry
-        #check that there is no new synonym created
-        Synonym.all.count.should_not == 0
-        Synonym.all.count.should == synonym_before
-      end
-    end
-
-    describe "pulling 'update common name' action" do
-      before :each do
-        truncate_all_tables
-        #        truncate_table(ActiveRecord::Base.connection, "users", {})
-        #        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        #        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        #        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        #        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-
-        #create user
-        @user = User.gen(active: true)
-        @user.update_column(:site_id, 2)
-        @user.update_column(:origin_id, @user.id)
-        @user.update_column(:curator_level_id, CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id)
-        @user.update_column(:curator_approved, 1)
-
-        @name = Name.gen()
-        @name.update_column(:origin_id, @name.id)
-
-        SynonymRelation.create(:id => 1)
-        SynonymRelation.first.should_not be_nil
-
-        tsr = TranslatedSynonymRelation.gen()
-        tsr.should_not be_nil
-        tsr.update_column(:label, "common name")
-        tsr.update_column(:language_id, Language.first.id)
-        tsr.update_column(:synonym_relation_id, SynonymRelation.first.id)
-
-        relation  = SynonymRelation.find_by_translated(:label, 'common name')
-        relation.should_not be_nil
-
-        ar = AgentRole.gen()
-        tar = TranslatedAgentRole.gen()
-        tar.update_column(:label, "Contributor")
-        tar.update_column(:agent_role_id, ar.id)
-        tar.update_column(:language_id, Language.first.id)
-
-        Visibility.create(:id => 1)
-        TranslatedVisibility.gen()
-        TranslatedVisibility.first.update_column(:label, "Visibile")
-        TranslatedVisibility.first.update_column(:language_id, Language.first.id)
-        TranslatedVisibility.first.update_column(:visibility_id, Visibility.first.id)
-
-        hi = Hierarchy.gen()
-        hi.update_column(:label, 'Encyclopedia of Life Contributors')
-
-        @taxon_concept = TaxonConcept.gen()
-        @taxon_concept.update_column(:origin_id, @taxon_concept.id)
-        TaxonConceptPreferredEntry.create(:taxon_concept_id => @taxon_concept.id, :hierarchy_entry_id => HierarchyEntry.gen().id)
-
-        tcn = TaxonConceptName.gen()
-        tcn.update_column(:taxon_concept_id, @taxon_concept.id)
-        tcn.update_column(:name_id, @name.id)
-        tcn.update_column(:preferred, 0)
-
-        synonym = Synonym.gen
-        synonym.update_column(:name_id, @name.id)
-        synonym.update_column(:hierarchy_id, hi.id)
-        synonym.update_column(:hierarchy_entry_id, 1)
-        synonym.update_column(:synonym_relation_id, relation.id)
-        synonym.update_column(:language_id, Language.first.id)
-        synonym.update_column(:site_id,PEER_SITE_ID)
-        synonym.update_column(:preferred,0)
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'update')
-
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'common_name')
-
-        #create sync_peer_log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = @user.site_id
-        @peer_log.user_site_object_id = @user.id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('common_name').id
-        @peer_log.sync_object_id = @name.id
-        @peer_log.sync_object_site_id = @name.site_id
-        @peer_log.save
-
-        #create sync_action_parameters
-        parameters = ["language","taxon_concept_site_id", "taxon_concept_origin_id","string"]
-        values     = ["#{Language.first.iso_639_1}", "#{@taxon_concept.site_id}", "#{@taxon_concept.origin_id}","#{@name.string}"]
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
-        end
-      end
-      it "should update preferred column in synonym" do
-        s1 = Synonym.find_by_name_id(@name.id).preferred
-        #call process entery
-        @peer_log.process_entry
-        s2 = Synonym.find_by_name_id(@name.id).preferred.should_not == s1
-      end
-
-      it "should ignore updates for deleted names" do
-        truncate_table(ActiveRecord::Base.connection, "synonyms", {})
-        #call process entery
-        lambda{@peer_log.process_entry}.should_not raise_exception
-        Synonym.all.count.should == 0
-      end
-    end
-
-    describe "pull 'delete common name' action" do
-      before :each do
-        truncate_all_tables
-        @user = User.gen(active: true)
-        @user.update_column(:site_id, 2)
-        @user.update_column(:origin_id, @user.id)
-        @user.update_column(:curator_level_id, CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id)
-        @user.update_column(:curator_approved, 1)
-
-        name = Name.gen()
-        name.update_column(:origin_id, name.id)
-
-        @tc = TaxonConcept.gen()
-        @tc.update_column(:origin_id, @tc.id)
-
-        @synonym = Synonym.gen()
-        @synonym.update_column(:origin_id, @synonym.id)
-
-        tcn = TaxonConceptName.gen()
-        tcn.update_column(:taxon_concept_id, @tc.id)
-        tcn.update_column(:name_id, name.id)
-        tcn.update_column(:synonym_id, @synonym.id)
-
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'delete')
-
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'common_name')
-
-        #create peer log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = @user.site_id
-        @peer_log.user_site_object_id = @user.id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_or_create_by_object_action('delete').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_or_create_by_object_type('common_name').id
-        @peer_log.sync_object_id = @synonym.id
-        @peer_log.sync_object_site_id = @synonym.site_id
-        @peer_log.save
-
-        #create sync_action_parameters
-        parameters = ["taxon_concept_site_id", "taxon_concept_origin_id"]
-        values     = ["#{@tc.site_id}", "#{@tc.origin_id}"]
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
-        end
-        #call process entery
-        @peer_log.process_entry
-      end
-
-      it "should delete synonym and taxon_concept_name" do
-        TaxonConceptName.find_by_synonym_id_and_taxon_concept_id(@synonym.id, @tc.id).should be_nil
-        Synonym.find_by_id(@synonym.id).should be_nil
-      end
-      it "should ignore dalete actions for already deleted names" do
-        truncate_table(ActiveRecord::Base.connection, "synonyms", {})
-        #call process entery
-        lambda{@peer_log.process_entry}.should_not raise_exception
-        Synonym.all.count.should == 0
-      end
-    end
-
-    describe "pull 'vet common name' action" do
-      before :each do
-        truncate_all_tables
-        @user = User.gen(active: true)
-        @user.update_column(:site_id, 2)
-        @user.update_column(:origin_id, @user.id)
-        @user.update_column(:curator_level_id, CuratorLevel.find_or_create_by_id(1, :label => "master", :rating_weight => 1).id)
-        @user.update_column(:curator_approved, 1)
-
-        @name = Name.gen()
-        @name.update_column(:origin_id, @name.id)
-
-        @tc = TaxonConcept.gen()
-        @tc.update_column(:origin_id, @tc.id)
-
-        @synonym = Synonym.gen()
-        @synonym.update_column(:origin_id, @synonym.id)
-
-        tcn = TaxonConceptName.gen()
-        tcn.update_column(:taxon_concept_id, @tc.id)
-        tcn.update_column(:name_id, @name.id)
-        tcn.update_column(:synonym_id, @synonym.id)
-
-        truncate_table(ActiveRecord::Base.connection, "sync_object_actions", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_object_types", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'vet')
-
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'common_name')
-
-        #create peer log
-        @peer_log = SyncPeerLog.new
-        @peer_log.sync_event_id = 4 #pull event
-        @peer_log.user_site_id = @user.site_id
-        @peer_log.user_site_object_id = @user.id
-        @peer_log.action_taken_at = Time.now
-        @peer_log.sync_object_action_id = SyncObjectAction.find_or_create_by_object_action('vet').id
-        @peer_log.sync_object_type_id = SyncObjectType.find_or_create_by_object_type('common_name').id
-        @peer_log.sync_object_id = @name.id
-        @peer_log.sync_object_site_id = @name.site_id
-        @peer_log.save
-
-        #create sync_action_parameters
-        parameters = ["vetted_view_order","taxon_concept_site_id", "taxon_concept_origin_id", "string"]
-        values     = ["#{Vetted.first.view_order}","#{@tc.site_id}", "#{@tc.origin_id}", "#{@name.string}"]
-        for i in 0..parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @peer_log.id
-          lap.parameter = parameters[i]
-          lap.value = values[i]
-          lap.save
-        end
-        #call process entery
-        @peer_log.process_entry
-      end
-
-      it "should vet common name" do
-        TaxonConceptName.find_by_synonym_id_and_taxon_concept_id(@synonym.id, @tc.id).vetted_id.should == 1
-        Synonym.find_by_id(@synonym.id).vetted_id.should == 1
-      end
-      it "should ignore vet actions for already deleted names" do
-        truncate_table(ActiveRecord::Base.connection, "synonyms", {})
-        truncate_table(ActiveRecord::Base.connection, "taxon_concept_names", {})
-        #call process entery
-        lambda{@peer_log.process_entry}.should_not raise_exception
-        Synonym.all.count.should == 0
-      end
-
-    end
 
  
     
@@ -2160,373 +2128,6 @@ describe SyncPeerLog do
       end
     end    
     
-    
-      # test collections actions synchronization
-  describe "process pulling for data objects actions " do
-    describe "pulling create data object" do
-      before(:all) do
-        truncate_all_tables
-        load_foundation_cache
-        Activity.create_enumerated
-        Visibility.create_enumerated
-        @toc = TocItem.gen_if_not_exists(:label => 'overview')
-        @toc[:origin_id] = @toc.id
-        @toc[:site_id] = PEER_SITE_ID
-        @toc.save
-        
-        @user = User.gen        
-        @user[:origin_id] = @user.id
-        @user[:site_id] = PEER_SITE_ID
-        @user.save
-        @taxon_concept = TaxonConcept.gen
-        @taxon_concept[:origin_id] = @taxon_concept.id
-        @taxon_concept[:site_id] = PEER_SITE_ID
-        @taxon_concept.save
-        
-        
-        #create sync_object_action
-        SyncObjectAction.create(:object_action => 'create')
-        SyncObjectAction.create(:object_action => 'add_item')
-        #create sync_object_type
-        SyncObjectType.create(:object_type => 'Ref')
-        SyncObjectType.create(:object_type => 'Collection')
-        SyncObjectType.create(:object_type => 'data_object')
-        
-        # create sync peer log for creating ref
-        @create_ref_peer_log = SyncPeerLog.new
-        @create_ref_peer_log.sync_event_id = 5 #pull event
-        @create_ref_peer_log.user_site_id = @user.site_id
-        @create_ref_peer_log.user_site_object_id = @user.origin_id
-        @create_ref_peer_log.action_taken_at = Time.now
-        @create_ref_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
-        @create_ref_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Ref').id
-        @create_ref_peer_log.save
-        
-        create_ref_parameters = ["reference"]
-        create_ref_values = [ "Test reference."]
-        for i in 0..create_ref_parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @create_ref_peer_log.id
-          lap.param_object_type_id = nil
-          lap.param_object_id = nil
-          lap.param_object_site_id = nil
-          lap.parameter = create_ref_parameters[i]
-          lap.value = create_ref_values[i]
-          lap.save
-        end
-        #call process entery
-        @create_ref_peer_log.process_entry
-        
-         # create sync peer log for creating ref
-        @create_data_object_peer_log = SyncPeerLog.new
-        @create_data_object_peer_log.sync_event_id = 5 #pull event
-        @create_data_object_peer_log.user_site_id = @user.site_id
-        @create_data_object_peer_log.user_site_object_id = @user.origin_id
-        @create_data_object_peer_log.action_taken_at = Time.now
-        @create_data_object_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
-        @create_data_object_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
-        @create_data_object_peer_log.sync_object_id = 1
-        @create_data_object_peer_log.sync_object_site_id = PEER_SITE_ID
-        @create_data_object_peer_log.save
-     
-        create_data_object_parameters = ["taxon_concept_origin_id", "taxon_concept_site_id", 
-          "references", "toc_id", "toc_site_id", "object_title", "description", "data_type_id",
-          "language_id", "license_id"]
-        create_data_object_values = ["#{@taxon_concept.origin_id}", "#{@taxon_concept.site_id}",
-           "Test reference.", @toc.origin_id, @toc.site_id, "Test Article",
-           "Test text", DataType.text.id.to_s, Language.english.id.to_s, License.public_domain.id.to_s]
-        for i in 0..create_data_object_parameters.length-1
-          lap = SyncLogActionParameter.new
-          lap.peer_log_id = @create_data_object_peer_log.id
-          lap.param_object_type_id = nil
-          lap.param_object_id = nil
-          lap.param_object_site_id = nil
-          lap.parameter = create_data_object_parameters[i]
-          lap.value = create_data_object_values[i]
-          lap.save
-
-          end
-          #call process entery
-          @create_ref_peer_log.process_entry
-
-          # create sync peer log for creating ref
-          @create_data_object_peer_log = SyncPeerLog.new
-          @create_data_object_peer_log.sync_event_id = 5 #pull event
-          @create_data_object_peer_log.user_site_id = @user.site_id
-          @create_data_object_peer_log.user_site_object_id = @user.origin_id
-          @create_data_object_peer_log.action_taken_at = Time.now
-          @create_data_object_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
-          @create_data_object_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
-          @create_data_object_peer_log.sync_object_id = 1
-          @create_data_object_peer_log.sync_object_site_id = PEER_SITE_ID
-          @create_data_object_peer_log.save
-
-          create_data_object_parameters = ["taxon_concept_origin_id", "taxon_concept_site_id",
-            "references", "toc_id", "toc_site_id", "object_title", "description", "data_type_id",
-            "language_id", "license_id"]
-          create_data_object_values = ["#{@taxon_concept.origin_id}", "#{@taxon_concept.site_id}",
-            "Test reference.", @toc.origin_id, @toc.site_id, "Test Article",
-            "Test text", DataType.text.id.to_s, Language.english.id.to_s, License.public_domain.id.to_s]
-          for i in 0..create_data_object_parameters.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @create_data_object_peer_log.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = create_data_object_parameters[i]
-            lap.value = create_data_object_values[i]
-            lap.save
-          end
-          #call process entery
-          @create_data_object_peer_log.process_entry
-
-          # create sync peer log for creating ref
-          @create_collection_item_peer_log = SyncPeerLog.new
-          @create_collection_item_peer_log.sync_event_id = 5 #pull event
-          @create_collection_item_peer_log.user_site_id = @user.site_id
-          @create_collection_item_peer_log.user_site_object_id = @user.origin_id
-          @create_collection_item_peer_log.action_taken_at = Time.now
-          @create_collection_item_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('add_item').id
-          @create_collection_item_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Collection').id
-          @create_collection_item_peer_log.sync_object_id = @user.watch_collection.origin_id
-          @create_collection_item_peer_log.sync_object_site_id = PEER_SITE_ID
-          @create_collection_item_peer_log.save
-
-          create_collection_item_parameters = ["item_id", "item_site_id", "collected_item_type", "collected_item_name"]
-          create_collection_item_values = ["1", PEER_SITE_ID, "DataObject", "Test Article"]
-          for i in 0..create_collection_item_parameters.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @create_collection_item_peer_log.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = create_collection_item_parameters[i]
-            lap.value = create_collection_item_values[i]
-            lap.save
-          end
-          #call process entery
-          @create_collection_item_peer_log.process_entry
-
-        end
-
-        it "should create data object" do
-          ref = Ref.first
-          ref.full_reference.should == "Test reference."
-          ref.user_submitted.should == true
-          ref.visibility_id.should == Visibility.visible.id
-          ref.published.should == 1
-
-          data_obj = DataObject.find(2)
-          data_obj.object_title.should == "Test Article"
-          data_obj.description.should == "Test text"
-          data_obj.license_id.should == License.public_domain.id
-
-          user_data_obj = UsersDataObject.first
-          user_data_obj.user_id.should == @user.id
-          data_obj.toc_items[0].id.should == TocItem.overview.id
-
-          data_obj_ref = data_obj.refs[0]
-          data_obj_ref.id.should == ref.id
-
-          data_obj_taxon_concept = DataObjectsTaxonConcept.first
-          data_obj_taxon_concept.taxon_concept_id.should == @taxon_concept.id
-          data_obj_taxon_concept.data_object_id.should == data_obj.id
-
-          col_item = CollectionItem.first
-          col_item.collected_item_type.should == "DataObject"
-          col_item.name.should == "Test Article"
-          col_item.collected_item_id.should == data_obj.id
-          col_item.collection_id.should == @user.watch_collection.id
-        end
-      end
-
-      describe "pulling update data object" do
-        before(:all) do
-          truncate_all_tables
-          load_foundation_cache
-          Activity.create_enumerated
-          Visibility.create_enumerated
-          @toc = TocItem.gen_if_not_exists(:label => 'overview')
-          @toc[:origin_id] = @toc.id
-          @toc[:site_id] = PEER_SITE_ID
-          @toc.save
-
-          @user = User.gen
-          @user[:origin_id] = @user.id
-          @user[:site_id] = PEER_SITE_ID
-          @user.save
-          @taxon_concept = TaxonConcept.gen
-          @taxon_concept[:origin_id] = @taxon_concept.id
-          @taxon_concept[:site_id] = PEER_SITE_ID
-          @taxon_concept.save
-          @data_object = @taxon_concept.add_user_submitted_text(:user => @user)
-          @data_object[:origin_id] = @data_object.id
-          @data_object[:site_id] = PEER_SITE_ID
-          @data_object.save
-          @data_object.refs << Ref.new(full_reference: "Test reference", user_submitted: true, published: 1,
-                                         visibility: Visibility.visible)
-
-          #create sync_object_action
-          SyncObjectAction.create(:object_action => 'create')
-          SyncObjectAction.create(:object_action => 'update')
-          #create sync_object_type
-          SyncObjectType.create(:object_type => 'Ref')
-          SyncObjectType.create(:object_type => 'data_object')
-
-          # create sync peer log for creating ref
-          @create_ref_peer_log = SyncPeerLog.new
-          @create_ref_peer_log.sync_event_id = 5 #pull event
-          @create_ref_peer_log.user_site_id = @user.site_id
-          @create_ref_peer_log.user_site_object_id = @user.origin_id
-          @create_ref_peer_log.action_taken_at = Time.now
-          @create_ref_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('create').id
-          @create_ref_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('Ref').id
-          @create_ref_peer_log.save
-
-          create_ref_parameters = ["reference"]
-          create_ref_values = [ "Test reference."]
-          for i in 0..create_ref_parameters.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @create_ref_peer_log.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = create_ref_parameters[i]
-            lap.value = create_ref_values[i]
-            lap.save
-          end
-          #call process entery
-          @create_ref_peer_log.process_entry
-
-          # create sync peer log for creating ref
-          @update_data_object_peer_log = SyncPeerLog.new
-          @update_data_object_peer_log.sync_event_id = 5 #pull event
-          @update_data_object_peer_log.user_site_id = @user.site_id
-          @update_data_object_peer_log.user_site_object_id = @user.origin_id
-          @update_data_object_peer_log.action_taken_at = Time.now
-          @update_data_object_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('update').id
-          @update_data_object_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
-          @update_data_object_peer_log.sync_object_id = @data_object.origin_id
-          @update_data_object_peer_log.sync_object_site_id = @data_object.site_id
-          @update_data_object_peer_log.save
-
-          update_data_object_parameters = ["new_revision_origin_id", "new_revision_site_id",
-            "references", "toc_id", "toc_site_id", "object_title", "description", "data_type_id",
-            "language_id", "license_id"]
-          update_data_object_values = [3, PEER_SITE_ID,
-            "Test reference.", @toc.origin_id, @toc.site_id, "Test Article",
-            "Test text", DataType.text.id.to_s, Language.english.id.to_s, License.public_domain.id.to_s]
-          for i in 0..update_data_object_parameters.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @update_data_object_peer_log.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = update_data_object_parameters[i]
-            lap.value = update_data_object_values[i]
-            lap.save
-          end
-          #call process entery
-          @update_data_object_peer_log.process_entry
-        end
-
-        it "should update data object" do
-          ref = Ref.find(2)
-          ref.full_reference.should == "Test reference."
-          ref.user_submitted.should == true
-          ref.visibility_id.should == Visibility.visible.id
-          ref.published.should == 1
-
-          data_obj = DataObject.find(3)
-          data_obj.object_title.should == "Test Article"
-          data_obj.description.should == "Test text"
-          data_obj.license_id.should == License.public_domain.id
-
-          user_data_obj = UsersDataObject.find(2)
-          user_data_obj.user_id.should == @user.id
-          data_obj.toc_items[0].id.should == TocItem.overview.id
-
-          data_obj_ref = data_obj.refs[0]
-          data_obj_ref.id.should == ref.id
-          
-          data_obj_taxon_concept = DataObjectsTaxonConcept.find(:first, :conditions => "data_object_id = 3 and taxon_concept_id = #{@taxon_concept.id}")
-          data_obj_taxon_concept.should_not be_nil
-        end
-      end
-      
-      describe "pulling rate data object" do
-        before(:all) do
-          truncate_all_tables
-          load_foundation_cache
-          Activity.create_enumerated
-          Visibility.create_enumerated
-          @toc = TocItem.gen_if_not_exists(:label => 'overview')
-          @toc[:origin_id] = @toc.id
-          @toc[:site_id] = PEER_SITE_ID
-          @toc.save
-
-          @user = User.gen
-          @user[:origin_id] = @user.id
-          @user[:site_id] = PEER_SITE_ID
-          @user.save
-          @taxon_concept = TaxonConcept.gen
-          @taxon_concept[:origin_id] = @taxon_concept.id
-          @taxon_concept[:site_id] = PEER_SITE_ID
-          @taxon_concept.save
-          @data_object = @taxon_concept.add_user_submitted_text(:user => @user)
-          @data_object[:origin_id] = @data_object.id
-          @data_object[:site_id] = PEER_SITE_ID
-          @data_object.save
-          @data_object.refs << Ref.new(full_reference: "Test reference", user_submitted: true, published: 1,
-                                         visibility: Visibility.visible)
-
-          #create sync_object_action
-          SyncObjectAction.create(:object_action => 'rate')
-          
-          #create sync_object_type
-          SyncObjectType.create(:object_type => 'data_object')
-
-          # create sync peer log for rating data object
-          @rate_data_object_peer_log = SyncPeerLog.new
-          @rate_data_object_peer_log.sync_event_id = 5 #pull event
-          @rate_data_object_peer_log.user_site_id = @user.site_id
-          @rate_data_object_peer_log.user_site_object_id = @user.origin_id
-          @rate_data_object_peer_log.action_taken_at = Time.now
-          @rate_data_object_peer_log.sync_object_action_id = SyncObjectAction.find_by_object_action('rate').id
-          @rate_data_object_peer_log.sync_object_type_id = SyncObjectType.find_by_object_type('data_object').id
-          @rate_data_object_peer_log.sync_object_id = @data_object.origin_id
-          @rate_data_object_peer_log.sync_object_site_id = @data_object.site_id
-          @rate_data_object_peer_log.save
-
-          rate_data_object_parameters = ["stars"]
-          rate_data_object_values = [3]
-          
-          for i in 0..rate_data_object_parameters.length-1
-            lap = SyncLogActionParameter.new
-            lap.peer_log_id = @rate_data_object_peer_log.id
-            lap.param_object_type_id = nil
-            lap.param_object_id = nil
-            lap.param_object_site_id = nil
-            lap.parameter = rate_data_object_parameters[i]
-            lap.value = rate_data_object_values[i]
-            lap.save
-          end
-          #call process entery
-          @rate_data_object_peer_log.process_entry
-        end
-
-        it "should rate data object" do          
-          data_obj = DataObject.find(2)
-          data_obj.data_rating.should == 3
-          
-          user_data_obj_rate = UsersDataObjectsRating.first
-          user_data_obj_rate.user_id.should == @user.id
-          user_data_obj_rate.data_object_guid.should == @data_object.guid
-          user_data_obj_rate.rating.should == 3         
-        end
-      end
-    end
-    
     describe "process pulling for translated content pages actions " do
       describe ".add_translation_content_page" do
         
@@ -2733,4 +2334,3 @@ describe SyncPeerLog do
        end
     
   end
-end

@@ -1,7 +1,7 @@
 class SyncEventsController < ApplicationController
 
   def query
-    sync_event = SyncEvent.find(:last, :conditions => "status is null")
+    sync_event = SyncEvent.find(:last, conditions: "status is null")
 
     if (!sync_event)
       @message = "No pending push was found"

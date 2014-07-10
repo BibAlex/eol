@@ -58,6 +58,9 @@ ActiveRecord::Base.transaction do
 
   CuratorLevel.create_enumerated
   UserIdentity.create_enumerated
+  
+  SyncObjectAction.create_enumerated
+  SyncObjectType.create_enumerated
 
   iucn_agent = Agent.gen_if_not_exists(:full_name => 'IUCN')
   iucn_user = User.gen_if_not_exists(:given_name => 'IUCN', :agent => iucn_agent)

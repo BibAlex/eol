@@ -1,0 +1,143 @@
+++ No config for environment_eol_org found, skipping.
+++ No config for environments/local found, skipping.
+truncating tables ... done
+
+Progress: |
+Progress: |====
+
+An error occurred in an after(:all) hook.
+  NoMethodError: undefined method `destroy' for nil:NilClass
+  occurred at /home/walaa/work/eol_rails/spec/models/sync_peer_log_spec.rb:215:in `block (5 levels) in <top (required)>'
+
+Progress: |=======
+
+An error occurred in an after(:all) hook.
+  NoMethodError: undefined method `destroy' for nil:NilClass
+  occurred at /home/walaa/work/eol_rails/spec/models/sync_peer_log_spec.rb:273:in `block (5 levels) in <top (required)>'
+
+Progress: |=======
+  1) SyncPeerLog process pull data_object Synchronization .curate_association should curate association
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+Progress: |========
+  2) SyncPeerLog process pull data_object Synchronization .add_association should add association
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+
+  3) SyncPeerLog process pull data_object Synchronization .remove_association should remove association
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+
+  4) SyncPeerLog process pull data_object Synchronization .create_data_object creates a reference
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+
+  5) SyncPeerLog process pull data_object Synchronization .create_data_object creates data object
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+Progress: |============
+  6) SyncPeerLog process pull data_object Synchronization .create_data_object creates user_data_object
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+
+  7) SyncPeerLog process pull data_object Synchronization .create_data_object creates data_object_reference
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+
+  8) SyncPeerLog process pull data_object Synchronization .create_data_object creates data_object_taxon_concept
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+
+  9) SyncPeerLog process pull data_object Synchronization .create_data_object creates colection_item
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+
+  10) SyncPeerLog process pull data_object Synchronization .update_data_object creates reference
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+Progress: |==================
+  11) SyncPeerLog process pull data_object Synchronization .update_data_object updates data object
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+
+  12) SyncPeerLog process pull data_object Synchronization .update_data_object creates user_data_obj
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+
+  13) SyncPeerLog process pull data_object Synchronization .update_data_object creates data_object_taxon_concept
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+
+  14) SyncPeerLog process pull data_object Synchronization rate data object creates user_data_object_rating
+     Failure/Error: UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+     RuntimeError:
+       Called id for nil, which would mistakenly be 4 -- if you really wanted the id of nil, use object_id
+     # ./spec/models/sync_peer_log_spec.rb:296:in `block (4 levels) in <top (required)>'
+
+Progress: |========================
+
+An error occurred in an after(:all) hook.
+  ArgumentError: wrong number of arguments (1 for 2)
+  occurred at /usr/lib/ruby/gems/1.9.1/gems/activerecord-3.2.17/lib/active_record/dynamic_matchers.rb:29:in `find_by_origin_id_and_site_id'
+
+Progress: |=========================================================================================================================|
+
+Finished in 59.97 seconds
+113 examples, 14 failures
+
+Failed examples:
+
+rspec ./spec/models/sync_peer_log_spec.rb:329 # SyncPeerLog process pull data_object Synchronization .curate_association should curate association
+rspec ./spec/models/sync_peer_log_spec.rb:356 # SyncPeerLog process pull data_object Synchronization .add_association should add association
+rspec ./spec/models/sync_peer_log_spec.rb:388 # SyncPeerLog process pull data_object Synchronization .remove_association should remove association
+rspec ./spec/models/sync_peer_log_spec.rb:476 # SyncPeerLog process pull data_object Synchronization .create_data_object creates a reference
+rspec ./spec/models/sync_peer_log_spec.rb:482 # SyncPeerLog process pull data_object Synchronization .create_data_object creates data object
+rspec ./spec/models/sync_peer_log_spec.rb:487 # SyncPeerLog process pull data_object Synchronization .create_data_object creates user_data_object
+rspec ./spec/models/sync_peer_log_spec.rb:493 # SyncPeerLog process pull data_object Synchronization .create_data_object creates data_object_reference
+rspec ./spec/models/sync_peer_log_spec.rb:497 # SyncPeerLog process pull data_object Synchronization .create_data_object creates data_object_taxon_concept
+rspec ./spec/models/sync_peer_log_spec.rb:502 # SyncPeerLog process pull data_object Synchronization .create_data_object creates colection_item
+rspec ./spec/models/sync_peer_log_spec.rb:560 # SyncPeerLog process pull data_object Synchronization .update_data_object creates reference
+rspec ./spec/models/sync_peer_log_spec.rb:566 # SyncPeerLog process pull data_object Synchronization .update_data_object updates data object
+rspec ./spec/models/sync_peer_log_spec.rb:571 # SyncPeerLog process pull data_object Synchronization .update_data_object creates user_data_obj
+rspec ./spec/models/sync_peer_log_spec.rb:576 # SyncPeerLog process pull data_object Synchronization .update_data_object creates data_object_taxon_concept
+rspec ./spec/models/sync_peer_log_spec.rb:603 # SyncPeerLog process pull data_object Synchronization rate data object creates user_data_object_rating
+Coverage report generated for RSpec to /home/walaa/work/eol_rails/coverage. 4154 / 8439 LOC (49.22%) covered.
