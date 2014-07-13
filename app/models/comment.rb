@@ -199,6 +199,9 @@ class Comment < ActiveRecord::Base
       parent_type == last_comment.parent_type
   end
 
+  def was_visible_before?(time)
+    self.visible_at.nil? || (self.visible_at < time)
+  end
 private
 
   def add_recipient_user_making_comment(recipients)

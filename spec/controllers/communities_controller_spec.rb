@@ -6,20 +6,19 @@ def log_in_for_controller(controller, user)
 end
 
 describe CommunitiesController do
-
   before :all do
     truncate_all_tables
     load_scenario_with_caching(:communities)
     SyncObjectAction.create_enumerated
     SyncObjectType.create_enumerated
     SpecialCollection.create(name: "watch")
-          
   end
+  
   describe "syncronization" do
     before do
-      truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-      truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+      truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
     end
+    
     describe "#create_community" do
       let(:user) { User.first }
       let(:collection) { Collection.first }
@@ -79,6 +78,7 @@ describe CommunitiesController do
         Community.find(created_community.id).destroy
       end
     end
+    
     describe "#add_collection" do
       let(:user) { User.first }
       let(:collection) { Collection.first }
@@ -132,6 +132,7 @@ describe CommunitiesController do
         Community.find(community.id).destroy
       end
     end
+    
     describe "#update_community" do
       let(:user) { User.first }
       let(:collection) { Collection.first }
@@ -189,6 +190,7 @@ describe CommunitiesController do
         Community.find(community.id).destroy
       end
     end
+    
     describe "#delete_community" do
       let(:user) { User.first }
       let(:collection) { Collection.first }
@@ -245,7 +247,6 @@ describe CommunitiesController do
       let(:type) { SyncObjectType.community }
       let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id) }
       let(:community) { Community.gen }
-      
       before(:all) do
         CuratorCommunity.build
       end
