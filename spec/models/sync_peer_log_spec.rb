@@ -15,10 +15,10 @@ describe SyncPeerLog do
     
     describe "common names" do
       describe ".add_common_name" do
-        let(:user) {User.first}
-        let(:hi) {Hierarchy.first}
-        let(:he) {HierarchyEntry.first}
-        let(:sr) {SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id)}
+        let(:user) { User.first }
+        let(:hi) { Hierarchy.first }
+        let(:he) { HierarchyEntry.first }
+        let(:sr) { SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id) }
         before do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
@@ -77,11 +77,11 @@ describe SyncPeerLog do
       end
       
       describe ".update_common_name" do
-        let(:user) {User.first}
-        let(:hi) {Hierarchy.first}
-        let(:he) {HierarchyEntry.first}
-        let(:sr) {SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id)}
-        let(:name) {Name.gen} 
+        let(:user) { User.first }
+        let(:hi) { Hierarchy.first }
+        let(:he) { HierarchyEntry.first }
+        let(:sr) { SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id) }
+        let(:name) { Name.gen } 
         before :each do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
@@ -143,7 +143,7 @@ describe SyncPeerLog do
         it "ignores updates for deleted names" do
           truncate_table(ActiveRecord::Base.connection, "synonyms", {})
           #call process entery
-          lambda{@sync_peer_log.process_entry}.should_not raise_exception
+          lambda{ @sync_peer_log.process_entry }.should_not raise_exception
           expect(Synonym.all.count).to eq(0)
         end
         
@@ -161,13 +161,13 @@ describe SyncPeerLog do
       end
       
       describe ".delete_common_name" do
-        let(:user) {User.first}
-        let(:hi) {Hierarchy.first}
-        let(:he) {HierarchyEntry.first}
-        let(:sr) {SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id)}
-        let(:name) {Name.gen} 
-        let(:tc) {TaxonConcept.first}
-        let(:synonym) {Synonym.gen}
+        let(:user) { User.first }
+        let(:hi) { Hierarchy.first }
+        let(:he) { HierarchyEntry.first }
+        let(:sr) { SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id) }
+        let(:name) { Name.gen } 
+        let(:tc) { TaxonConcept.first }
+        let(:synonym) { Synonym.gen }
         
         before :all do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
@@ -206,7 +206,7 @@ describe SyncPeerLog do
         it "should ignore dalete actions for already deleted names" do
           truncate_table(ActiveRecord::Base.connection, "synonyms", {})
           #call process entery
-          lambda{@sync_peer_log.process_entry}.should_not raise_exception
+          lambda{ @sync_peer_log.process_entry }.should_not raise_exception
           expect(Synonym.all.count).to eq(0)
         end
         after(:all) do
@@ -217,13 +217,13 @@ describe SyncPeerLog do
       end
       
       describe ".vet_common_name" do
-        let(:user) {User.first}
-        let(:hi) {Hierarchy.first}
-        let(:he) {HierarchyEntry.first}
-        let(:sr) {SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id)}
-        let(:name) {Name.gen} 
-        let(:tc) {TaxonConcept.first}
-        let(:synonym) {Synonym.gen}
+        let(:user) { User.first }
+        let(:hi) { Hierarchy.first }
+        let(:he) { HierarchyEntry.first }
+        let(:sr) { SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id) }
+        let(:name) { Name.gen } 
+        let(:tc) { TaxonConcept.first }
+        let(:synonym) { Synonym.gen }
         
         before :all do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
@@ -264,7 +264,7 @@ describe SyncPeerLog do
           truncate_table(ActiveRecord::Base.connection, "synonyms", {})
           truncate_table(ActiveRecord::Base.connection, "taxon_concept_names", {})
           #call process entery
-          lambda{@sync_peer_log.process_entry}.should_not raise_exception
+          lambda{ @sync_peer_log.process_entry }.should_not raise_exception
           expect(Synonym.all.count).to eq(0)
         end
         after(:all) do
@@ -277,12 +277,12 @@ describe SyncPeerLog do
     
     describe "data_object Synchronization" do
       
-      let(:user) {User.first}
-      let(:data_object) {DataObject.first}
-      let(:he) {HierarchyEntry.first}
-      let(:comment) {Comment.gen}
-      let(:taxon_concept) {TaxonConcept.first}
-      let(:toc) {TocItem.find(TocItem.overview.id)}
+      let(:user) { User.first }
+      let(:data_object) { DataObject.first }
+      let(:he) { HierarchyEntry.first }
+      let(:comment) { Comment.gen }
+      let(:taxon_concept) { TaxonConcept.first }
+      let(:toc) { TocItem.find(TocItem.overview.id) }
       
       before(:all) do
         user.update_attributes(curator_approved: 1, curator_level_id: 1)
@@ -326,7 +326,7 @@ describe SyncPeerLog do
         
         it "should curate association" do
           udo = UsersDataObject.find_by_user_id_and_data_object_id(user.id, data_object.id)
-          expect(udo.visibility_id).to eq(Visibility.visible.id)
+          expect(udo.visible?).to be_true
         end
       end
       
@@ -469,12 +469,12 @@ describe SyncPeerLog do
         after(:all) do
           DataObject.find_by_origin_id_and_site_id(10,10).destroy
         end
-        let(:ref) {Ref.last}
-        let(:data_obj) {DataObject.find_by_origin_id_and_site_id(10,10)}
+        let(:ref) { Ref.last }
+        let(:data_obj) { DataObject.find_by_origin_id_and_site_id(10,10) }
         it "creates a reference" do
           expect(ref.full_reference).to eq("Test reference.") 
           expect(ref.user_submitted).to eq(true)
-          expect(ref.visibility_id).to eq(Visibility.visible.id)
+          expect(ref.visible?).to be_true
           expect(ref.published).to eq(1)
         end
         it "creates data object" do
@@ -549,15 +549,15 @@ describe SyncPeerLog do
           update_data_object_peer_log.process_entry
         end
         after(:all) do
-          DataObject.where(object_title: "Test update").each {|data| data.destroy}
+          DataObject.where(object_title: "Test update").each { |data| data.destroy }
         end
-        let(:ref) {Ref.last}
-        let(:data_obj) {DataObject.last}
+        let(:ref) { Ref.last }
+        let(:data_obj) { DataObject.last }
         
         it "creates reference" do
           expect(ref.full_reference).to eq("Test reference.") 
           expect(ref.user_submitted).to eq(true)
-          expect(ref.visibility_id).to eq(Visibility.visible.id)
+          expect(ref.visible?).to be_true
           expect(ref.published).to eq(1)
         end
         it "updates data object" do
@@ -607,7 +607,7 @@ describe SyncPeerLog do
     end
     
     describe "community synchronization" do
-      let(:user) {User.first}
+      let(:user) { User.first }
       describe ".create_community" do
         before(:all) do
           load_scenario_with_caching(:communities)
@@ -643,7 +643,7 @@ describe SyncPeerLog do
       end
       
       describe ".add_collection_to_community" do
-        let(:collection) {Collection.gen}
+        let(:collection) { Collection.gen }
         before(:all) do
           load_scenario_with_caching(:communities)
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
@@ -683,7 +683,7 @@ describe SyncPeerLog do
       end
       
       describe ".update_community" do
-        let(:community) {Community.gen}
+        let(:community) { Community.gen }
         before(:all) do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
@@ -716,7 +716,7 @@ describe SyncPeerLog do
       end
       
       describe ".delete_community" do
-        let(:community) {Community.gen}
+        let(:community) { Community.gen }
         before(:all) do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
@@ -743,7 +743,7 @@ describe SyncPeerLog do
       end
       
       describe ".join_community" do
-        let(:community) {Community.gen}
+        let(:community) { Community.gen }
         before(:all) do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
@@ -770,8 +770,8 @@ describe SyncPeerLog do
       end
       
       describe ".leave_community" do
-        let(:community) {Community.gen}
-        let(:prev_members_count) {community.members.count}
+        let(:community) { Community.gen }
+        let(:prev_members_count) { community.members.count }
         before(:all) do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
           truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
@@ -802,7 +802,7 @@ describe SyncPeerLog do
   describe "user synchronization" do
     describe ".create_user" do
         
-      subject(:user) {User.first}
+      subject(:user) { User.first }
       
       context "successful creation" do
         
@@ -877,7 +877,7 @@ describe SyncPeerLog do
     
     describe ".update_user" do
         
-      subject(:user) {User.gen(username: "name")}
+      subject(:user) { User.gen(username: "name") }
       
       context "successful update" do
         
@@ -919,7 +919,7 @@ describe SyncPeerLog do
     
     describe ".activate_user" do
         
-      subject(:user) {User.gen(active: false)}
+      subject(:user) { User.gen(active: false) }
       
       context "successful activate" do
         
@@ -954,7 +954,7 @@ describe SyncPeerLog do
     
     describe ".update_by_admin_user" do
         
-      subject(:user) {User.gen(username: "name")}
+      subject(:user) { User.gen(username: "name") }
       
       context "successful update" do
         
@@ -996,9 +996,9 @@ describe SyncPeerLog do
   describe "comments synchronization" do
     describe ".create_comment" do
       
-      let(:user) {User.gen} 
-      let(:comment_parent) {Collection.gen(name: "collection")}
-      subject(:comment) {Comment.first}
+      let(:user) { User.gen } 
+      let(:comment_parent) { Collection.gen(name: "collection") }
+      subject(:comment) { Comment.first }
       
       context "successful creation" do
         
@@ -1054,10 +1054,10 @@ describe SyncPeerLog do
     
     describe ".update_comment" do
         
-      let(:user) {User.gen(username: "name")}
-      let(:comment_parent) {Collection.gen(name: "collection")}
-      subject(:comment) {Comment.gen(user_id: user.id, parent_id: comment_parent.id,
-                                     parent_type: "Collection", body: "comment")}
+      let(:user) { User.gen(username: "name") }
+      let(:comment_parent) { Collection.gen(name: "collection") }
+      subject(:comment) { Comment.gen(user_id: user.id, parent_id: comment_parent.id,
+                                     parent_type: "Collection", body: "comment") }
       
       context "successful update" do
         
@@ -1135,10 +1135,10 @@ describe SyncPeerLog do
     
     describe ".delete_comment" do
         
-      let(:user) {User.gen(username: "name")}
-      let(:comment_parent) {Collection.gen(name: "collection")}
-      subject(:comment) {Comment.gen(user_id: user.id, parent_id: comment_parent.id,
-                                     parent_type: "Collection", body: "comment")}
+      let(:user) { User.gen(username: "name") }
+      let(:comment_parent) {Collection.gen(name: "collection") }
+      subject(:comment) { Comment.gen(user_id: user.id, parent_id: comment_parent.id,
+                                     parent_type: "Collection", body: "comment") }
       
       context "successful deletion" do
         
@@ -1178,10 +1178,10 @@ describe SyncPeerLog do
      
     describe ".hide_comment" do
         
-      let(:user) {User.gen(username: "name")}
-      let(:comment_parent) {Collection.gen(name: "collection")}
-      subject(:comment) {Comment.gen(user_id: user.id, parent_id: comment_parent.id,
-                                     parent_type: "Collection", body: "comment")}
+      let(:user) { User.gen(username: "name") }
+      let(:comment_parent) { Collection.gen(name: "collection") }
+      subject(:comment) { Comment.gen(user_id: user.id, parent_id: comment_parent.id,
+                                     parent_type: "Collection", body: "comment") }
       
       context "successful hide" do
         
@@ -1215,11 +1215,11 @@ describe SyncPeerLog do
     
     describe ".show_comment" do
         
-      let(:user) {User.gen(username: "name")}
-      let(:comment_parent) {Collection.gen(name: "collection")}
-      subject(:comment) {Comment.gen(user_id: user.id, parent_id: comment_parent.id,
+      let(:user) { User.gen(username: "name") }
+      let(:comment_parent) { Collection.gen(name: "collection") }
+      subject(:comment) { Comment.gen(user_id: user.id, parent_id: comment_parent.id,
                                      parent_type: "Collection", body: "comment",
-                                     visible_at: nil)}
+                                     visible_at: nil) }
       
       context "successful show" do
         
@@ -1295,9 +1295,9 @@ describe SyncPeerLog do
     describe "collections synchronization" do
     describe ".create_collection" do
       
-      let(:user) {User.gen} 
-      let(:collection_item) {CollectionItem.first}
-      subject(:collection) {Collection.last}
+      let(:user) { User.gen } 
+      let(:collection_item) { CollectionItem.first }
+      subject(:collection) { Collection.last }
       context "successful creation" do
         before(:all) do
 
@@ -1375,8 +1375,8 @@ describe SyncPeerLog do
     end
     
     describe ".update_collection" do
-      let(:user) {User.gen(username: "name")}
-      subject(:collection) {Collection.gen(name: "collection")}
+      let(:user) { User.gen(username: "name")}
+      subject(:collection) { Collection.gen(name: "collection") }
       
       context "successful update" do
         
@@ -1457,8 +1457,8 @@ describe SyncPeerLog do
     
     describe ".delete_collection" do
         
-      let(:user) {User.gen(username: "name")}
-      subject(:collection) {Collection.gen(name: "collection")}
+      let(:user) { User.gen(username: "name") }
+      subject(:collection) { Collection.gen(name: "collection") }
       
       context "successful deletion" do
         
@@ -1497,10 +1497,10 @@ describe SyncPeerLog do
   describe "collection items synchronization" do
     describe ".add_collection_item" do
       
-      let(:user) {User.gen} 
-      subject(:collection_item) {CollectionItem.first}
-      let(:collection) {Collection.gen(name: "collection")}
-      let(:item) {Collection.gen(name: "item")}
+      let(:user) { User.gen } 
+      subject(:collection_item) { CollectionItem.first }
+      let(:collection) { Collection.gen(name: "collection") }
+      let(:item) { Collection.gen(name: "item") }
       context "successful creation" do
         before(:all) do
           truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
@@ -1555,12 +1555,12 @@ describe SyncPeerLog do
     end
     
     describe ".update_collection_item" do
-      let(:user) {User.gen} 
-      subject(:collection_item) {CollectionItem.gen(name: "#{item.name}", collected_item_type: "Collection",
-                                                    collected_item_id: item.id, collection_id: collection.id)}
-      let(:collection) {Collection.gen(name: "collection")}
-      let(:item) {Collection.gen(name: "item")}
-      let(:ref) {Ref.first}
+      let(:user) { User.gen } 
+      subject(:collection_item) { CollectionItem.gen(name: "#{item.name}", collected_item_type: "Collection",
+                                                    collected_item_id: item.id, collection_id: collection.id) }
+      let(:collection) { Collection.gen(name: "collection") }
+      let(:item) { Collection.gen(name: "item") }
+      let(:ref) { Ref.first }
       
       context "successful update" do
         before(:all) do
@@ -1634,7 +1634,7 @@ describe SyncPeerLog do
         end
         
         it "sets 'visibility_id' to 'visible'" do
-          expect(ref.visibility_id).to eq(Visibility.visible.id)
+          expect(ref.visible?).to be_true
         end
         
         it "sets 'published' to '1'" do
@@ -1698,7 +1698,7 @@ describe SyncPeerLog do
     describe ".create_collection_job 'copy'" do
       
       let(:collection_item) { CollectionItem.where("collection_id = ? and collected_item_id = ?", empty_collection.id, item.id).first }
-      let(:item) {Collection.gen(name: "item")}
+      let(:item) { Collection.gen(name: "item") }
       let(:empty_collection) { Collection.gen(name: "empty_collection") }
       let(:collection_job) { CollectionJob.first }
       
@@ -1803,7 +1803,7 @@ describe SyncPeerLog do
     describe ".create_collection_job 'remove'" do
       
       let(:collection_item) { CollectionItem.first }
-      let(:item) {Collection.gen(name: "item")}
+      let(:item) { Collection.gen(name: "item") }
       let(:collection) { Collection.gen(name: "collection") }
       let(:collection_job) { CollectionJob.first }
       
@@ -1955,14 +1955,14 @@ describe SyncPeerLog do
           content_page = ContentPage.create("parent_content_page_id"=>"", "page_name"=>"test5", "active"=>"1")
           content_page.update_column(:origin_id, content_page.id)
           content_page.update_column(:site_id, PEER_SITE_ID)
-          translated_content_page = TranslatedContentPage.create({"content_page_id" => "#{content_page.id}" , 
+          translated_content_page = TranslatedContentPage.create({ "content_page_id" => "#{content_page.id}" , 
                                                  "language_id"=>"#{Language.first.id}", 
                                                  "title"=>"test5", 
                                                  "main_content"=>"<p>hello5</p>\r\n", 
                                                  "left_content"=>"", 
                                                  "meta_keywords"=>"",
                                                  "meta_description"=>"", 
-                                                 "active_translation"=>"1"})
+                                                 "active_translation"=>"1" })
           #create sync_object_action
           SyncObjectAction.create(:object_action => 'delete')
           #create sync_object_type
@@ -2128,10 +2128,10 @@ describe SyncPeerLog do
     describe "process pulling for translated content pages actions " do
       describe ".add_translation_content_page" do
         
-        let(:user) {User.gen}
-        let(:content_page) {ContentPage.gen}
-        subject(:translated_content_page) {TranslatedContentPage.first}
-        let(:language) {Language.english}
+        let(:user) { User.gen }
+        let(:content_page) { ContentPage.gen }
+        subject(:translated_content_page) { TranslatedContentPage.first }
+        let(:language) { Language.english }
         
         context "successful creation" do
           
@@ -2230,8 +2230,8 @@ describe SyncPeerLog do
       
       describe ".update_translated_content_page" do
         
-        let(:content_page) {ContentPage.gen}
-        subject(:translated_content_page) {TranslatedContentPage.gen(content_page: content_page, language: Language.english)} 
+        let(:content_page) { ContentPage.gen}
+        subject(:translated_content_page) { TranslatedContentPage.gen(content_page: content_page, language: Language.english)} 
         
         context "successful update" do
           

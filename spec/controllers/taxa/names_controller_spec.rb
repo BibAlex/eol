@@ -1,7 +1,6 @@
 require File.dirname(__FILE__) + '/../../spec_helper'
 
 describe Taxa::NamesController do
-
   before(:each) do
     truncate_all_tables
     SyncObjectType.create_enumerated
@@ -9,7 +8,6 @@ describe Taxa::NamesController do
     load_scenario_with_caching :testy
     @testy = EOL::TestInfo.load('testy')
   end
-
   shared_examples_for 'taxa/names controller' do
     it 'should instantiate section for assistive header' do
       assigns[:assistive_section_header].should be_a(String)
@@ -18,7 +16,6 @@ describe Taxa::NamesController do
       assigns[:taxon_concept].should == @testy[:taxon_concept]
     end
   end
-
 
   describe 'GET related_names' do # default related names
     before :each do
@@ -39,12 +36,10 @@ describe Taxa::NamesController do
       let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id(action.id) }
       let(:current_user) { @testy[:curator] }
       before do
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
         session[:user_id] = current_user.id
         get :delete, taxon_id: @testy[:taxon_concept].id.to_i, synonym_id: @testy[:synonym]["synonym"].id
       end
-      
       it "creates sync peer log" do
         expect(peer_log).not_to be_nil
       end
@@ -82,10 +77,8 @@ describe Taxa::NamesController do
       let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id(action.id) }
       let(:current_user) { @testy[:curator] }
       let(:approved_languages) { Language.approved_languages.collect{ |l| l.id } }
-        
-      before :each do
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+      before do
+        truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
         session[:user_id] = @testy[:curator].id
         approved_language_id = approved_languages.first
         post :create, name: { synonym: { language_id: approved_language_id }, string: "snake" }, 
@@ -145,10 +138,8 @@ describe Taxa::NamesController do
       let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id(action.id) }
       let(:current_user) { @testy[:curator] }
       let(:approved_languages) { Language.approved_languages.collect{ |l| l.id } }
-        
       before do
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
         session[:user_id] = current_user.id
         approved_language_id = approved_languages.first
         post :update, preferred_name_id: @testy[:name].id, language_id: approved_language_id, taxon_id: @testy[:taxon_concept].id.to_i
@@ -199,8 +190,7 @@ describe Taxa::NamesController do
       let(:current_user) { @testy[:curator] }
       let(:approved_languages) { Language.approved_languages.collect{ |l| l.id } } 
       before do
-        truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-        truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+        truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
         session[:user_id] = current_user.id
         approved_language_id = approved_languages.first
         get :vet_common_name, id: @testy[:name].id, language_id: approved_language_id, vetted_id: Vetted.first.id, taxon_id: @testy[:taxon_concept].id.to_i
@@ -266,5 +256,4 @@ describe Taxa::NamesController do
       assigns[:taxon_concept].published_hierarchy_entries.first.scientific_synonyms.first.should be_a(Synonym)
     end
   end
-
 end

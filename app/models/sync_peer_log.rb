@@ -428,7 +428,7 @@ class SyncPeerLog < ActiveRecord::Base
     comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if user
       if comment
-        if (comment.visible_at.nil? || (comment.visible_at < parameters[:visible_at]))
+        if (comment.was_visible_before?(parameters[:visible_at]))
           comment.show(user)
           comment.update_attributes(visible_at: parameters[:visible_at])
           Rails.cache.delete('homepage/activity_logs_expiration') if Rails.cache

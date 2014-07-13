@@ -104,5 +104,8 @@ class Ref < ActiveRecord::Base
                 LIMIT 1", taxon_concept_id, Visibility.visible.id])
     ref_count > 0
   end
-
+  
+  def visible?
+    self.visibility_id == Visibility.visible.id
+  end
 end

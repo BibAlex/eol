@@ -113,6 +113,12 @@ def read_test_file(filename)
   end
 end
 
+def truncate_tables(tables)
+  tables.each do |table|
+    truncate_table(ActiveRecord::Base.connection, table, {})  
+  end
+end
+
 module RSpec
   module Rails
     module Example
