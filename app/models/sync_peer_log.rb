@@ -131,8 +131,7 @@ class SyncPeerLog < ActiveRecord::Base
     
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                               :collection_site_id, :collection_origin_id, :action_taken_at],parameters)
-    
-    user = User.create(parameters)
+    user = User.create!(parameters)
     #we may remove this part as it always not yet created
     #delete old watch list and create another
     collection = user.watch_collection
