@@ -424,7 +424,7 @@ describe SyncPeerLog do
         ref.destroy if ref
         data_object_taxon_concept = DataObjectTaxonConcept.find_by_taxon_concept_id_and_data_object_id(taxon_concept.id, data_obj.id)
         data_object_taxon_concept.destroy if data_object_taxon_concept
-        collection_item = Collection_item.find_by_collection_id_and_collected_item_id(user.watch_collection.id, data_obj.id)
+        collection_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", user.watch_collection.id, data_obj.id).first
         collection_item.destroy if collection_item
         data_obj.destroy if data_obj
       end
@@ -568,6 +568,7 @@ describe SyncPeerLog do
       after(:all) do
         Community.last.destroy if Community.last
         col = Collection.find_by_origin_id_and_site_id(origin_id: collection.id, site_id: PEER_SITE_ID)
+
         col.destroy if col
       end
     end
@@ -813,7 +814,7 @@ describe SyncPeerLog do
       end
     end
   end
-  
+   
   describe "comments synchronization" do
     describe ".create_comment" do
       let(:user) { User.first } 
@@ -1036,7 +1037,7 @@ describe SyncPeerLog do
   describe "collections synchronization" do
     describe ".create_collection" do
       let(:user) { User.first } 
-      let(:collection_item) { CollectionItem.find_by_collection_id_and_collected_item_id(collection.id, user.id) }
+      let(:collection_item) { CollectionItem.where("collection_id = ? and collected_item_id = ?", collection.id, user.id).first }
       subject(:collection) { Collection.find_by_origin_id_and_site_id(30, PEER_SITE_ID) }
         
       context "successful creation" do
@@ -1173,7 +1174,7 @@ describe SyncPeerLog do
   describe "collection items synchronization" do
     describe ".add_collection_item" do
       let(:user) { User.first } 
-      subject(:collection_item) { CollectionItem.find_by_collection_id_and_collected_item_id(collection.id, user.id) }
+      subject(:collection_item) { CollectionItem.where("collection_id = ? and collected_item_id = ?", collection.id, user.id).first }
       let(:collection) { Collection.gen }
         
       context "successful creation" do
