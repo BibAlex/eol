@@ -105,8 +105,7 @@ private
   end
   
   def sync_update_translated_content_page
-    sync_params = params[:translated_content_page]
-    sync_params = sync_params.reverse_merge(language_id: @translated_content_page.language_id)
+    sync_params = {language_id: @translated_content_page.language_id}.reverse_merge(params[:translated_content_page])
     options = {user: current_user, object: @content_page, action_id: SyncObjectAction.update.id,
                type_id: SyncObjectType.translated_content_page.id, params: sync_params}
     SyncPeerLog.log_action(options)

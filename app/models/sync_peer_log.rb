@@ -298,18 +298,16 @@ class SyncPeerLog < ActiveRecord::Base
      collections = get_collections_ids(peer_logs) unless parameters[:command] == "remove"
      
      # create collection job  
-     if user.can_edit_collection?(origin_collection)                 
-       unless (collection_items.blank? and  parameters["command"] == "remove")
-         collection_job = CollectionJob.create!(command: parameters[:command], user: user,
-                               collection: origin_collection, item_count: parameters[:item_count],
-                               all_items: parameters[:all_items],
-                               overwrite: parameters[:overwrite],
-                               collection_item_ids: collection_items,
-                               collection_ids: collections)
-         if collection_job
-           collection_job.run
-         end
-      end
+    if user.can_edit_collection?(origin_collection)                 
+     unless (collection_items.blank? and  parameters["command"] == "remove")
+       collection_job = CollectionJob.create!(command: parameters[:command], user: user,
+                             collection: origin_collection, item_count: parameters[:item_count],
+                             all_items: parameters[:all_items],
+                             overwrite: parameters[:overwrite],
+                             collection_item_ids: collection_items,
+                             collection_ids: collections)
+       collection_job.run if collection_job
+     end
     end
   end
   
@@ -388,7 +386,7 @@ class SyncPeerLog < ActiveRecord::Base
     comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if comment
        # if it is newer take it else keep the old one
-      if comment.last_updated_at.nil? || comment.last_updated_at < parameters[:updated_at] 
+      if comment.text_last_updated_at.nil? || comment.text_last_updated_at < parameters[:updated_at] 
         parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
                                            :action_taken_at, :language],parameters)
         comment.update_attributes(parameters)
@@ -416,7 +414,7 @@ class SyncPeerLog < ActiveRecord::Base
     if user
       if comment
         comment.hide(user)
-        Rails.cache.delete('homepage/activity_logs_expiration') if Rails.cache
+        EOL::ActivityLog.clear_expiration_cache
       end
     end    
   end 
@@ -430,7 +428,7 @@ class SyncPeerLog < ActiveRecord::Base
         if (comment.was_visible_before?(parameters[:visible_at]))
           comment.show(user)
           comment.update_attributes(visible_at: parameters[:visible_at])
-          Rails.cache.delete('homepage/activity_logs_expiration') if Rails.cache
+          EOL::ActivityLog.clear_expiration_cache
         end
       end
     end    
@@ -637,8 +635,13 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.create_content_page(parameters)
-    parent_content_page = ContentPage.find_site_specific(parameters[:parent_content_page_origin_id], parameters[:parent_content_page_site_id])
-    content_page = ContentPage.new(parent_content_page_id: parent_content_page.id,
+    if(parameters[:parent_content_page_origin_id] != nil && parameters[:parent_content_page_site_id != nil])
+      parent_content_page = ContentPage.find_site_specific(parameters[:parent_content_page_origin_id], parameters[:parent_content_page_site_id])
+      parent_content_page_id = parent_content_page.id
+    else
+      parent_content_page_id = nil  
+    end
+    content_page = ContentPage.new(parent_content_page_id: parent_content_page_id,
                                    page_name: parameters[:page_name], active: parameters[:active],
                                    sort_order: parameters[:sort_order])
                                    
@@ -670,14 +673,18 @@ class SyncPeerLog < ActiveRecord::Base
   def self.swap_content_page(parameters)
     content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     swap_page = ContentPage.find_site_specific(parameters[:swap_page_origin_id], parameters[:swap_page_site_id])
-    content_page.update_column(:sort_order, parameters[:content_page_sort_order]) if content_page
-    swap_page.update_column(:sort_order, parameters[:swap_page_sort_order]) if swap_page
+    if content_page.updated_at < parameters[:updated_at]
+      content_page.update_column(:sort_order, parameters[:content_page_sort_order]) if content_page
+      swap_page.update_column(:sort_order, parameters[:swap_page_sort_order]) if swap_page      
+    end
   end
   
   def self.update_content_page(parameters)
     content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    content_page.update_attributes(parent_content_page_id: parameters[:parent_content_page_id],
-                                   page_name: parameters[:page_name], active: parameters[:active])
+    if content_page.updated_at < parameters[:updated_at]
+      content_page.update_attributes(parent_content_page_id: parameters[:parent_content_page_id],
+                                   page_name: parameters[:page_name], active: parameters[:active])      
+    end
   end
   
   def self.add_translation_content_page(parameters)

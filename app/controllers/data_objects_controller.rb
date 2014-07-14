@@ -591,15 +591,14 @@ private
     link_type_sync_ids = {}
     toc_sync_ids = get_object_sync_ids(TocItem.find(toc_id)) if toc_id
     link_type_sync_ids = get_object_sync_ids(LinkType.find(link_type_id)) if link_type_id
-    sync_params = params[:data_object]
-    sync_params = sync_params.reverse_merge(taxon_concept_origin_id: @taxon_concept.origin_id,
-                                            taxon_concept_site_id: @taxon_concept.site_id,
-                                            commit_link: params[:commit_link],                                              
-                                            toc_id: toc_sync_ids[:origin_id],
-                                            toc_site_id: toc_sync_ids[:site_id],
-                                            link_type_id: link_type_sync_ids[:origin_id],
-                                            link_type_site_id: link_type_sync_ids[:site_id],
-                                            guid: @data_object.guid)
+    sync_params = {taxon_concept_origin_id: @taxon_concept.origin_id,
+                   taxon_concept_site_id: @taxon_concept.site_id,
+                   commit_link: params[:commit_link],                                              
+                   toc_id: toc_sync_ids[:origin_id],
+                   toc_site_id: toc_sync_ids[:site_id],
+                   link_type_id: link_type_sync_ids[:origin_id],
+                   link_type_site_id: link_type_sync_ids[:site_id],
+                   guid: @data_object.guid}.reverse_merge(params[:data_object])
     options = {user: current_user, object: @data_object, action_id: SyncObjectAction.create.id,
                type_id: SyncObjectType.data_object.id, params: sync_params}           
     SyncPeerLog.log_action(options)
@@ -629,14 +628,13 @@ private
     link_type_sync_ids = {}
     toc_sync_ids = get_object_sync_ids(TocItem.find(toc_id)) if toc_id
     link_type_sync_ids = get_object_sync_ids(LinkType.find(link_type_id)) if link_type_id
-    sync_params = params[:data_object]
-    sync_params = sync_params.reverse_merge(new_revision_origin_id: new_data_object.origin_id,
-                                            new_revision_site_id: new_data_object.site_id,
-                                            commit_link: params[:commit_link],                                              
-                                            toc_id: toc_sync_ids[:origin_id],
-                                            toc_site_id: toc_sync_ids[:site_id],
-                                            link_type_id: link_type_sync_ids[:origin_id],
-                                            link_type_site_id: link_type_sync_ids[:site_id])
+    sync_params = {new_revision_origin_id: new_data_object.origin_id,
+                   new_revision_site_id: new_data_object.site_id,
+                   commit_link: params[:commit_link],                                              
+                   toc_id: toc_sync_ids[:origin_id],
+                   toc_site_id: toc_sync_ids[:site_id],
+                   link_type_id: link_type_sync_ids[:origin_id],
+                   link_type_site_id: link_type_sync_ids[:site_id]}.reverse_merge(params[:data_object])
     options = {user: current_user, object: @data_object, action_id: SyncObjectAction.update.id,
                type_id: SyncObjectType.data_object.id, params: sync_params}           
     SyncPeerLog.log_action(options)

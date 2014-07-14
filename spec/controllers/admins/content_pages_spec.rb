@@ -3,6 +3,8 @@ require File.dirname(__FILE__) + '/../../spec_helper'
 describe Admins::ContentPagesController do
   before(:all) do
     load_foundation_cache
+    SyncObjectType.create_enumerated
+    SyncObjectAction.create_enumerated
     @admin = User.gen
     @admin.grant_admin
     @cms_user = User.gen
@@ -33,6 +35,8 @@ describe Admins::ContentPagesController do
   end
   
   describe "synchronization" do
+    
+    
     it "should log create action" do
       truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
       truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})

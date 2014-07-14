@@ -29,7 +29,7 @@ class Administrator::CommentController  < AdminController
     @comment = Comment.find(params[:id])
 
     if @comment.update_attributes(params[:comment])
-     @comment.update_attributes(last_updated_at: @comment.updated_at)
+     @comment.update_attributes(text_last_updated_at: @comment.updated_at)
       sync_update_comment      
       flash[:notice] = I18n.t("the_comment_was_successfully_updated")
       redirect_back_or_default(url_for(action: 'index'))
@@ -54,7 +54,7 @@ class Administrator::CommentController  < AdminController
   def hide
     @comment = Comment.find(params[:id])
     @comment.hide(current_user)
-    clear_cached_homepage_activity_logs
+    EOL::ActivityLog.clear_expiration_cache
     sync_hide_comment
     redirect_to referred_url, status: :moved_permanently
   end
@@ -62,7 +62,7 @@ class Administrator::CommentController  < AdminController
   def show
     @comment = Comment.find(params[:id])
     @comment.show(current_user)
-    clear_cached_homepage_activity_logs
+    EOL::ActivityLog.clear_expiration_cache
     sync_show_comment
     redirect_to referred_url, status: :moved_permanently
   end
@@ -77,8 +77,7 @@ private
   # synchronization
   def sync_update_comment
     admin = User.find(session[:user_id])
-    sync_params = params[:comment] 
-    sync_params = sync_params.reverse_merge(updated_at: @comment.updated_at)     
+    sync_params = {updated_at: @comment.text_last_updated_at}.reverse_merge(params[:comment])     
     options = { user: admin, object: @comment, action_id: SyncObjectAction.update.id,
                type_id: SyncObjectType.comment.id, params: sync_params } 
     SyncPeerLog.log_action(options)

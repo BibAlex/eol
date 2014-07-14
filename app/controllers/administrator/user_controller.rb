@@ -296,12 +296,11 @@ private
   # synchronization
   def sync_update_user(admin)
     #log update user action action for sync.
-    sync_params = params[:user]      
-    sync_params = sync_params.reverse_merge(updated_at: @user.updated_at,
-                                            curator_approved: @user.curator_approved,                                                   
-                                            curator_level_id: @user.curator_level_id,
-                                            curator_verdict_by_id: @user.curator_verdict_by_id,
-                                            curator_verdict_at: @user.curator_verdict_at)
+    sync_params = {updated_at: @user.updated_at,
+                   curator_approved: @user.curator_approved,                                                   
+                   curator_level_id: @user.curator_level_id,
+                   curator_verdict_by_id: @user.curator_verdict_by_id,
+                   curator_verdict_at: @user.curator_verdict_at}.reverse_merge(params[:user])
     sync_params = SyncPeerLog.delete_keys([:email, :email_confirmation, :entered_password,
             :entered_password_confirmation, :requested_curator_level_id, :requested_curator_at], sync_params)
 

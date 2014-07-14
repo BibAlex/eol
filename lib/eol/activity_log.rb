@@ -17,6 +17,10 @@ module EOL
       max = $ACTIVITIES_ON_HOME_PAGE if max <= 0
       return find(nil, options.merge(:per_page => max))
     end
+    
+    def self.clear_expiration_cache
+      Rails.cache.delete('homepage/activity_logs_expiration') if Rails.cache
+    end
 
   private
 
