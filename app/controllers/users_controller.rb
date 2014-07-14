@@ -562,13 +562,12 @@ private
   def sync_create_user
     collection = @user.watch_collection
     if collection       
-      sync_params = params[:user]
-      sync_params = sync_params.reverse_merge(language: current_language,
-                                              validation_code: @user.validation_code,
-                                              remote_ip: request.remote_ip,
-                                              created_at: @user.created_at,
-                                              collection_site_id: collection.site_id,
-                                              collection_origin_id: collection.origin_id)
+      sync_params = {language: current_language,
+                     validation_code: @user.validation_code,
+                     remote_ip: request.remote_ip,
+                     created_at: @user.created_at,
+                     collection_site_id: collection.site_id,
+                     collection_origin_id: collection.origin_id}.reverse_merge(params[:user])
       sync_params = SyncPeerLog.delete_keys([:email, :email_confirmation, :entered_password, :entered_password_confirmation], sync_params)
       options = {user: @user, object: @user, action_id: SyncObjectAction.create.id,
                  type_id: SyncObjectType.user.id, params: sync_params}
@@ -578,17 +577,16 @@ private
   
   
   def sync_update_user
-    sync_params = params[:user]   
+    sync_params = {updated_at: @user.updated_at,
+                   api_key: @user.api_key,
+                   curator_level_id: @user.curator_level_id,
+                   logo_cache_url: @user.logo_cache_url,
+                   logo_file_name: @user.logo_file_name,
+                   logo_content_type: @user.logo_content_type,
+                   logo_file_size: @user.logo_file_size,
+                   base_url: "#{$CONTENT_SERVER}content/"}.reverse_merge(params[:user])
     sync_params[:user_identity_ids] = sync_params[:user_identity_ids].join(',')  if sync_params[:user_identity_ids]
     sync_params.delete(:curator_level_id) if sync_params[:curator_level_id]
-    sync_params = sync_params.reverse_merge(updated_at: @user.updated_at,
-                                            api_key: @user.api_key,
-                                            curator_level_id: @user.curator_level_id,
-                                            logo_cache_url: @user.logo_cache_url,
-                                            logo_file_name: @user.logo_file_name,
-                                            logo_content_type: @user.logo_content_type,
-                                            logo_file_size: @user.logo_file_size,
-                                            base_url: "#{$CONTENT_SERVER}content/")
     sync_params = SyncPeerLog.delete_keys([:email, :email_confirmation, :entered_password,
                                                     :entered_password_confirmation, :requested_curator_level_id, 
                                                     :requested_curator_at, :logo], sync_params)

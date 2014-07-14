@@ -728,8 +728,7 @@ private
   
   # synchronization
   def sync_create_collection
-    sync_params = params[:collection] 
-    sync_params = sync_params.reverse_merge(base: true)
+    sync_params = {base: true}.reverse_merge(params[:collection])
     options = {user: current_user, object: @collection, action_id: SyncObjectAction.create.id,
                 type_id: SyncObjectType.collection.id, params: sync_params}       
     SyncPeerLog.log_action(options)
@@ -746,14 +745,13 @@ private
   
   def sync_update_collection
    # create sync peer log for updating collection metadata
-   sync_params = params[:collection] 
-   sync_params.delete("logo")
-   sync_params = sync_params.reverse_merge(logo_cache_url: @collection.logo_cache_url,
-                                           logo_file_name: @collection.logo_file_name,
-                                           logo_content_type: @collection.logo_content_type,
-                                           logo_file_size: @collection.logo_file_size,
-                                           base_url: "#{$CONTENT_SERVER}content/",
-                                           updated_at: @collection.updated_at)    
+   sync_params = {logo_cache_url: @collection.logo_cache_url,
+                  logo_file_name: @collection.logo_file_name,
+                  logo_content_type: @collection.logo_content_type,
+                  logo_file_size: @collection.logo_file_size,
+                  base_url: "#{$CONTENT_SERVER}content/",
+                  updated_at: @collection.updated_at}.reverse_merge(params[:collection])
+    sync_params.delete("logo")   
     # send updated_at attribute to solve conflict if found                                                                           
     options = {user: current_user, object: @collection, action_id: SyncObjectAction.update.id,
               type_id: SyncObjectType.collection.id, params: sync_params}

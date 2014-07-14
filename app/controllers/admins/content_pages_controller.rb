@@ -135,12 +135,9 @@ private
   # synchronization
   def sync_create_content_page
     parent_content_page = ContentPage.find(params[:content_page][:parent_content_page_id])
-    sync_params = params[:content_page]
-    
-    sync_params = sync_params.merge(params[:translated_content_page])
-    sync_params = sync_params.reverse_merge(language: params[:translated_content_page][:language_id],
-                                            parent_content_page_origin_id: parent_content_page.origin_id,
-                                            parent_content_page_site_id: parent_content_page.site_id)
+    sync_params = {language: params[:translated_content_page][:language_id],
+                   parent_content_page_origin_id: parent_content_page.origin_id,
+                   parent_content_page_site_id: parent_content_page.site_id}.reverse_merge(params[:content_page], params[:translated_content_page])
     sync_params = SyncPeerLog.delete_keys([:language_id, :parent_content_page_id],sync_params)
     #sync_params.delete("language_id")
     options = { user: current_user, object: @content_page, action_id: SyncObjectAction.create.id,

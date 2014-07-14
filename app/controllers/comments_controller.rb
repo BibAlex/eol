@@ -162,16 +162,15 @@ private
   
   def sync_create_comment
     parent_comment = Comment.find(params[:comment][:reply_to_id].to_i)  unless params[:comment][:reply_to_id].blank?
-    sync_params = params[:comment]
+    sync_params = {from_curator: @comment.from_curator,
+                   visible_at: @comment.visible_at,
+                   hidden: @comment.hidden,
+                   comment_parent_origin_id: @comment.parent.origin_id,
+                   comment_parent_site_id: @comment.parent.site_id,
+                   created_at: @comment.created_at,
+                   updated_at: @comment.updated_at}.reverse_merge(params[:comment])
     sync_params.delete("parent_id")
     sync_params.delete("reply_to_id")
-    sync_params = sync_params.reverse_merge(from_curator: @comment.from_curator,
-                                            visible_at: @comment.visible_at,
-                                            hidden: @comment.hidden,
-                                            comment_parent_origin_id: @comment.parent.origin_id,
-                                            comment_parent_site_id: @comment.parent.site_id,
-                                            created_at: @comment.created_at,
-                                            updated_at: @comment.updated_at)
     if parent_comment
       sync_params = sync_params.reverse_merge(parent_comment_origin_id: parent_comment.origin_id,
                                               parent_comment_site_id: parent_comment.site_id)
@@ -182,8 +181,7 @@ private
   end
   
   def sync_update_comment
-    sync_params = params[:comment]
-    sync_params = sync_params.reverse_merge(updated_at: @comment.last_updated_at)
+    sync_params = {updated_at: @comment.last_updated_at}.reverse_merge(params[:comment])
     options = {user: current_user, object: @comment, action_id: SyncObjectAction.update.id,
                type_id: SyncObjectType.comment.id, params: sync_params} 
     SyncPeerLog.log_action(options)

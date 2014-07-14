@@ -298,18 +298,16 @@ class SyncPeerLog < ActiveRecord::Base
      collections = get_collections_ids(peer_logs) unless parameters[:command] == "remove"
      
      # create collection job  
-     if user.can_edit_collection?(origin_collection)                 
-       unless (collection_items.blank? and  parameters["command"] == "remove")
-         collection_job = CollectionJob.create!(command: parameters[:command], user: user,
-                               collection: origin_collection, item_count: parameters[:item_count],
-                               all_items: parameters[:all_items],
-                               overwrite: parameters[:overwrite],
-                               collection_item_ids: collection_items,
-                               collection_ids: collections)
-         if collection_job
-           collection_job.run
-         end
-      end
+    if user.can_edit_collection?(origin_collection)                 
+     unless (collection_items.blank? and  parameters["command"] == "remove")
+       collection_job = CollectionJob.create!(command: parameters[:command], user: user,
+                             collection: origin_collection, item_count: parameters[:item_count],
+                             all_items: parameters[:all_items],
+                             overwrite: parameters[:overwrite],
+                             collection_item_ids: collection_items,
+                             collection_ids: collections)
+       collection_job.run if collection_job
+     end
     end
   end
   
