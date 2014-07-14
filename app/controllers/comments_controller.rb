@@ -86,7 +86,8 @@ class CommentsController < ApplicationController
     actual_date = params[:actual_date]
     actual_date ||= false
     if @comment.update_attributes(params[:comment])
-      @comment.update_attributes(last_updated_at: @comment.updated_at)
+      # set text_last_updated_at to updated_at to differentiate text update from any other updates(e.g. hide/show comment)
+      @comment.update_attributes(text_last_updated_at: @comment.updated_at)
       sync_update_comment
       
       respond_to do |format|
@@ -181,7 +182,7 @@ private
   end
   
   def sync_update_comment
-    sync_params = {updated_at: @comment.last_updated_at}.reverse_merge(params[:comment])
+    sync_params = {updated_at: @comment.text_last_updated_at}.reverse_merge(params[:comment])
     options = {user: current_user, object: @comment, action_id: SyncObjectAction.update.id,
                type_id: SyncObjectType.comment.id, params: sync_params} 
     SyncPeerLog.log_action(options)

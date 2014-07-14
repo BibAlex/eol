@@ -386,7 +386,7 @@ class SyncPeerLog < ActiveRecord::Base
     comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if comment
        # if it is newer take it else keep the old one
-      if comment.last_updated_at.nil? || comment.last_updated_at < parameters[:updated_at] 
+      if comment.text_last_updated_at.nil? || comment.text_last_updated_at < parameters[:updated_at] 
         parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
                                            :action_taken_at, :language],parameters)
         comment.update_attributes(parameters)
@@ -409,18 +409,20 @@ class SyncPeerLog < ActiveRecord::Base
    
     # how node site handle hide comment action
   def self.hide_comment(parameters)
+    debugger
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if user
       if comment
         comment.hide(user)
-        Rails.cache.delete('homepage/activity_logs_expiration') if Rails.cache
+        EOL::ActivityLog.clear_expiration_cache
       end
     end    
   end 
   
   # how node site handle show comment action
   def self.show_comment(parameters)
+    debugger
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if user
@@ -428,7 +430,7 @@ class SyncPeerLog < ActiveRecord::Base
         if (comment.was_visible_before?(parameters[:visible_at]))
           comment.show(user)
           comment.update_attributes(visible_at: parameters[:visible_at])
-          Rails.cache.delete('homepage/activity_logs_expiration') if Rails.cache
+          EOL::ActivityLog.clear_expiration_cache
         end
       end
     end    
