@@ -33,9 +33,6 @@ describe SyncPeerLog do
         ar = AgentRole.gen()
         tar = TranslatedAgentRole.gen()
         tar.update_attributes(label: "Contributor", agent_role_id: ar.id, language_id: Language.first.id)
-        Visibility.create(id: 1)
-        TranslatedVisibility.gen()
-        TranslatedVisibility.first.update_attributes(label: "Visibile", language_id: Language.first.id, visibility_id: Visibility.first.id)
         hi.update_column(:label, 'Encyclopedia of Life Contributors')
         taxon_concept = TaxonConcept.first
         taxon_concept.update_column(:origin_id, taxon_concept.id)
@@ -64,13 +61,10 @@ describe SyncPeerLog do
      after(:each) do
        TranslatedAgentRole.last.destroy if TranslatedAgentRole.last
        TaxonConceptPreferredEntry.last.destroy if TaxonConceptPreferredEntry.last
-       TranslatedVisibility.last.destroy if TranslatedVisibility.last
        Name.find_by_string("add_name").destroy if Name.find_by_string("add_name")
        Synonym.last.destroy if Synonym.last
        AgentRole.last.destroy if AgentRole.last
        TranslatedAgentRole.last.destroy if TranslatedAgentRole.last
-       Visibility.last.destroy if Visibility.last
-       TranslatedVisibility.last.destroy if TranslatedVisibility.last
        truncate_tables(["agents_synonyms"])
      end
     end
@@ -93,10 +87,6 @@ describe SyncPeerLog do
         ar = AgentRole.gen()
         tar = TranslatedAgentRole.gen()
         tar.update_attributes(label: "Contributor", agent_role_id: ar.id, language_id: Language.first.id)
-        Visibility.create(id: 1)
-        TranslatedVisibility.gen()
-        TranslatedVisibility.first.update_attributes(label: "Visibile", language_id: Language.first.id,
-                                                     visibility_id: Visibility.first.id)
         hi = Hierarchy.gen()
         hi.update_column(:label, 'Encyclopedia of Life Contributors')
         taxon_concept = TaxonConcept.gen()
@@ -138,12 +128,8 @@ describe SyncPeerLog do
         TaxonConcept.last.destroy if TaxonConcept.last
         TaxonConceptName.last.destroy if TaxonConceptName.last
         Hierarchy.last.destroy if Hierarchy.last
-        TranslatedAgentRole.last.destroy if TranslatedAgentRole.last
         AgentRole.last.destroy if AgentRole.last
-        TranslatedVisibility.last.destroy if TranslatedVisibility.last
         SynonymRelation.last.destroy if SynonymRelation.last
-        Visibility.last.destroy if Visibility.last
-        TranslatedVisibility.last.destroy if TranslatedVisibility.last
       end
     end
     
@@ -259,7 +245,10 @@ describe SyncPeerLog do
       comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID)
       taxon_concept.update_attributes(origin_id: taxon_concept.id, site_id: PEER_SITE_ID)
       DataObjectsTaxonConcept.create(data_object_id: data_object.id, taxon_concept_id: taxon_concept.id)
-      UsersDataObject.create(user_id: user.id, taxon_concept_id: taxon_concept.id, data_object_id: data_object.id, visibility_id: Visibility.invisible.id)
+      UsersDataObject.create(user_id: user.id,
+        taxon_concept_id: taxon_concept.id, 
+        data_object_id: data_object.id,
+        visibility_id: Visibility.invisible.id)
       toc.update_attributes(origin_id: toc.id, site_id: PEER_SITE_ID)
     end
     
@@ -422,9 +411,9 @@ describe SyncPeerLog do
       end
       after(:all) do
         ref.destroy if ref
-        data_object_taxon_concept = DataObjectTaxonConcept.find_by_taxon_concept_id_and_data_object_id(taxon_concept.id, data_obj.id)
+        data_object_taxon_concept = DataObjectsTaxonConcept.find_by_taxon_concept_id_and_data_object_id(taxon_concept.id, data_obj.id)
         data_object_taxon_concept.destroy if data_object_taxon_concept
-        collection_item = Collection_item.find_by_collection_id_and_collected_item_id(user.watch_collection.id, data_obj.id)
+        collection_item = CollectionItem.find_by_collection_id_and_collected_item_id(user.watch_collection.id, data_obj.id)
         collection_item.destroy if collection_item
         data_obj.destroy if data_obj
       end
@@ -567,7 +556,7 @@ describe SyncPeerLog do
       end
       after(:all) do
         Community.last.destroy if Community.last
-        col = Collection.find_by_origin_id_and_site_id(origin_id: collection.id, site_id: PEER_SITE_ID)
+        col = Collection.find_by_origin_id_and_site_id(collection.id, PEER_SITE_ID)
         col.destroy if col
       end
     end
@@ -1209,7 +1198,7 @@ describe SyncPeerLog do
         end
         after(:all) do
           collection_item.destroy if collection_item
-          ollection.destroy if collection
+          collection.destroy if collection
         end
       end
     end
