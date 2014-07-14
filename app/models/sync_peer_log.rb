@@ -632,8 +632,13 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.create_content_page(parameters)
-    parent_content_page = ContentPage.find_site_specific(parameters[:parent_content_page_origin_id], parameters[:parent_content_page_site_id])
-    content_page = ContentPage.new(parent_content_page_id: parent_content_page.id,
+    if(parameters[:parent_content_page_origin_id] != nil && parameters[:parent_content_page_site_id != nil])
+      parent_content_page = ContentPage.find_site_specific(parameters[:parent_content_page_origin_id], parameters[:parent_content_page_site_id])
+      parent_content_page_id = parent_content_page.id
+    else
+      parent_content_page_id = nil  
+    end
+    content_page = ContentPage.new(parent_content_page_id: parent_content_page_id,
                                    page_name: parameters[:page_name], active: parameters[:active],
                                    sort_order: parameters[:sort_order])
                                    
@@ -665,14 +670,18 @@ class SyncPeerLog < ActiveRecord::Base
   def self.swap_content_page(parameters)
     content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     swap_page = ContentPage.find_site_specific(parameters[:swap_page_origin_id], parameters[:swap_page_site_id])
-    content_page.update_column(:sort_order, parameters[:content_page_sort_order]) if content_page
-    swap_page.update_column(:sort_order, parameters[:swap_page_sort_order]) if swap_page
+    if content_page.updated_at < parameters[:updated_at]
+      content_page.update_column(:sort_order, parameters[:content_page_sort_order]) if content_page
+      swap_page.update_column(:sort_order, parameters[:swap_page_sort_order]) if swap_page      
+    end
   end
   
   def self.update_content_page(parameters)
     content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    content_page.update_attributes(parent_content_page_id: parameters[:parent_content_page_id],
-                                   page_name: parameters[:page_name], active: parameters[:active])
+    if content_page.updated_at < parameters[:updated_at]
+      content_page.update_attributes(parent_content_page_id: parameters[:parent_content_page_id],
+                                   page_name: parameters[:page_name], active: parameters[:active])      
+    end
   end
   
   def self.add_translation_content_page(parameters)
