@@ -729,7 +729,7 @@ private
   # synchronization
   def sync_create_collection
     sync_params = params[:collection] 
-    sync_params = sync_params.reverse_merge(:base => true)
+    sync_params = sync_params.reverse_merge(base: true)
     options = {user: current_user, object: @collection, action_id: SyncObjectAction.create.id,
                 type_id: SyncObjectType.collection.id, params: sync_params}       
     SyncPeerLog.log_action(options)

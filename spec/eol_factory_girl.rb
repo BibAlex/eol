@@ -49,7 +49,7 @@ module EOL::FactoryGirlActiveRecordBaseExtensions
           # we need to create a translation
           # sometimes the default language is not set, so we set it here
           if !searchable_translation_attributes['language_id']
-            l = Language.gen_if_not_exists(:iso_639_1 => APPLICATION_DEFAULT_LANGUAGE_ISO)
+            l = Language.gen_if_not_exists(iso_639_1: APPLICATION_DEFAULT_LANGUAGE_ISO)
             searchable_translation_attributes['language_id'] = l.id
           end
           
@@ -80,7 +80,7 @@ module EOL::FactoryGirlActiveRecordBaseExtensions
   def find_existing_by_attributes(attributes)
     begin
       # Assumes that .keys returns in same order as .values, which is appears is true:
-      found = find(:first, :conditions => attributes) unless
+      found = find(:first, conditions: attributes) unless
         attributes.keys.blank?
     rescue NoMethodError
       raise "It seems there is a bad column on #{self}. One of its expected attributes seems to be missing: " +

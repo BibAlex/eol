@@ -1,7 +1,7 @@
 require File.dirname(__FILE__) + '/../../spec_helper'
 
 def do_index
-  get :index, :user_id => @collections[:user].id.to_i
+  get :index, user_id: @collections[:user].id.to_i
   response.should be_success # No sense in continuing otherwise.
 end
 
@@ -26,7 +26,7 @@ describe Users::CollectionsController do
       assigns[:published_collections].first.should be_a(Collection)
       assigns[:published_collections].should == assigns[:published_collections].sort_by(&:name)
 
-      get :index, :user_id => @collections[:user].id.to_i, :sort_by => "oldest"
+      get :index, user_id: @collections[:user].id.to_i, sort_by: "oldest"
       assigns[:published_collections].should == assigns[:published_collections].sort_by(&:created_at)
     end
 

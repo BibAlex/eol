@@ -587,8 +587,10 @@ private
   
   # synchronization
   def sync_create_data_object(toc_id, link_type_id)
-    toc_sync_ids = get_object_sync_ids(TocItem.find(toc_id))
-    link_type_sync_ids = get_object_sync_ids(LinkType.find(link_type_id))
+    toc_sync_ids = {}
+    link_type_sync_ids = {}
+    toc_sync_ids = get_object_sync_ids(TocItem.find(toc_id)) if toc_id
+    link_type_sync_ids = get_object_sync_ids(LinkType.find(link_type_id)) if link_type_id
     sync_params = params[:data_object]
     sync_params = sync_params.reverse_merge(taxon_concept_origin_id: @taxon_concept.origin_id,
                                             taxon_concept_site_id: @taxon_concept.site_id,
@@ -623,8 +625,10 @@ private
   end
   
   def sync_update_data_object(new_data_object, toc_id, link_type_id)
-    toc_sync_ids = get_object_sync_ids(TocItem.find(toc_id))
-    link_type_sync_ids = get_object_sync_ids(LinkType.find(link_type_id))
+    toc_sync_ids = {}
+    link_type_sync_ids = {}
+    toc_sync_ids = get_object_sync_ids(TocItem.find(toc_id)) if toc_id
+    link_type_sync_ids = get_object_sync_ids(LinkType.find(link_type_id)) if link_type_id
     sync_params = params[:data_object]
     sync_params = sync_params.reverse_merge(new_revision_origin_id: new_data_object.origin_id,
                                             new_revision_site_id: new_data_object.site_id,
@@ -657,7 +661,6 @@ private
   def sync_remove_association(he)
     sync_params = {hierarchy_entry_origin_id: he.origin_id,
                    hierarchy_entry_site_id: he.site_id}
-                        
     options = {user: current_user, object: @data_object, action_id: SyncObjectAction.remove_association.id,
                type_id: SyncObjectType.data_object.id, params: sync_params}
     SyncPeerLog.log_action(options)
@@ -666,7 +669,6 @@ private
   def sync_add_association(he)
     sync_params = {hierarchy_entry_origin_id: he.origin_id,
                    hierarchy_entry_site_id: he.site_id}
-                         
     options = {user: current_user, object: @data_object, action_id: SyncObjectAction.save_association.id,
                type_id: SyncObjectType.data_object.id, params: sync_params}
     SyncPeerLog.log_action(options)

@@ -150,14 +150,14 @@ class Comment < ActiveRecord::Base
   def log_activity_in_solr
     return if $SKIP_CREATING_ACTIVITY_LOGS_FOR_COMMENTS
     base_index_hash = {
-      'activity_log_unique_key' => "Comment_#{id}",
-      'activity_log_type' => 'Comment',
-      'activity_log_id' => self.id,
-      'action_keyword' => self.parent.class.name,
-      'reply_to_id' => self.user_id, # This is wrong.  Clearly, WRONG.  But if you change it, you can no longer
+      activity_log_unique_key: "Comment_#{id}",
+      activity_log_type: 'Comment',
+      activity_log_id: self.id,
+      action_keyword: self.parent.class.name,
+      reply_to_id: self.user_id, # This is wrong.  Clearly, WRONG.  But if you change it, you can no longer
                                      # comment to a newsfeed.  It never shows up at all.  TODO - fix.  :|
-      'user_id' => self.user_id,
-      'date_created' => self.created_at.solr_timestamp }
+      user_id: self.user_id,
+      date_created: self.created_at.solr_timestamp }
     EOL::Solr::ActivityLog.index_notifications(base_index_hash, notification_recipient_objects)
     LoggingModel.clear_taxon_activity_log_fragment_caches(notification_recipient_objects)
   end
@@ -199,6 +199,9 @@ class Comment < ActiveRecord::Base
       parent_type == last_comment.parent_type
   end
 
+  def was_visible_before?(time)
+    self.visible_at.nil? || (self.visible_at < time)
+  end
 private
 
   def add_recipient_user_making_comment(recipients)

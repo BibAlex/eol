@@ -332,7 +332,7 @@ FactoryGirl.define do
     email                     { generate(:email) }
     given_name                { generate(:first_name) }
     family_name               { generate(:last_name) }
-    agent_id                  { FactoryGirl.create(:agent, :full_name => "#{given_name} #{family_name}").id }
+    agent_id                  { FactoryGirl.create(:agent, full_name: "#{given_name} #{family_name}").id }
     language                  { Language.english }
     site_id                   PEER_SITE_ID
     username                  do
@@ -405,7 +405,7 @@ FactoryGirl.define do
     all_items false
     collection
     command 'copy'
-    association :target_collection, :factory => :collection
+    association :target_collection, factory: :collection
     user
   end
 
@@ -418,7 +418,7 @@ FactoryGirl.define do
 
   factory :collection_item do
     association :collection
-    association :collected_item, :factory => :data_object
+    association :collected_item, factory: :data_object
     created_at  { 5.minutes.ago }
   end
 
@@ -436,11 +436,12 @@ FactoryGirl.define do
   # NOTE - the Comment model has some validations on it (create/update/etc) that will fail if you don't have a loaded
   # database, so don't expect this factory to work in all situations.
   factory :comment do
-    association  :parent, :factory => :data_object
+    association  :parent, factory: :data_object
     parent_type  'DataObject'
     body         { Faker::Lorem.paragraph }
     association  :user
     from_curator false
+    site_id      PEER_SITE_ID
   end
 
   factory :community do
@@ -461,7 +462,7 @@ FactoryGirl.define do
   factory :contact do
     name            { generate(:string) }
     email           { generate(:email) }
-    contact_subject { ContactSubject.gen_if_not_exists(:title => 'Anything') }
+    contact_subject { ContactSubject.gen_if_not_exists(title: 'Anything') }
     comments        %w( foo bar )
   end
 
@@ -531,7 +532,7 @@ FactoryGirl.define do
     email                     { generate(:email) }
     given_name                { generate(:first_name) }
     family_name               { generate(:last_name) }
-    agent_id                  { FactoryGirl.create(:agent, :full_name => "#{given_name} #{family_name}").id }
+    agent_id                  { FactoryGirl.create(:agent, full_name: "#{given_name} #{family_name}").id }
     language                  { Language.english }
     site_id                   PEER_SITE_ID
     username                  do
@@ -579,8 +580,8 @@ FactoryGirl.define do
     association :data_object
     association :user
     data_object_guid { generate(:guid) }
-    vetted      { Vetted.trusted || Vetted.gen_if_not_exists(:label => 'Trusted') }
-    visibility  { Visibility.visible || Visibility.gen_if_not_exists(:label => 'Visible') }
+    vetted      { Vetted.trusted || Vetted.gen_if_not_exists(label: 'Trusted') }
+    visibility  { Visibility.visible || Visibility.gen_if_not_exists(label: 'Visible') }
   end
 
   factory :curator_level do
@@ -590,8 +591,8 @@ FactoryGirl.define do
   factory :data_object do
     guid                   { generate(:guid) }
     identifier             ''
-    data_type              { DataType.gen_if_not_exists(:label => 'Image') }
-    mime_type              { MimeType.gen_if_not_exists(:label => 'image/jpeg') }
+    data_type              { DataType.gen_if_not_exists(label: 'Image') }
+    mime_type              { MimeType.gen_if_not_exists(label: 'image/jpeg') }
     object_title           ''
     language               { Language.english }
     license                { License.cc }
@@ -614,6 +615,7 @@ FactoryGirl.define do
     updated_at             { 3.days.ago }
     data_rating            2.5
     published              true
+    site_id                PEER_SITE_ID
   end
 
   factory :data_object_tag do
@@ -631,7 +633,7 @@ FactoryGirl.define do
     association :harvest_event
     association :data_object
     guid        { s = ''; 32.times { s += ((0..9).to_a.map{|n| n.to_s} + %w{a b c d e f}).sample }; s } # ICK!
-    status      { Status.inserted || Status.gen_if_not_exists(:label => 'inserted') }
+    status      { Status.inserted || Status.gen_if_not_exists(label: 'inserted') }
   end
 
   factory :data_objects_table_of_content do
@@ -652,8 +654,8 @@ FactoryGirl.define do
   factory :data_objects_hierarchy_entry do
     association :hierarchy_entry
     association :data_object
-    vetted      { Vetted.trusted || Vetted.gen_if_not_exists(:label => 'Trusted') }
-    visibility  { Visibility.visible || Visibility.gen_if_not_exists(:label => 'Visible') }
+    vetted      { Vetted.trusted || Vetted.gen_if_not_exists(label: 'Trusted') }
+    visibility  { Visibility.visible || Visibility.gen_if_not_exists(label: 'Visible') }
   end
 
   factory :data_objects_taxon_concept do
@@ -665,8 +667,8 @@ FactoryGirl.define do
     association :taxon_concept
     association :resource
     association :user_added_data
-    vetted      { Vetted.trusted || Vetted.gen_if_not_exists(:label => 'Trusted') }
-    visibility  { Visibility.visible || Visibility.gen_if_not_exists(:label => 'Visible') }
+    vetted      { Vetted.trusted || Vetted.gen_if_not_exists(label: 'Trusted') }
+    visibility  { Visibility.visible || Visibility.gen_if_not_exists(label: 'Visible') }
     uri         { FactoryGirl.generate(:uri) }
   end
 
@@ -843,11 +845,12 @@ FactoryGirl.define do
     rgt            2
     depth          2
     association    :taxon_concept
-    vetted         { Vetted.trusted || Vetted.gen_if_not_exists(:label => 'Trusted') }
+    vetted         { Vetted.trusted || Vetted.gen_if_not_exists(label: 'Trusted') }
+    visibility     { Visibility.visible || Visibility.gen_if_not_exists(label: 'Visible') }
     published      1
-    visibility  { Visibility.visible || Visibility.gen_if_not_exists(:label => 'Visible') }
     created_at     Time.now
     updated_at     Time.now
+    site_id        PEER_SITE_ID
   end
 
   factory :image_crop do
@@ -880,20 +883,20 @@ FactoryGirl.define do
   end
 
   factory :known_uri do
-    vetted      { Vetted.trusted || Vetted.gen_if_not_exists(:label => 'Trusted') }
-    visibility  { Visibility.visible || Visibility.gen_if_not_exists(:label => 'visible') }
+    vetted      { Vetted.trusted || Vetted.gen_if_not_exists(label: 'Trusted') }
+    visibility  { Visibility.visible || Visibility.gen_if_not_exists(label: 'visible') }
     uri         { "http://eol.org/known_uri/" + generate(:guid) }
   end
 
   factory :known_uri_allowed_unit, class: KnownUriRelationship do
-    association :from_known_uri, :factory => :known_uri_measurement
-    association :to_known_uri, :factory => :known_uri_unit
+    association :from_known_uri, factory: :known_uri_measurement
+    association :to_known_uri, factory: :known_uri_unit
     relationship_uri { KnownUriRelationship::ALLOWED_UNIT_URI }
   end
 
   factory :known_uri_allowed_value, class: KnownUriRelationship do
-    association :from_known_uri, :factory => :known_uri_measurement
-    association :to_known_uri, :factory => :known_uri_value
+    association :from_known_uri, factory: :known_uri_measurement
+    association :to_known_uri, factory: :known_uri_value
     relationship_uri { KnownUriRelationship::ALLOWED_VALUE_URI }
   end
 
@@ -912,8 +915,8 @@ FactoryGirl.define do
   end
 
   factory :known_uri_relationship do
-    association :from_known_uri, :factory => :known_uri
-    association :to_known_uri, :factory => :known_uri
+    association :from_known_uri, factory: :known_uri
+    association :to_known_uri, factory: :known_uri
     relationship_uri  { "http://eol.org/relationship_uri/" + generate(:guid) }
   end
 
@@ -927,7 +930,7 @@ FactoryGirl.define do
   end
 
   factory :language_group do
-    association :representative_language, :factory => :language
+    association :representative_language, factory: :language
   end
 
   factory :license do
@@ -947,7 +950,7 @@ FactoryGirl.define do
     email                     { generate(:email) }
     given_name                { generate(:first_name) }
     family_name               { generate(:last_name) }
-    agent_id                  { FactoryGirl.create(:agent, :full_name => "#{given_name} #{family_name}").id }
+    agent_id                  { FactoryGirl.create(:agent, full_name: "#{given_name} #{family_name}").id }
     language                  { Language.english }
     site_id                   PEER_SITE_ID
     username                  do
@@ -1045,7 +1048,7 @@ FactoryGirl.define do
   factory :ref do
     full_reference  { generate(:string) }
     user_submitted  0
-    visibility      { Visibility.visible || Visibility.gen_if_not_exists(:label => 'visible') }
+    visibility      { Visibility.visible || Visibility.gen_if_not_exists(label: 'visible') }
     published       1
   end
 
@@ -1108,18 +1111,18 @@ FactoryGirl.define do
   factory :synonym do
     association      :name
     synonym_relation { SynonymRelation.find_by_translated(:label, 'Synonym') ||
-                           SynonymRelation.gen_if_not_exists(:label => 'Synonym') }
+                           SynonymRelation.gen_if_not_exists(label: 'Synonym') }
     language         { Language.english }
     association      :hierarchy_entry
     hierarchy_id     { hierarchy_entry ? hierarchy_entry.hierarchy.id : Hierarchy.default.id }
     preferred        1
     published        1
-    vetted           { Vetted.trusted || Vetted.gen_if_not_exists(:label => 'Trusted') }
+    vetted           { Vetted.trusted || Vetted.gen_if_not_exists(label: 'Trusted') }
     site_id          PEER_SITE_ID
   end
 
   factory :taxon_concept do
-    vetted         { Vetted.trusted || Vetted.gen_if_not_exists(:label => 'Trusted') }
+    vetted         { Vetted.trusted || Vetted.gen_if_not_exists(label: 'Trusted') }
     published      1
     vetted_id      0
     supercedure_id 0
@@ -1284,7 +1287,7 @@ FactoryGirl.define do
 
   factory :translated_language do
     label           { generate(:string) }
-    original_language_id { Language.gen(:iso_639_1 => label[0..1].downcase).id }
+    original_language_id { Language.gen(iso_639_1: label[0..1].downcase).id }
     language        { Language.english }
   end
 
@@ -1385,7 +1388,7 @@ FactoryGirl.define do
     email                     { generate(:email) }
     given_name                { generate(:first_name) }
     family_name               { generate(:last_name) }
-    agent_id                  { FactoryGirl.create(:agent, :full_name => "#{given_name} #{family_name}").id }
+    agent_id                  { FactoryGirl.create(:agent, full_name: "#{given_name} #{family_name}").id }
     language                  { Language.english }
     username                  do
       attempt = "#{given_name[0..0]}_#{family_name[0..9]}".gsub(/\s/, '_').downcase
@@ -1417,12 +1420,12 @@ FactoryGirl.define do
   end
 
   factory :user_added_data do
-    association :subject, :factory => :taxon_concept
+    association :subject, factory: :taxon_concept
     predicate "http://somethinguseful.com/fake_ontology"
     object    { generate(:string) }
     association :user
-    vetted      { Vetted.trusted || Vetted.gen_if_not_exists(:label => 'Trusted') }
-    visibility  { Visibility.visible || Visibility.gen_if_not_exists(:label => 'Visible') }
+    vetted      { Vetted.trusted || Vetted.gen_if_not_exists(label: 'Trusted') }
+    visibility  { Visibility.visible || Visibility.gen_if_not_exists(label: 'Visible') }
   end
 
   factory :user_added_data_metadata do

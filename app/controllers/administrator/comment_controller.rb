@@ -56,7 +56,7 @@ class Administrator::CommentController  < AdminController
     @comment.hide(current_user)
     clear_cached_homepage_activity_logs
     sync_hide_comment
-    redirect_to referred_url, status: :moved_permanently unless params[:test]
+    redirect_to referred_url, status: :moved_permanently
   end
 
   def show
@@ -79,29 +79,29 @@ private
     admin = User.find(session[:user_id])
     sync_params = params[:comment] 
     sync_params = sync_params.reverse_merge(updated_at: @comment.updated_at)     
-    options = {user: admin, object: @comment, action_id: SyncObjectAction.update.id,
-               type_id: SyncObjectType.comment.id, params: sync_params} 
+    options = { user: admin, object: @comment, action_id: SyncObjectAction.update.id,
+               type_id: SyncObjectType.comment.id, params: sync_params } 
     SyncPeerLog.log_action(options)
   end
   
   def sync_destroy_comment
     admin = User.find(session[:user_id])
-    sync_params = {:deleted => 1}      
-    options = {user: admin, object: @comment, action_id: SyncObjectAction.update.id,
-              type_id: SyncObjectType.comment.id, params: sync_params} 
+    sync_params = { deleted: 1 }      
+    options = { user: admin, object: @comment, action_id: SyncObjectAction.update.id,
+              type_id: SyncObjectType.comment.id, params: sync_params } 
     SyncPeerLog.log_action(options)
   end
   
   def sync_show_comment
-    sync_params = {visible_at: @comment.visible_at}
-    options = {user: current_user, object: @comment, action_id: SyncObjectAction.show.id,
-               type_id: SyncObjectType.comment.id, params: sync_params} 
+    sync_params = { visible_at: @comment.visible_at }
+    options = { user: current_user, object: @comment, action_id: SyncObjectAction.show.id,
+               type_id: SyncObjectType.comment.id, params: sync_params } 
     SyncPeerLog.log_action(options)
   end
   
   def sync_hide_comment
-    options = {user: current_user, object: @comment, action_id: SyncObjectAction.hide.id,
-               type_id: SyncObjectType.comment.id, params: {}} 
+    options = { user: current_user, object: @comment, action_id: SyncObjectAction.hide.id,
+               type_id: SyncObjectType.comment.id, params: {} } 
     SyncPeerLog.log_action(options)
   end
 
