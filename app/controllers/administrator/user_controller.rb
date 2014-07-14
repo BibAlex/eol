@@ -123,7 +123,6 @@ class Administrator::UserController  < AdminController
   end
 
   def update
-    debugger
     @user = User.find(params[:id])
     # ensure that the admin can update the requested user
     admin = User.find(session[:user_id])
@@ -296,7 +295,6 @@ private
   
   # synchronization
   def sync_update_user(admin)
-    debugger
     #log update user action action for sync.
     sync_params = {updated_at: @user.updated_at,
                    curator_approved: @user.curator_approved,                                                   

@@ -409,7 +409,6 @@ class SyncPeerLog < ActiveRecord::Base
    
     # how node site handle hide comment action
   def self.hide_comment(parameters)
-    debugger
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if user
@@ -422,7 +421,6 @@ class SyncPeerLog < ActiveRecord::Base
   
   # how node site handle show comment action
   def self.show_comment(parameters)
-    debugger
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if user
