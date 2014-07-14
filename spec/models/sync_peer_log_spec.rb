@@ -515,7 +515,6 @@ describe SyncPeerLog do
     let(:user) { User.first }
     describe ".create_community" do
       before(:all) do
-        load_scenario_with_caching(:communities)
         truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
         user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
         #create sync_peer_log
@@ -545,7 +544,6 @@ describe SyncPeerLog do
     describe ".add_collection_to_community" do
       let(:collection) { Collection.gen }
       before(:all) do
-        load_scenario_with_caching(:communities)
         truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
         community = Community.gen
         community.update_attributes(name:"name", description: "desc", origin_id: community.id, site_id: PEER_SITE_ID)
@@ -578,8 +576,6 @@ describe SyncPeerLog do
       let(:community) { Community.gen }
       before(:all) do
         truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
-        SpecialCollection.create(name: "watch")
-        load_scenario_with_caching(:communities)
         community.update_attributes(name:"name", description: "desc", origin_id: community.id, site_id: PEER_SITE_ID)
         #create sync_peer_log
         sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id,
@@ -606,7 +602,6 @@ describe SyncPeerLog do
       let(:community) { Community.gen }
       before(:all) do
         truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
-        load_scenario_with_caching(:communities)
         community.update_attributes(name:"name", description: "desc", origin_id: community.id, site_id: PEER_SITE_ID)
         community.add_member(user)
         #create sync_peer_log
@@ -632,7 +627,6 @@ describe SyncPeerLog do
       let(:community) { Community.gen }
       before(:all) do
         truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
-        load_scenario_with_caching(:communities)
         community.update_attributes(origin_id: community.id, site_id: PEER_SITE_ID)
         #create sync_peer_log
         sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.join.id,
@@ -659,7 +653,6 @@ describe SyncPeerLog do
       let(:prev_members_count) { community.members.count }
       before(:all) do
         truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
-        load_scenario_with_caching(:communities)
         community.update_attributes(origin_id: community.id, site_id: PEER_SITE_ID)
         community.add_member(user)
         #create sync_peer_log
