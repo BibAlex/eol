@@ -902,11 +902,11 @@ describe SyncPeerLog do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
           comment_parent.update_attributes(origin_id: comment_parent.id, site_id: PEER_SITE_ID)
-          comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID, last_updated_at: Time.now)
+          comment.update_attributes(origin_id: comment.id, site_id: PEER_SITE_ID, text_last_updated_at: Time.now)
           sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id, sync_object_type_id: SyncObjectType.comment.id,
                                           user_site_object_id: user.origin_id, sync_object_id: comment.origin_id, user_site_id: user.site_id,
                                           sync_object_site_id: comment.site_id)
-          parameters_values_hash = { body: "new comment", updated_at: comment.last_updated_at - 2 } 
+          parameters_values_hash = { body: "new comment", updated_at: comment.text_last_updated_at - 2 } 
           create_log_action_parameters(parameters_values_hash, sync_peer_log)
           sync_peer_log.process_entry
           comment.reload
