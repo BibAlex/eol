@@ -67,7 +67,6 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   private
-  
     
   def self.create_sync_peer_log(options)
     user_site_id = options[:user_site_id]
@@ -905,4 +904,14 @@ class SyncPeerLog < ActiveRecord::Base
     objects_ids  
   end
   
+  def self.create_search_suggestion(parameters)
+    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
+    parameters[:taxon_id] = taxon_concept.id
+    parameters[:origin_id] = parameters[:sync_object_id]
+    parameters[:site_id] = parameters[:sync_object_site_id]
+    parameters[:created_at] = parameters[:action_taken_at]
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                              :action_taken_at, :language, :taxon_concept_origin_id, :taxon_concept_site_id],parameters)
+    SearchSuggestion.create(parameters)
+  end
 end

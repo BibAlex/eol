@@ -31,6 +31,7 @@ eol-solr.pid
 mkmf.log
 extconf.h
 .DS_Store
+node.pid
 config/database.BKUP
 config/database.yml
 config/deploy
@@ -44,6 +45,8 @@ config/environments/dev_cache.rb
 config/environments/dev_cache_rails3.rb
 config/environments/test_dev.rb
 config/environments/local.rb
+config/environments/development.rb
+config/environments/node.rb
 config/resque.yml
 config/shards.yml
 config/systems/
