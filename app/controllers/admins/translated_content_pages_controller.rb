@@ -98,14 +98,15 @@ private
   end
   
   def sync_create_translated_content_page
-   sync_params = params[:translated_content_page]
+   sync_params = { created_at: @translated_content_page.created_at }.reverse_merge(params[:translated_content_page])
    options = {user: current_user, object: @content_page, action_id: SyncObjectAction.add_translation.id,
                type_id: SyncObjectType.content_page.id, params: sync_params}
     SyncPeerLog.log_action(options)
   end
   
   def sync_update_translated_content_page
-    sync_params = {language_id: @translated_content_page.language_id}.reverse_merge(params[:translated_content_page])
+    sync_params = {language_id: @translated_content_page.language_id,
+                   updated_at: @translated_content_page.updated_at}.reverse_merge(params[:translated_content_page])
     options = {user: current_user, object: @content_page, action_id: SyncObjectAction.update.id,
                type_id: SyncObjectType.translated_content_page.id, params: sync_params}
     SyncPeerLog.log_action(options)

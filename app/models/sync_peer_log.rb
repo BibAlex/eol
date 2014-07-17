@@ -641,20 +641,23 @@ class SyncPeerLog < ActiveRecord::Base
     else
       parent_content_page_id = nil  
     end
-    content_page = ContentPage.new(parent_content_page_id: parent_content_page_id,
-                                   page_name: parameters[:page_name], active: parameters[:active],
-                                   sort_order: parameters[:sort_order], origin_id: parameters[:sync_object_id],
-                                   site_id: parameters[:sync_object_site_id])
-                                   
-    content_page.translations.build(language_id: parameters[:language].id,
-                         title: parameters[:title], main_content: parameters[:main_content],
-                         left_content: parameters[:left_content], 
-                         meta_keywords: parameters[:meta_keywords],
-                         meta_description: parameters[:meta_description],
-                         active_translation: parameters[:active_translation])
-    content_page.save
-    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
-    content_page.update_attributes(last_update_user_id: user.id) unless content_page.nil?
+    local_content_page = ContentPage.find_by_page_name(parameters[:page_name])
+    unless local_content_page && local_content_page.created_at > parameters[:created_at]
+      content_page = ContentPage.new(parent_content_page_id: parent_content_page_id,
+                                     page_name: parameters[:page_name], active: parameters[:active],
+                                     sort_order: parameters[:sort_order], origin_id: parameters[:sync_object_id],
+                                     site_id: parameters[:sync_object_site_id])
+                                     
+      content_page.translations.build(language_id: parameters[:language].id,
+                           title: parameters[:title], main_content: parameters[:main_content],
+                           left_content: parameters[:left_content], 
+                           meta_keywords: parameters[:meta_keywords],
+                           meta_description: parameters[:meta_description],
+                           active_translation: parameters[:active_translation])
+      content_page.save
+      user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+      content_page.update_attributes(last_update_user_id: user.id) unless content_page.nil?
+    end
   end
   
   def self.delete_content_page(parameters)
@@ -702,10 +705,13 @@ class SyncPeerLog < ActiveRecord::Base
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                               :action_taken_at, :language],parameters)
     if content_page
-      translated_content_page = content_page.translations.build(parameters)
-      content_page.last_update_user_id = user.id
-      content_page.save
-    end 
+      local_translated_content_page = TranslatedContentPage.find_by_content_page_id_and_language_id(content_page.id, parameters[:language_id])
+      unless local_translated_content_page && local_translated_content_page.created_at > parameters[:created_at]
+        translated_content_page = content_page.translations.build(parameters)
+        content_page.last_update_user_id = user.id
+        content_page.save
+      end
+    end
   end
   
   def self.update_translated_content_page(parameters)
@@ -717,13 +723,15 @@ class SyncPeerLog < ActiveRecord::Base
     older_version = translated_content_page.dup
     if translated_content_page
       if translated_content_page.update_attributes(parameters)
-        if content_page
-        content_page.last_update_user_id = user.id
-        content_page.save
+        if translated_content_page.updated_at.nil? || translated_content_page.updated_at < parameters[:updated_at]
+          if content_page
+          content_page.last_update_user_id = user.id
+          content_page.save
+          end
+          archive_fields = older_version.attributes.delete_if{ |k,v| [ 'id', 'active_translation' ].include?(k) }.
+            merge(translated_content_page_id: older_version.id, original_creation_date: older_version.created_at)
+          TranslatedContentPageArchive.create(archive_fields)
         end
-        archive_fields = older_version.attributes.delete_if{ |k,v| [ 'id', 'active_translation' ].include?(k) }.
-          merge(translated_content_page_id: older_version.id, original_creation_date: older_version.created_at)
-        TranslatedContentPageArchive.create(archive_fields)
       end 
     end
   end

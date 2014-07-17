@@ -23,7 +23,7 @@ class ContentPage < ActiveRecord::Base
 
   validates_presence_of :page_name
   validates_length_of :page_name, maximum: 255
-  validates_uniqueness_of :page_name, scope: :id, :if => :is_local?
+  validates_uniqueness_of :page_name, scope: :id
   # TODO: add unique index of page_name in db ?
   # TODO: Validate format of page name alphanumeric and underscores only - when we move to machine names
 
