@@ -16,7 +16,36 @@ describe SyncPeerLog do
       Activity.create_enumerated
       TocItem.gen_if_not_exists(:label => 'overview')
   end
-    
+  describe "search suggestion" do
+    describe ".create_search_suggestion" do
+      let(:taxon_concept) { TaxonConcept.first }
+      before(:all) do
+        user = User.first
+        taxon_concept.update_attributes(origin_id: taxon_concept.id)
+        user.update_attributes(active: true, origin_id: user.id, site_id: PEER_SITE_ID, admin: 1)
+        sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id,
+                                        sync_object_type_id: SyncObjectType.search_suggestion.id,
+                                        user_site_object_id: user.origin_id,
+                                        user_site_id: user.site_id, 
+                                        sync_object_id: 80, #create a new one with this origin_id 
+                                        sync_object_site_id: PEER_SITE_ID)
+        parameters_values_hash = { term: "create_term", taxon_id: taxon_concept.id, sort_order: "1", active: 1, 
+        taxon_concept_origin_id: taxon_concept.origin_id, taxon_concept_site_id: taxon_concept.site_id }
+        create_log_action_parameters(parameters_values_hash, sync_peer_log)
+        sync_peer_log.process_entry
+      end
+      it "creates new search suggestion with the correct parameters" do
+        search_suggestion = SearchSuggestion.find_by_origin_id(80)
+        expect(search_suggestion).not_to be_nil
+        expect(search_suggestion.sort_order).to eq(1)
+        expect(search_suggestion.taxon_id).to eq(taxon_concept.id.to_s)
+      end
+      after(:all) do
+        SearchSuggestion.find_by_origin_id(80).destroy if SearchSuggestion.find_by_origin_id(80)
+      end
+    end
+  end  
+  
   describe "common names" do
     describe ".add_common_name" do
       let(:user) { User.first }

@@ -13,7 +13,6 @@ end
 
 describe DataObjectsController do
   before(:all) do
-   
     load_foundation_cache
     @taxon_concept = TaxonConcept.gen
     @user = User.gen
@@ -131,8 +130,6 @@ describe DataObjectsController do
     describe "association Synchronization" do
       let(:data_object) {DataObject.first} 
       let(:he) {HierarchyEntry.first} 
-       
-      
       before(:all) do
         truncate_all_tables
         load_foundation_cache
@@ -149,10 +146,7 @@ describe DataObjectsController do
         let(:current_user) {User.gen}
         
         before do
-          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-          truncate_table(ActiveRecord::Base.connection, "users_data_objects", {})
-          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters","users_data_objects","users"])
           current_user.update_attributes(origin_id: current_user.id, site_id: PEER_SITE_ID)
           UsersDataObject.create(user_id: current_user.id, data_object_id: data_object.id,
                                taxon_concept_id: TaxonConcept.first.id)
@@ -197,11 +191,8 @@ describe DataObjectsController do
         let(:curator) {User.gen(curator_level: CuratorLevel.full_curator, credentials: 'Blah', curator_scope: 'More blah')}
         
         before do
-          truncate_table(ActiveRecord::Base.connection, "curated_data_objects_hierarchy_entries", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-          truncate_table(ActiveRecord::Base.connection, "users_data_objects", {})
-          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters","users_data_objects","users",
+                           "curated_data_objects_hierarchy_entries"])
           curator.update_attributes(origin_id: curator.id, site_id: PEER_SITE_ID)
           session[:user_id] = curator.id
           cdoh = CuratedDataObjectsHierarchyEntry.create(vetted_id: Vetted.first.id,
@@ -237,12 +228,8 @@ describe DataObjectsController do
       describe "PUT #curate_associations" do
         let(:curator) {User.gen(curator_level: CuratorLevel.full_curator, credentials: 'Blah', curator_scope: 'More blah')}
         before do
-          truncate_table(ActiveRecord::Base.connection, "curated_data_objects_hierarchy_entries", {})
-          truncate_table(ActiveRecord::Base.connection, "users_data_objects", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
-          truncate_table(ActiveRecord::Base.connection, "comments", {})
-          truncate_table(ActiveRecord::Base.connection, "users", {})
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters","users_data_objects","users",
+                           "curated_data_objects_hierarchy_entries","comments"])
           curator.update_attributes(origin_id: curator.id, site_id: PEER_SITE_ID)
           session[:user_id] = curator.id
           cdoh = CuratedDataObjectsHierarchyEntry.create(vetted_id: Vetted.first.id,
@@ -391,9 +378,7 @@ describe DataObjectsController do
         let(:col_item) {CollectionItem.first}
         
         before do
-          truncate_table(ActiveRecord::Base.connection, "data_objects", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters","data_objects"])
           toc_item = TocItem.overview
           toc_item.update_attributes(origin_id: toc_item.id, site_id: PEER_SITE_ID)
           post :create, { taxon_id: taxon_concept.id, references: "Test reference.",
@@ -549,8 +534,7 @@ describe DataObjectsController do
                                       visibility: Visibility.visible)
         end
         before do
-          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           session[:user_id] = current_user.id
           put :update, { id: data_object.id,
                          data_object: { source_url: "", rights_statement: "",
@@ -663,8 +647,7 @@ describe DataObjectsController do
         let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
         let(:data_obj) {taxon_concept.add_user_submitted_text(user: current_user)}
         before do
-          truncate_table(ActiveRecord::Base.connection, "sync_peer_logs", {})
-          truncate_table(ActiveRecord::Base.connection, "sync_log_action_parameters", {})
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           session[:user_id] = current_user.id
           taxon_concept = TaxonConcept.gen
           data_obj.update_attributes(origin_id: data_obj.id, site_id: PEER_SITE_ID)

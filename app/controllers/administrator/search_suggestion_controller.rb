@@ -38,6 +38,8 @@ class Administrator::SearchSuggestionController < AdminController
     if @search_suggestion.save
       flash[:notice] = I18n.t(:search_suggestion_created)
       redirect_back_or_default(url_for(action: 'index'))
+      @search_suggestion.update_attributes(site_id: PEER_SITE_ID, origin_id: @search_suggestion.id)
+      sync_create_search_suggestion
     else
       render action: "new"
     end
@@ -64,5 +66,15 @@ class Administrator::SearchSuggestionController < AdminController
     @page_title = $ADMIN_CONSOLE_TITLE
     @navigation_partial = '/admin/navigation'
   end
-
+private
+  def sync_create_search_suggestion
+    debugger
+    taxon_concept = TaxonConcept.find(params[:search_suggestion][:taxon_id].to_i)
+    sync_params = {taxon_concept_origin_id: taxon_concept.origin_id,
+                   taxon_concept_site_id: taxon_concept.site_id}.merge(params[:search_suggestion])
+    sync_params.delete(:taxon_id)
+    options = {user: current_user, object: @search_suggestion, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.search_suggestion.id, params: sync_params}
+    SyncPeerLog.log_action(options)
+  end
 end
