@@ -906,4 +906,18 @@ class SyncPeerLog < ActiveRecord::Base
                               :action_taken_at, :language, :taxon_concept_origin_id, :taxon_concept_site_id],parameters)
     SearchSuggestion.create(parameters)
   end
+  
+  def self.update_search_suggestion(parameters)
+    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
+    parameters[:taxon_id] = taxon_concept.id
+    updated_at = parameters[:action_taken_at]
+    parameters[:updated_at] = parameters[:action_taken_at]
+    search_suggestion = SearchSuggestion.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    last_update = search_suggestion.updated_at
+    if last_update.nil? || parameters[:action_taken_at] > last_update
+      parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                                :action_taken_at, :language, :taxon_concept_origin_id, :taxon_concept_site_id],parameters)
+      search_suggestion.update_attributes(parameters)
+    end
+  end
 end
