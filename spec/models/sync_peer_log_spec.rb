@@ -1462,7 +1462,7 @@ describe SyncPeerLog do
                                         user_site_object_id: user.origin_id, sync_object_id: content_page.id)
           parameters_values_hash = { language_id: language.id, title: "title", main_content: "main_content",
             left_content: "left_content", meta_keywords: "meta_keywords", meta_description: "meta_description", 
-            active_translation: 1 }
+            active_translation: 1 , created_at: Time.now}
           create_log_action_parameters(parameters_values_hash, sync_peer_log)
           sync_peer_log.process_entry
         end
@@ -1499,24 +1499,27 @@ describe SyncPeerLog do
         end
       end
       
-      context "failed creation: content page not found" do
+      context "failed creation: elder creation" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          content_page.update_attributes(origin_id: content_page.id, site_id: PEER_SITE_ID)
+          @local_translated_content_page = TranslatedContentPage.gen(content_page: content_page, language: Language.english)
           sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.add_translation.id, sync_object_type_id: SyncObjectType.content_page.id,
-                                        user_site_object_id: user.origin_id, sync_object_id: 1000000)
+                                        user_site_object_id: user.origin_id, sync_object_id: content_page.id)
           parameters_values_hash = { language_id: language.id, title: "title", main_content: "main_content",
-            left_content: "left_content", meta_keywords: "meta_keywords", meta_description: "meta_description",
-            active_translation: 1 }
+            left_content: "left_content", meta_keywords: "meta_keywords", meta_description: "meta_description", 
+            active_translation: 1 , created_at: @local_translated_content_page.created_at - 2 }
           create_log_action_parameters(parameters_values_hash, sync_peer_log)
           sync_peer_log.process_entry
         end
         it "doesn't create translated content page" do
-          expect(translated_content_page).to be_nil
+          expect(translated_content_page.id).to eq(@local_translated_content_page.id)
         end
         after(:all) do
           translated_content_page.destroy if translated_content_page
           content_page.destroy if content_page
+          @local_translated_content_page.destroy if @local_translated_content_page
         end
       end
     end
@@ -1535,7 +1538,7 @@ describe SyncPeerLog do
                                         user_site_object_id: user.origin_id, sync_object_id: content_page.id)
           parameters_values_hash = { language_id: translated_content_page.language.id, title: "new title",
             main_content: "main_content", left_content: "left_content", meta_keywords: "meta_keywords",
-            meta_description: "meta_description", active_translation: 1 }
+            meta_description: "meta_description", active_translation: 1, updated_at: Time.now }
           create_log_action_parameters(parameters_values_hash, sync_peer_log)
           sync_peer_log.process_entry
           translated_content_page.reload
@@ -1618,7 +1621,7 @@ describe SyncPeerLog do
                                         sync_object_id: 100, sync_object_site_id: PEER_SITE_ID)
           parameters_values_hash = { language_id: language.id, title: "title", main_content: "main_content",
             left_content: "left_content", meta_keywords: "meta_keywords", meta_description: "meta_description", 
-            active_translation: 1, page_name: "page_name", active: "1", sort_order: "1" }
+            active_translation: 1, page_name: "page_name", active: "1", sort_order: "1", created_at: Time.now }
           create_log_action_parameters(parameters_values_hash, sync_peer_log)
           sync_peer_log.process_entry
         end
@@ -1673,6 +1676,30 @@ describe SyncPeerLog do
         after(:all) do
           content_page.destroy if content_page
           translated_content_page.destroy if translated_content_page
+        end
+      end
+      # last create wins
+      context "failed creation: elder creation" do
+        before(:all) do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          @local_content_page = ContentPage.gen(page_name: "page_name")
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id, sync_object_type_id: SyncObjectType.content_page.id,
+                                        user_site_object_id: user.origin_id, user_site_id: PEER_SITE_ID,
+                                        sync_object_id: 100, sync_object_site_id: PEER_SITE_ID)
+          parameters_values_hash = { language_id: language.id, title: "title", main_content: "main_content",
+            left_content: "left_content", meta_keywords: "meta_keywords", meta_description: "meta_description", 
+            active_translation: 1, page_name: "page_name", active: "1", sort_order: "1",
+            created_at: @local_content_page.created_at - 2 }
+          create_log_action_parameters(parameters_values_hash, sync_peer_log)
+          sync_peer_log.process_entry
+        end
+        
+        it "doesn't create new content page with the same name" do
+          expect(content_page).to be_nil
+        end
+        after(:all) do
+          @local_content_page.destroy if @local_content_page
         end
       end
     end

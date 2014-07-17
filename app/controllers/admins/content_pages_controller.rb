@@ -150,7 +150,8 @@ private
     end
     sync_params = {language: params[:translated_content_page][:language_id],
                    parent_content_page_origin_id: parent_origin_id,
-                   parent_content_page_site_id: parent_site_id}.reverse_merge(params[:content_page]).reverse_merge(params[:translated_content_page])
+                   parent_content_page_site_id: parent_site_id,
+                   created_at: @content_page.created_at }.reverse_merge(params[:content_page]).reverse_merge(params[:translated_content_page])
     sync_params = SyncPeerLog.delete_keys([:language_id, :parent_content_page_id],sync_params)
     options = { user: current_user, object: @content_page, action_id: SyncObjectAction.create.id,
                type_id: SyncObjectType.content_page.id, params: sync_params }
