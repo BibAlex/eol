@@ -104,7 +104,7 @@ describe Admins::TranslatedContentPagesController do
         end
       end
       
-      context "when user have no privileges to create content page" do
+      context "when user has no privileges to create content page" do
         before do
           post :create, { content_page_id: content_page.id, translated_content_page: { language_id: "3", title: "translated content page", 
                                                    main_content: "<p>main_content</p>\r\n", 

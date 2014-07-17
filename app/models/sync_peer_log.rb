@@ -389,6 +389,7 @@ class SyncPeerLog < ActiveRecord::Base
         parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
                                            :action_taken_at, :language],parameters)
         comment.update_attributes(parameters)
+        comment.update_attributes(text_last_updated_at: parameters[:updated_at])
       end
     end    
   end
@@ -642,7 +643,8 @@ class SyncPeerLog < ActiveRecord::Base
     end
     content_page = ContentPage.new(parent_content_page_id: parent_content_page_id,
                                    page_name: parameters[:page_name], active: parameters[:active],
-                                   sort_order: parameters[:sort_order])
+                                   sort_order: parameters[:sort_order], origin_id: parameters[:sync_object_id],
+                                   site_id: parameters[:sync_object_site_id])
                                    
     content_page.translations.build(language_id: parameters[:language].id,
                          title: parameters[:title], main_content: parameters[:main_content],
@@ -651,38 +653,46 @@ class SyncPeerLog < ActiveRecord::Base
                          meta_description: parameters[:meta_description],
                          active_translation: parameters[:active_translation])
     content_page.save
-    content_page.update_column(:origin_id, parameters[:sync_object_id])
-    content_page.update_column(:site_id, parameters[:sync_object_site_id])
-    
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
-    content_page.last_update_user_id = user.id unless content_page.blank?
+    content_page.update_attributes(last_update_user_id: user.id) unless content_page.nil?
   end
   
   def self.delete_content_page(parameters)
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
-    content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id], include: [:translations, :children])
-    page_name = content_page.page_name
-    content_page.last_update_user_id = user.id
-    parent_content_page_id = content_page.parent_content_page_id
-    sort_order = content_page.sort_order
-    content_page.destroy
-    ContentPage.update_sort_order_based_on_deleting_page(parent_content_page_id, sort_order)
+    content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    if content_page
+      page_name = content_page.page_name
+      content_page.last_update_user_id = user.id
+      parent_content_page_id = content_page.parent_content_page_id
+      sort_order = content_page.sort_order
+      content_page.destroy
+      ContentPage.update_sort_order_based_on_deleting_page(parent_content_page_id, sort_order)
+    end
   end
   
   def self.swap_content_page(parameters)
     content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    swap_page = ContentPage.find_site_specific(parameters[:swap_page_origin_id], parameters[:swap_page_site_id])
-    if content_page.updated_at < parameters[:updated_at]
-      content_page.update_column(:sort_order, parameters[:content_page_sort_order]) if content_page
-      swap_page.update_column(:sort_order, parameters[:swap_page_sort_order]) if swap_page      
+    if content_page
+      if content_page.swap_updated_at.nil? || content_page.swap_updated_at < parameters[:updated_at]
+        content_page.update_column(:sort_order, parameters[:content_page_sort_order])
+        content_page.update_column(:swap_updated_at, parameters[:updated_at])
+      end
     end
   end
   
   def self.update_content_page(parameters)
+    if(parameters[:parent_content_page_origin_id] != nil && parameters[:parent_content_page_site_id != nil])
+      parent_content_page = ContentPage.find_site_specific(parameters[:parent_content_page_origin_id], parameters[:parent_content_page_site_id])
+      parent_content_page_id = parent_content_page.id
+    else
+      parent_content_page_id = nil  
+    end
     content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    if content_page.updated_at < parameters[:updated_at]
-      content_page.update_attributes(parent_content_page_id: parameters[:parent_content_page_id],
-                                   page_name: parameters[:page_name], active: parameters[:active])      
+    if content_page
+      if content_page.updated_at.nil? || content_page.updated_at < parameters[:updated_at]
+        content_page.update_attributes(parent_content_page_id: parameters[:parent_content_page_id],
+                                     page_name: parameters[:page_name], active: parameters[:active])      
+      end
     end
   end
   

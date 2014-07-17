@@ -86,9 +86,12 @@ class Admins::ContentPagesController < AdminsController
     # TODO: This assumes distance between sort order is 1, change it to be less than greater than next one
     if swap_page = ContentPage.find_by_parent_content_page_id_and_sort_order(content_page.parent_content_page_id, new_sort_order)
       swap_page.update_column(:sort_order, sort_order)
+      swap_page.update_column(:swap_updated_at, swap_page.updated_at)
+      sync_swap_order(swap_page, sort_order)
     end
     content_page.update_column(:sort_order, new_sort_order)
-    sync_swap_order(content_page, swap_page, new_sort_order, sort_order)
+    content_page.update_column(:swap_updated_at, content_page.updated_at)
+    sync_swap_order(content_page,  new_sort_order)
     flash[:notice] = I18n.t(:admin_content_page_sort_order_updated)
     redirect_to action: :index, status: :moved_permanently
   end
@@ -101,9 +104,12 @@ class Admins::ContentPagesController < AdminsController
     # TODO: This assumes distance between sort order is 1, change it to be less than greater than next one
     if swap_page = ContentPage.find_by_parent_content_page_id_and_sort_order(content_page.parent_content_page_id, new_sort_order)
      swap_page.update_column(:sort_order, sort_order)
+     swap_page.update_column(:swap_updated_at, swap_page.updated_at)
+     sync_swap_order(swap_page, sort_order)
     end
     content_page.update_column(:sort_order, new_sort_order)
-    sync_swap_order(content_page, swap_page, new_sort_order, sort_order)
+    content_page.update_column(:swap_updated_at, content_page.updated_at)
+    sync_swap_order(content_page, new_sort_order)
     flash[:notice] = I18n.t(:admin_content_page_sort_order_updated)
     redirect_to action: :index, status: :moved_permanently
   end
@@ -146,15 +152,24 @@ private
                    parent_content_page_origin_id: parent_origin_id,
                    parent_content_page_site_id: parent_site_id}.reverse_merge(params[:content_page]).reverse_merge(params[:translated_content_page])
     sync_params = SyncPeerLog.delete_keys([:language_id, :parent_content_page_id],sync_params)
-    #sync_params.delete("language_id")
     options = { user: current_user, object: @content_page, action_id: SyncObjectAction.create.id,
                type_id: SyncObjectType.content_page.id, params: sync_params }
     SyncPeerLog.log_action(options)
   end
   
   def sync_update_content_page
+    if(!params[:content_page][:parent_content_page_id].empty?)
+      parent_content_page = ContentPage.find(params[:content_page][:parent_content_page_id])
+      parent_origin_id = parent_content_page.origin_id
+      parent_site_id = parent_content_page.site_id
+    else
+      parent_origin_id = nil
+      parent_site_id = nil
+    end
+    sync_params = {parent_content_page_origin_id: parent_origin_id,
+                   parent_content_page_site_id: parent_site_id}.reverse_merge( params[:content_page])
     options = { user: current_user, object: @content_page, action_id: SyncObjectAction.update.id,
-               type_id: SyncObjectType.content_page.id, params: params[:content_page] }
+               type_id: SyncObjectType.content_page.id, params: sync_params}
     SyncPeerLog.log_action(options)
   end
   
@@ -164,11 +179,9 @@ private
     SyncPeerLog.log_action(options)
   end
   
-  def sync_swap_order(content_page, swap_page, content_page_order, swap_page_order)
-    sync_params = { swap_page_origin_id: swap_page.origin_id,
-                   swap_page_site_id: swap_page.site_id,
-                   swap_page_sort_order: swap_page_order,
-                   content_page_sort_order: content_page_order }
+  def sync_swap_order(content_page, content_page_order)
+    sync_params = { content_page_sort_order: content_page_order,
+                    updated_at: content_page.swap_updated_at }
     options = { user: current_user, object: content_page, action_id: SyncObjectAction.swap.id,
                type_id: SyncObjectType.content_page.id, params: sync_params }
     SyncPeerLog.log_action(options)
