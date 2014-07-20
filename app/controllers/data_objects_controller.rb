@@ -489,6 +489,7 @@ private
       @page_description = I18n.t(:dato_edit_text_page_description)
       # Be kind, rewind:
       @data_object.attributes = params[:data_object] # Sets them, doesn't save them.
+      @edit_link = @data_object.is_link?
       render action: 'edit', layout: 'basic'
     else
       # Someone PUT directly to /data_objects/NNN with no params.  (Which is... weird.  But hey.)
@@ -544,11 +545,13 @@ private
     references = params[:references].split("\n")
     unless references.blank?
       references.each do |reference|
-        if reference.strip != ''
-          dato.refs << Ref.new(full_reference: reference, user_submitted: true, published: 1,
-                                       visibility: Visibility.visible)
-          sync_create_ref(reference)                       
-        end
+#        if reference.strip != ''
+#          dato.refs << Ref.new(full_reference: reference, user_submitted: true, published: 1,
+#                                       visibility: Visibility.visible)
+#          sync_create_ref(reference)                       
+#        end
+        dato.add_ref(reference)
+        sync_create_ref(reference)
       end
     end
   end

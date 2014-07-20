@@ -1,6 +1,9 @@
 Eol::Application.configure do
   # Settings specified here will take precedence over those in config/application.rb
 
+  Rails.configuration.show_sparql_queries = false
+  Rails.configuration.google_site_verification_keys = [] # none, by default, but defined.
+
   # In the development environment your application's code is reloaded on
   # every request. This slows down response time but is perfect for development
   # since you don't have to restart the web server when you make code changes.
@@ -44,8 +47,6 @@ Eol::Application.configure do
 
   config.logger = Logger.new(STDOUT)
 
-  Rails.configuration.show_sparql_queries = false
-
 end
 
 Recaptcha.configure do |config|
@@ -69,4 +70,6 @@ SITE_URI = 'http://127.0.0.1:3001'
 SITE_PORT = "3001"
 $SERVER_PORT = 80
 $NODE = ''
-
+  
+require File.expand_path('../../../lib/initializer_additions', __FILE__)
+InitializerAdditions.add("environments/#{Rails.env}_eol_org")

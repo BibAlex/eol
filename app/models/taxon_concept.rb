@@ -282,29 +282,11 @@ class TaxonConcept < ActiveRecord::Base
       order: 'id DESC'
     )
     entries_for_this_concept.each do |he|
-      next if all_outlinks.detect{ |o| o[:hierarchy] == he.hierarchy }
-      next if he.published != 1 && he.visibility_id != Visibility.visible.id
-      if !he.source_url.blank?
-        all_outlinks << { hierarchy_entry: he, hierarchy: he.hierarchy, outlink_url: he.source_url }
-      elsif he.hierarchy && !he.hierarchy.outlink_uri.blank?
-        # if the hierarchy outlink_uri expects an ID
-        if matches = he.hierarchy.outlink_uri.match(/%%ID%%/)
-          # .. and the ID exists
-          unless he.identifier.blank?
-            all_outlinks << { hierarchy_entry: he, hierarchy: he.hierarchy, outlink_url: he.hierarchy.outlink_uri.gsub(/%%ID%%/, he.identifier) }
-          end
-        else
-          # there was no %%ID%% pattern in the outlink_uri, but its not blank so its a generic URL for all entries
-          all_outlinks << { hierarchy_entry: he, hierarchy: he.hierarchy, outlink_url: he.hierarchy.outlink_uri }
-        end
+      next if all_outlinks.detect{ |o| o[:hierarchy_entry].hierarchy == he.hierarchy }
+      if outlink_hash = he.outlink_hash
+        all_outlinks << outlink_hash
       end
     end
-
-    # if the link is Wikipedia this will remove the revision ID
-    all_outlinks.each do |ol|
-      ol[:outlink_url].gsub!(/&oldid=[0-9]+$/, '')
-    end
-
     return all_outlinks
   end
 
@@ -432,6 +414,18 @@ class TaxonConcept < ActiveRecord::Base
 
   def to_s
     "TaxonConcept ##{id}: #{title}"
+  end
+
+  def to_jsonld
+    itis_or_other_entry = entry(Hierarchy.itis)
+    jsonld = { '@id' => KnownUri.taxon_uri(id),
+               '@type' => 'dwc:Taxon',
+               'dwc:scientificName' => itis_or_other_entry.name.string,
+               'dwc:taxonRank' => (itis_or_other_entry.rank) ? itis_or_other_entry.rank.label : nil }
+    if parent = itis_or_other_entry.parent
+      jsonld['dwc:parentNameUsageID'] = KnownUri.taxon_uri(parent.taxon_concept_id)
+    end
+    jsonld
   end
 
   def comment(user, body)
@@ -753,7 +747,7 @@ class TaxonConcept < ActiveRecord::Base
 
   # These methods are defined in config/initializers, FWIW:
   def reindex_in_solr
-    remove_from_index
+    remove_from_index # TODO - shouldn't need this line; we remove in add_to_index
     TaxonConcept.preload_associations(self, [
       { published_hierarchy_entries: [ { name: :canonical_form },
       { scientific_synonyms: { name: :canonical_form } },
@@ -764,6 +758,7 @@ class TaxonConcept < ActiveRecord::Base
   def uses_preferred_entry?(he)
     if preferred_entry.blank?
       if published_taxon_concept_preferred_entry
+        # TODO - really? We want to *write* the preferred entry? Now? If so, rename this method.
         create_preferred_entry(published_taxon_concept_preferred_entry.hierarchy_entry)
       else
         return nil

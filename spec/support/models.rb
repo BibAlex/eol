@@ -1,4 +1,7 @@
-Dir[Rails.root.join("spec/support/models/*.rb")].each {|f| require f}
+require_relative 'models/cache_helpers'
+require_relative 'models/stdout_helpers'
+
 RSpec.configure do |config|
   config.include Models::CacheHelpers, type: :model
+  config.include Models::StdoutHelpers, type: :model
 end

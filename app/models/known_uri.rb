@@ -12,6 +12,7 @@ class KnownUri < ActiveRecord::Base
   BASE = Rails.configuration.uri_term_prefix
   TAXON_RE = Rails.configuration.known_taxon_uri_re
   GRAPH_NAME = Rails.configuration.known_uri_graph
+  URIS_TO_LEAVE_AS_STRINGS = [ 'http://rs.tdwg.org/dwc/terms/measurementDeterminedDate' ]
 
   extend EOL::Sparql::SafeConnection # Note we ONLY need the class methods, so #extend
   extend EOL::LocalCacheable
@@ -63,7 +64,7 @@ class KnownUri < ActiveRecord::Base
     :translated_known_uris_attributes, :toc_items, :toc_item_ids, :description, :uri_type, :uri_type_id,
     :translations, :exclude_from_exemplars, :name, :known_uri_relationships_as_subject, :attribution,
     :ontology_information_url, :ontology_source_url, :position, :group_by_clade, :clade_exemplar,
-    :exemplar_for_same_as, :value_is_text
+    :exemplar_for_same_as, :value_is_text, :hide_from_glossary
 
   accepts_nested_attributes_for :translated_known_uris
 
@@ -147,6 +148,14 @@ class KnownUri < ActiveRecord::Base
     end
   end
 
+  def self.taxon_uri(taxon_concept_or_id)
+    if taxon_concept_or_id.is_a?(TaxonConcept)
+      UserAddedData::SUBJECT_PREFIX + taxon_concept_or_id.id.to_s
+    elsif taxon_concept_or_id.is_a?(Fixnum) || taxon_concept_or_id.is_numeric?
+      UserAddedData::SUBJECT_PREFIX + taxon_concept_or_id.to_s
+    end
+  end
+
   def self.add_to_data(rows)
     known_uris = where(["uri in (?)", EOL::Sparql.uris_in_data(rows)])
     preload_associations(known_uris, [ :uri_type, { known_uri_relationships_as_subject: :to_known_uri },
@@ -181,7 +190,10 @@ class KnownUri < ActiveRecord::Base
   end
 
   def self.glossary_terms
-    KnownUri.includes(:toc_items).all.delete_if { |ku| ku.name.blank? || ( ku.measurement? && ! EOL::Sparql.connection.all_measurement_type_known_uris.include?(ku)) }
+    KnownUri.includes(:toc_items).where(hide_from_glossary: false).delete_if { |ku|
+      ku.name.blank? ||
+      ( ku.measurement? &&
+        ! EOL::Sparql.connection.all_measurement_type_known_uris.include?(ku)) }
   end
 
   def units_for_form_select
@@ -369,6 +381,19 @@ class KnownUri < ActiveRecord::Base
     else
       position <=> other.position
     end
+  end
+
+  def treat_as_string?
+    return true if KnownUri::URIS_TO_LEAVE_AS_STRINGS.include?(uri)
+    false
+  end
+
+  def as_json(options = {})
+    super(options.merge(only: [:uri])).merge(
+      name: name.firstcap,
+      definition: definition,
+      attribution: attribution
+    )
   end
 
   private

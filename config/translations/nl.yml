@@ -233,7 +233,6 @@ nl:
         curation_on_my_watched_item: Conservatorhandelingen op objecten, taxa, verzamelingen of gemeenschappen op uw volglijst
         eol_newsletter: Stuur me ieder kwartaal de nieuwsbrief van EOL
         i_am_being_watched: U bent toegevoegd aan de volglijst van een ander lid
-        invitation_to_community: Uitnodiging om lid te worden van een gemeenschap
         made_me_a_manager: U bent verzameling- of gemeenschapsbeheerder gemaakt
         member_joined_my_community: Een gemeenschap die u beheert heeft een nieuw lid
         member_joined_my_watched_community: Er zijn nieuwe leden in een gemeenschap waar u ook lid van bent
@@ -1022,7 +1021,6 @@ nl:
   admin_news_link: Nieuws
   admin_notes_not_visible_to_user: "Opmerkingen voor beheerders (niet zichtbaar voor gebruikers):"
   admin_option_all_users_can_see_data: Alle gebruiker kunnen gegevens zien, niet alleen gebruikers met rechten
-  admin_option_changed: Waarde gewijzigd.
   admin_options_warning: Het kan 10 minuten duren voor hier gemaakte wijzigingen zichtbaar zijn.
   admin_page_title: "Beheer: Overzicht"
   admin_spam_delete: Spam verwijderen
@@ -1894,8 +1892,8 @@ nl:
   data_point_uri_summary_name: gegevens over %{taxon}
   data_provided_by_content_partner: "Bron: %{whom}"
   data_provided_by_user: geleverd door %{whom}
-  data_ranges: Gegevensbereiken
-  data_ranges_subheader: Bereiken voor deze clade
+  data_ranges: Gegevenssamenvattingen
+  data_ranges_subheader: Gegevenssamenvattingen voor deze taxonomische groep
   data_reference_subtable_summary: Aanvullende referenties over dit feit.
   data_row_add_exemplar_button: Toevoegen aan snelle feiten
   data_row_excluded_from_overview_notice: "Opmerking: deze rij is uitgesloten van snelle feiten."
@@ -2032,31 +2030,6 @@ nl:
   discover_link: Ontdekken
   do_you_want_to_be_a_curator: Wilt u conservator worden
   donate_link: Doneren
-  donation_agree: akkoord
-  donation_amount: "Totaal:"
-  donation_amount_legend: Hoeveel wilt u vandaag schenken?
-  donation_amount_other_label: Anders
-  donation_confirmation: Donatiebevestiging
-  donation_confirmation_head: Wij waarderen uw bijdrage!
-  donation_error_minimum: Vanwege verwerkingskosten is het minimumbedrag voor een donatie %{min}.
-  donation_error_no_amount: Selecteer een te doneren bedrag.
-  donation_error_only_numbers: Geef een bedrag op dat alleen uit cijfers bestaat.
-  donation_intro_span: EOL groeit elke dag
-  donation_introduction_paragraph_one: We raden u aan EOL te verkennen en te profiteren van alles wat het te bieden heeft. Help om het initiatief te laten groeien door inhoud, expertise en financieel bij te dragen.
-  donation_introduction_paragraph_two: Uw genereuze gift aan de Encyclopedia of Life ondersteunt ons werk om wereldwijd toegang te verschaffen tot kennis over het leven op aarde.
-  donation_privacy_notice: <em>Bericht over privacy en veiligheid:</em> Via deze pagina en de volgende bevestigingspagina worden geen persoonlijke gegevens of creditcardgegevens verzameld; daarom is deze pagina niet beveiligd. Nadat u het te doneren bedrag hebt bevestigd, wordt u doorgeleid naar een beveiligde pagina waar u de overschrijvingsgegevens kunt invoeren. Uw creditcard wordt niet belast totdat u bevestigt op de pagina die uw persoonlijke gegevens bevat.
-  donation_sponsorship_content_description: Donateurs die interesse hebben in bepaalde takken van de stamboom van het leven kunnen inspanningen sponsoren om nieuwe inhoud voor EOL te zoeken. Giften kunnen besteed worden aan het aanmaken van verzamelingen van soortenpagina's zo breed als "alle zoogdieren in Noord-Amerika" of "volgens in Brazilië" of zo specifiek als "zeeleeuwen in de baai van San Francisco" of "Voedsel uit de nieuwe wereld".
-  donation_sponsorship_content_title: Inhoudssponsoring
-  donation_sponsorship_fellowships_description: Kennis wereldwijd delen met mensen die willen leren is de essentie van EOL. De Encyclopedia of Life zoekt geïnteresseerde donateurs die doctoraalstudenten willen ondersteunen die de middelen kunnen leveren voor belangrijk en actueel wetenschappelijk onderzoek dat opgenomen kan worden in EOL.
-  donation_sponsorship_fellowships_title: Beurzen
-  donation_sponsorship_infrastructure_description: Om EOL in de handen van mensen in de hele wereld te leggen, zijn alle giften welkom die bijdragen aan de kerninfrastructuur en de dagelijkse behoeften van dit initiatief.
-  donation_sponsorship_infrastructure_title: Kerninfrastructuur
-  donation_sponsorship_preamble: "Als u meer wilt weten over specifieke programma's voor sponsoring, of als u een terugkerende gift wilt maken, neem dan per <a href=\"mailto:%{email_address}\">e-mail</a> contact op het met secretariaat van Encyclopedia of Life. U kunt ook bellen: +1 (202) 633-8730 (in de Verenigde Staten)."
-  donation_title: Doneren aan de Encyclopedia of Life
-  donation_transaction_details_amount: "Bedrag:"
-  donation_you_are_about_to: U staat op het punt te doneren aan de Encyclopedia of Life. Klik op "akkoord" om door te gaan naar een site voor beveiligde betalingsverwerking, waar u wordt gevraagd om uw creditcardgegevens in te voeren. Gebruik de knop "Terug"van uw browser om te annuleren.
-  donations_more_ways_title: Er zijn meer manieren om EOL te helpen groeien
-  donations_temporarily_disabled: We kunnen op dit moment helaas geen online donaties accepteren. Neem alstublieft contact op met het secretariaat van EOL via "secretariat at eol.org" om een donatie te maken.
   done_already: Al gedaan
   dont_show_unknown_registered_dates_v1_users_all_prior_to_jan_5_2009: Onbekende registratiedatums niet weergeven (V1-gebruikers, allemaal voor 5 januari 2009)
   download_data: Gegevens downloaden
@@ -2830,9 +2803,9 @@ nl:
     ontology_information_url_placeholder_text: bijvoorbeeld http://dublincore.org/documents/dcmi-terms/
     ontology_source_url_placeholder_text: bijvoorbeeld http://dublincore.org/2012/06/14/dcterms.rdf
     please_select_field_types: Selecteer een toewijzing voor elke eigenschap
-    please_select_from_the_menu: Selecteer uit het menu hierboven
     please_select_uris_to_import: Selecteer de te importeren URI's
     preferred_for_equivalence_group: Voorkeur
+    relationships: Relaties
     relationships_from_this_uri: Relaties uit deze URI
     relationships_to_this_uri: Relaties naar deze URI
     select: selecteren
@@ -3861,9 +3834,9 @@ nl:
     data: 
       index: 
         hierarchy_entry: 
-          meta_description: Afbeeldingen, video's en audio van %{scientific_name} als ingedeeld door %{hierarchy_provider}. Zoek afbeeldingen, foto's, filmpjes en geluiden van %{scientific_name} bij de Encyclopedia of Life.
-          meta_description_no_data: Er zijn geen berekenbare gegevens beschikbaar voor %{scientific_name} geclassificeerd door %{hierarchy_provider} in de Encyclopedia of Life. EOL nodigt u uit om gegevens voor %{scientific_name} bij te dragen.
-          meta_description_with_common_name_no_data: Er zijn geen berekenbare gegevens beschikbaar voor %{preferred_common_name} als ingedeeld door %{hierarchy_provider}, ook bekend als %{scientific_name} in de Encyclopedia of Life. EOL nodigt u uit gegevens bij te dragen voor %{preferred_common_name} (%{scientific_name}).
+          meta_description: Fieten over %{scientific_name} als ingedeeld door %{hierarchy_provider}in de Encyclopedia of Life.
+          meta_description_no_data: Er zijn geen feiten beschikbaar voor %{scientific_name} geclassificeerd door %{hierarchy_provider} in de Encyclopedia of Life. EOL nodigt u uit om feiten over %{scientific_name} bij te dragen.
+          meta_description_with_common_name_no_data: Er zijn geen feiten beschikbaar voor %{preferred_common_name} ook bekend als %{scientific_name} als ingedeeld door %{hierarchy_provider} in de Encyclopedia of Life. EOL nodigt u uit om feiten over %{preferred_common_name} (%{scientific_name}) bij te dragen.
           meta_description_with_common_name_with_topics: Welke gegevens hebben wetenschappers verzameld voor %{preferred_common_name} als ingedeeld door %{hierarchy_provider}? Berekenbare gegevens over %{scientific_name}, inclusief informatie over %{topics}.
           meta_title: Berekenbare gegevens voor %{scientific_name} als ingedeeld door %{hierarchy_provider}
           meta_title_with_common_name: Berekenbare gegevens voor %{preferred_common_name} als ingedeeld door %{hierarchy_provider} (%{scientific_name})
@@ -4662,6 +4635,7 @@ nl:
   will_find_taxon_pages_matching_the_search_term: vindt taxonpagina's als de voorkeursnaam, een synoniem of gewone naam precies overeen komt met de zoekterm
   will_paginate: 
     next_label: Volgende &#8594;
+    page_gap: "&hellip;"
     previous_label: "&#8592; Vorige"
   worklist: Werklijst
   would_you_like_to_become_a_curator_notice: Wilt u conservator worden? U kunt toegang vragen op <a href='%{url}'>uw profielpagina</a>.
