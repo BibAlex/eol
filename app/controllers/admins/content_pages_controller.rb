@@ -167,8 +167,9 @@ private
       parent_origin_id = nil
       parent_site_id = nil
     end
-    sync_params = {parent_content_page_origin_id: parent_origin_id,
-                   parent_content_page_site_id: parent_site_id}.reverse_merge( params[:content_page])
+    sync_params = { parent_content_page_origin_id: parent_origin_id,
+                    parent_content_page_site_id: parent_site_id,
+                    updated_at: @content_page.updated_at }.reverse_merge( params[:content_page])
     options = { user: current_user, object: @content_page, action_id: SyncObjectAction.update.id,
                type_id: SyncObjectType.content_page.id, params: sync_params}
     SyncPeerLog.log_action(options)

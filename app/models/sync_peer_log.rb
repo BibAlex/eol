@@ -646,7 +646,8 @@ class SyncPeerLog < ActiveRecord::Base
       content_page = ContentPage.new(parent_content_page_id: parent_content_page_id,
                                      page_name: parameters[:page_name], active: parameters[:active],
                                      sort_order: parameters[:sort_order], origin_id: parameters[:sync_object_id],
-                                     site_id: parameters[:sync_object_site_id])
+                                     site_id: parameters[:sync_object_site_id],
+                                     created_at: parameters[:created_at])
                                      
       content_page.translations.build(language_id: parameters[:language].id,
                            title: parameters[:title], main_content: parameters[:main_content],
@@ -694,7 +695,8 @@ class SyncPeerLog < ActiveRecord::Base
     if content_page
       if content_page.updated_at.nil? || content_page.updated_at < parameters[:updated_at]
         content_page.update_attributes(parent_content_page_id: parameters[:parent_content_page_id],
-                                     page_name: parameters[:page_name], active: parameters[:active])      
+                                       page_name: parameters[:page_name], active: parameters[:active],
+                                       updated_at: parameters[:updated_at] )      
       end
     end
   end
