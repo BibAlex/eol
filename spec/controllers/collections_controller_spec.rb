@@ -101,7 +101,7 @@ describe CollectionsController do
       let(:add_collection_item_peer_log) { SyncPeerLog.last }
       let(:user) { User.gen }
       subject(:collection) { Collection.last }
-      context "successful creation" do
+      context "when successful creation" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users",
                            "collection_items","collections"])
@@ -174,7 +174,7 @@ describe CollectionsController do
         end
       end
       
-      context "failed creation: user should login" do
+      context "when creation fails because the user isn't logged in" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users",
                            "collection_items","collections"])
@@ -198,7 +198,7 @@ describe CollectionsController do
       let(:peer_log) { SyncPeerLog.first }
       let(:user) { User.gen }
       subject(:collection) { Collection.gen }
-      context "successful update" do
+      context "when successful update" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users",
                            "collection_items","collections"])
@@ -241,7 +241,7 @@ describe CollectionsController do
         end
       end
       
-      context "failed update: user should login" do
+      context "when update fails because the user isn't logged in" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users",
                            "collection_items","collections"])
@@ -264,7 +264,7 @@ describe CollectionsController do
       let(:peer_log) { SyncPeerLog.first }
       let(:user) { User.gen }
       subject(:collection) { Collection.gen }
-      context "successful deletion" do
+      context "when successful deletion" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users",
                            "collection_items","collections"])
@@ -297,7 +297,7 @@ describe CollectionsController do
         end
       end
       
-      context "failed deletion: user should login" do
+      context "when deletion fails because the user isn't logged in" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users",
                            "collection_items","collections"])

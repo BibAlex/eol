@@ -15,7 +15,7 @@ describe CommentsController do
       let(:comment_parent) { Collection.gen(name: "collection") }
       subject(:comment) { Comment.first }
       
-      context "successful creation" do
+      context "when successful creation" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users","comments","collections"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -64,7 +64,7 @@ describe CommentsController do
         end
       end
       
-      context "failed creation: user should login" do
+      context "when creation fails because the user isn't logged in" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users","comments","collections"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -81,7 +81,7 @@ describe CommentsController do
         end
       end
       
-      context "failed creation: duplicate comments" do
+      context "when creation fails because there is other comment with the same text" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users","comments","collections"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -109,7 +109,7 @@ describe CommentsController do
       subject(:comment) { Comment.gen(body: "comment_on_collection", parent: comment_parent, user: user,
                                      parent_type: "Collection") }
       
-      context "successful update" do
+      context "when successful update" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users","comments","collections"])
           session[:user_id] = user.id
@@ -145,7 +145,7 @@ describe CommentsController do
         end
       end
       
-      context "failed update: user should login" do
+      context "when update fails because the user isn't logged in" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users","comments","collections"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -169,7 +169,7 @@ describe CommentsController do
       subject(:comment) { Comment.gen(body: "comment_on_collection", parent: comment_parent, user: user,
                                      parent_type: "Collection") }
       
-      context "successful deletion" do
+      context "when successful deletion" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users","comments","collections"])
           session[:user_id] = user.id
@@ -206,7 +206,7 @@ describe CommentsController do
         end
       end
       
-      context "failed update: user should login" do
+      context "when deletion fails because the user isn't logged in" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users","comments","collections"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)

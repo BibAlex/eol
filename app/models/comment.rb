@@ -204,6 +204,12 @@ class Comment < ActiveRecord::Base
   def was_visible_before?(time)
     self.visible_at.nil? || (self.visible_at < time)
   end
+  
+  def older_than?(compared_arg, compared_criteria)
+    compared_time = compared_arg.class.name == self.class.name ? compared_arg.send(compared_criteria) : compared_arg
+    self.send(compared_criteria).nil? ||  self.send(compared_criteria) < compared_time
+  end
+  
 private
 
   def add_recipient_user_making_comment(recipients)

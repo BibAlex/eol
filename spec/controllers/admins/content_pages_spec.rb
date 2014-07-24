@@ -42,7 +42,7 @@ describe Admins::ContentPagesController do
       subject(:content_page) { ContentPage.last }
       let(:parent_content_page) { ContentPage.first }
       
-      context "successful creation" do
+      context "when successful creation" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           session[:user_id] = @admin.id
@@ -139,7 +139,7 @@ describe Admins::ContentPagesController do
         end
       end
       
-      context "user has no privileges to create content page" do
+      context "when the user doesn't have  privileges to create content page" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           @admin.update_attributes(origin_id: @admin.id, site_id: PEER_SITE_ID)
@@ -167,7 +167,7 @@ describe Admins::ContentPagesController do
       let(:peer_log) { SyncPeerLog.first }
       subject(:content_page) { ContentPage.first }
       
-      context "successful update" do
+      context "when successful update" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           session[:user_id] = @admin.id
@@ -217,7 +217,7 @@ describe Admins::ContentPagesController do
         end
       end
       
-      context "user has no privileges to create content page" do
+      context "when the user doesn't have  privileges to create content page" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           @admin.update_attributes(origin_id: @admin.id, site_id: PEER_SITE_ID)
@@ -241,7 +241,7 @@ describe Admins::ContentPagesController do
       let(:peer_log) { SyncPeerLog.first }
       subject(:content_page) { ContentPage.gen }
       
-      context "successful deletion" do
+      context "when successful deletion" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           session[:user_id] = @admin.id
@@ -282,7 +282,7 @@ describe Admins::ContentPagesController do
         end
       end
       
-      context "user has no privileges to delete content page" do
+      context "when the user doesn't have  privileges to delete content page" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           @admin.update_attributes(origin_id: @admin.id, site_id: PEER_SITE_ID)
@@ -318,7 +318,7 @@ describe Admins::ContentPagesController do
                                          active: "1", sort_order: 2,
                                          parent_content_page_id: ContentPage.first.id) }
       
-      context "successful move down" do
+      context "when successful move down" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           session[:user_id] = @admin.id
@@ -412,7 +412,7 @@ describe Admins::ContentPagesController do
         end
       end
       
-      context "user has no privileges to move down content page" do
+      context "when the user doesn't have  privileges to move down content page" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           @admin.update_attributes(origin_id: @admin.id, site_id: PEER_SITE_ID)
@@ -449,7 +449,7 @@ describe Admins::ContentPagesController do
                                          active: "1", sort_order: 1,
                                          parent_content_page_id: ContentPage.first.id) }
       
-      context "successful move up" do
+      context "when successful move up" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           session[:user_id] = @admin.id
@@ -543,7 +543,7 @@ describe Admins::ContentPagesController do
         end
       end
       
-      context "user has no privileges to move up content page" do
+      context "when the user doesn't have  privileges to move up content page" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           @admin.update_attributes(origin_id: @admin.id, site_id: PEER_SITE_ID)

@@ -85,8 +85,8 @@ private
   
   def sync_destroy_comment
     admin = User.find(session[:user_id])
-    sync_params = { deleted: 1 }      
-    options = { user: admin, object: @comment, action_id: SyncObjectAction.update.id,
+    sync_params = { deleted: 1 }
+    options = { user: admin, object: @comment, action_id: SyncObjectAction.delete.id,
               type_id: SyncObjectType.comment.id, params: sync_params } 
     SyncPeerLog.log_action(options)
   end

@@ -12,7 +12,9 @@ class SyncObjectAction < ActiveRecord::Base
   
   def is_remove?
     self.object_action == 'remove'  # for relations not independent entities like collection item
-  end                      
+  end
   
-                        
+  def is_show?
+    self.object_action == 'show'
+  end                      
 end

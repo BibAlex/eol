@@ -50,7 +50,7 @@ describe CollectionItemsController do
       let(:first_collection) { Collection.gen(name: "first_collection") }
       let(:second_collection) { Collection.gen(name: "second_collection") }
       let(:item) { Collection.gen(name: "item") }
-      context "successful creation" do
+      context "when successful creation" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users",
                            "collection_items","collections"])
@@ -139,7 +139,7 @@ describe CollectionItemsController do
         end
       end
       
-      context "failed creation: user should login" do
+      context "when creation fails because the user isn't logged in" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users",
                            "collection_items","collections"])
@@ -170,10 +170,10 @@ describe CollectionItemsController do
       let(:user) { User.gen }
       let(:collection) { Collection.gen(name: "collection") }
       let(:item) { Collection.gen(name: "item") }
-      subject(:collection_item) { CollectionItem.gen(name: "#{item.name}", collected_item_type: "Collection",
+      subject(:collection_item) { CollectionItem.gen(name: item.name, collected_item_type: "Collection",
                                                    collected_item_id: item.id, collection_id: collection.id) }
       
-      context "successful update" do
+      context "when successful update" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users",
                                      "collection_items","collections","refs"])
@@ -182,7 +182,7 @@ describe CollectionItemsController do
           collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
           collection.users = [user]
           item.update_attributes(origin_id: item.id, site_id: PEER_SITE_ID)
-          put :update,  id: "#{collection_item.id}" , collection_item: { annotation: "annotation" }, 
+          put :update,  id: collection_item.id , collection_item: { annotation: "annotation" }, 
                          references: "reference"
         end
         it "creates sync peer log for 'update_collection_item'" do
@@ -280,7 +280,7 @@ describe CollectionItemsController do
         end
       end
       
-      context "failed update: user should login" do
+      context "when update fails because the user isn't logged in" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users",
                             "collection_items","collections","refs"])

@@ -67,9 +67,6 @@ class UsersDataObject < ActiveRecord::Base
     UsersDataObject.find_by_data_object_id(data_object.latest_published_version_in_same_language.id)
   end
 
-  def visible?
-    self.visibility_id == Visibility.visible.id
-  end
 private
   
   # DataObject#create_user_text and #replicate count on this working, so if you change this, check those!

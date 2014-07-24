@@ -387,7 +387,8 @@ describe DataObjectsController do
         let(:col_item) {CollectionItem.first}
         
         before do
-          truncate_tables(["sync_peer_logs","sync_log_action_parameters","data_objects"])
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters","data_objects",
+                           "refs", "data_objects_refs"])
           toc_item = TocItem.overview
           toc_item.update_attributes(origin_id: toc_item.id, site_id: PEER_SITE_ID)
           post :create, { taxon_id: taxon_concept.id, references: "Test reference.",
@@ -539,11 +540,10 @@ describe DataObjectsController do
         
         before(:all) do
           data_object.update_attributes(origin_id: data_object.id, site_id: PEER_SITE_ID)
-          data_object.refs << Ref.new(full_reference: "Test reference", user_submitted: true, published: 1,
-                                      visibility: Visibility.visible)
         end
         before do
-          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters", "refs",
+                           "data_objects_refs"])
           session[:user_id] = current_user.id
           put :update, { id: data_object.id,
                          data_object: { source_url: "", rights_statement: "",

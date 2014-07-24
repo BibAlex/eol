@@ -100,6 +100,10 @@ class SyncPeerLog < ActiveRecord::Base
     
     elsif (action.is_remove?)
       sync_peer_logs = SyncPeerLog.joins(:sync_log_action_parameter).where("sync_object_id = ? and sync_object_site_id = ? and parameter = ? and value = ? and sync_event_id IS NULL", sync_object_id, sync_object_site_id, 'item_id', parameters["item_id"])
+    elsif (action.is_show?)
+      sync_peer_logs = SyncPeerLog.where("sync_object_id = ? and sync_object_site_id = ? 
+                                          and sync_object_action_id = ?  and sync_event_id IS NULL", sync_object_id, sync_object_site_id,
+                                          SyncObjectAction.hide.id) 
     end     
      sync_peer_logs
   end
@@ -115,11 +119,9 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.create_sync_log_action_parameters(peer_log_id, params)
-    
     params.each do |key, value|
       SyncLogActionParameter.create(peer_log_id: peer_log_id, parameter: key, value: value)      
     end
-        
   end
   
   def self.create_user(parameters)
@@ -255,7 +257,7 @@ class SyncPeerLog < ActiveRecord::Base
     collection_owner = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     collection = Collection.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if collection
-      if collection.updated_at.nil? ||  collection.updated_at < parameters[:updated_at]
+      if collection.older_than?(parameters[:updated_at], "updated_at")
         parameters[:site_id] = parameters[:sync_object_site_id]
         parameters[:origin_id] = parameters[:sync_object_id] 
         base_url = parameters[:base_url]  
@@ -385,7 +387,7 @@ class SyncPeerLog < ActiveRecord::Base
     comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if comment
        # if it is newer take it else keep the old one
-      if comment.text_last_updated_at.nil? || comment.text_last_updated_at < parameters[:updated_at] 
+      if comment.older_than?(parameters[:updated_at], "text_last_updated_at")
         parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
                                            :action_taken_at, :language],parameters)
         comment.update_attributes(parameters)
@@ -399,12 +401,12 @@ class SyncPeerLog < ActiveRecord::Base
      # update deleted attribute
      comment = Comment.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if comment
-       # if it is newer take it else keep the old one
-        parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
-                                           :action_taken_at, :language],parameters)
-        comment.update_attributes(parameters)
+      # if it is newer take it else keep the old one
+      parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_id, :sync_object_site_id, 
+                                         :action_taken_at, :language],parameters)
+      comment.update_attributes(parameters)
     end
-     update_comment(parameters)
+      update_comment(parameters)
   end
    
     # how node site handle hide comment action
@@ -440,7 +442,7 @@ class SyncPeerLog < ActiveRecord::Base
     item = parameters[:collected_item_type].constantize.find_site_specific(parameters[:item_id], parameters[:item_site_id])    
     col_item = CollectionItem.where("collection_id = ? and collected_item_id = ?", col.id, item.id).first
     if col_item
-      if col_item.updated_at < parameters[:updated_at]
+      if col_item.older_than?(parameters[:updated_at], "updated_at")
         parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                                            :action_taken_at, :language , :updated_at, :collected_item_type,
                                            :item_id, :item_site_id, :references],parameters)
@@ -563,14 +565,14 @@ class SyncPeerLog < ActiveRecord::Base
                                 taxon_concept_id: new_data_object.taxon_concept_for_users_text.id)                                             
   end
  
-   def self.rate_data_object(parameters)
+  def self.rate_data_object(parameters)
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     data_object = DataObject.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     stars = parameters[:stars]
     rated_successfully = data_object.rate(user, stars.to_i)
     user.log_activity(:rated_data_object_id, value: data_object.id)
     data_object.update_solr_index if rated_successfully
-   end 
+  end 
  
   def self.get_url(base_url, cache_url,file_type)
     file_type = "jpg" if file_type == "jpeg"
@@ -642,11 +644,12 @@ class SyncPeerLog < ActiveRecord::Base
       parent_content_page_id = nil  
     end
     local_content_page = ContentPage.find_by_page_name(parameters[:page_name])
-    unless local_content_page && local_content_page.created_at > parameters[:created_at]
+    if local_content_page.nil? || local_content_page.older_than?(parameters[:created_at], "created_at")
       content_page = ContentPage.new(parent_content_page_id: parent_content_page_id,
                                      page_name: parameters[:page_name], active: parameters[:active],
                                      sort_order: parameters[:sort_order], origin_id: parameters[:sync_object_id],
-                                     site_id: parameters[:sync_object_site_id])
+                                     site_id: parameters[:sync_object_site_id],
+                                     created_at: parameters[:created_at])
                                      
       content_page.translations.build(language_id: parameters[:language].id,
                            title: parameters[:title], main_content: parameters[:main_content],
@@ -676,7 +679,7 @@ class SyncPeerLog < ActiveRecord::Base
   def self.swap_content_page(parameters)
     content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if content_page
-      if content_page.swap_updated_at.nil? || content_page.swap_updated_at < parameters[:updated_at]
+      if content_page.older_than?(parameters[:updated_at], "swap_updated_at")
         content_page.update_column(:sort_order, parameters[:content_page_sort_order])
         content_page.update_column(:swap_updated_at, parameters[:updated_at])
       end
@@ -692,9 +695,10 @@ class SyncPeerLog < ActiveRecord::Base
     end
     content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if content_page
-      if content_page.updated_at.nil? || content_page.updated_at < parameters[:updated_at]
+      if content_page.older_than?(parameters[:updated_at], "updated_at")
         content_page.update_attributes(parent_content_page_id: parameters[:parent_content_page_id],
-                                     page_name: parameters[:page_name], active: parameters[:active])      
+                                       page_name: parameters[:page_name], active: parameters[:active],
+                                       updated_at: parameters[:updated_at] )      
       end
     end
   end
@@ -706,7 +710,7 @@ class SyncPeerLog < ActiveRecord::Base
                               :action_taken_at, :language],parameters)
     if content_page
       local_translated_content_page = TranslatedContentPage.find_by_content_page_id_and_language_id(content_page.id, parameters[:language_id])
-      unless local_translated_content_page && local_translated_content_page.created_at > parameters[:created_at]
+      if local_translated_content_page.nil? || local_translated_content_page.older_than?(parameters[:created_at], "created_at")
         translated_content_page = content_page.translations.build(parameters)
         content_page.last_update_user_id = user.id
         content_page.save
@@ -723,7 +727,7 @@ class SyncPeerLog < ActiveRecord::Base
     older_version = translated_content_page.dup
     if translated_content_page
       if translated_content_page.update_attributes(parameters)
-        if translated_content_page.updated_at.nil? || translated_content_page.updated_at < parameters[:updated_at]
+        if translated_content_page.older_than?(parameters[:updated_at], "updated_at")
           if content_page
           content_page.last_update_user_id = user.id
           content_page.save
@@ -870,9 +874,8 @@ class SyncPeerLog < ActiveRecord::Base
     he = HierarchyEntry.find_by_origin_id_and_site_id(parameters[:hierarchy_entry_origin_id], parameters[:hierarchy_entry_site_id])
     assoc = CuratedDataObjectsHierarchyEntry.find_by_data_object_guid_and_hierarchy_entry_id(data_object.guid, he.id)
     assoc = DataObjectsHierarchyEntry.find_by_data_object_id_and_hierarchy_entry_id(data_object.id, he.id) if assoc.nil?
-    last_update = assoc.updated_at
     # if it is newer take it else keep the old one
-    if last_update.nil? || parameters[:action_taken_at] > last_update
+    if assoc.older_than?(parameters[:action_taken_at], "updated_at")
       association = data_object.data_object_taxa.find {|item| item.taxon_concept.origin_id == taxon_concept.origin_id && item.taxon_concept.site_id == taxon_concept.site_id}
       if association
         curation = Curation.new(
@@ -921,8 +924,7 @@ class SyncPeerLog < ActiveRecord::Base
     updated_at = parameters[:action_taken_at]
     parameters[:updated_at] = parameters[:action_taken_at]
     search_suggestion = SearchSuggestion.find_by_origin_id_and_site_id(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    last_update = search_suggestion.updated_at
-    if last_update.nil? || parameters[:action_taken_at] > last_update
+    if search_suggestion.older_than?(parameters[:action_taken_at], "updated_at")
       parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                                 :action_taken_at, :language, :taxon_concept_origin_id, :taxon_concept_site_id],parameters)
       search_suggestion.update_attributes(parameters)

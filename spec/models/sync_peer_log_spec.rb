@@ -103,7 +103,7 @@ describe SyncPeerLog do
   describe "common names" do
     describe ".add_common_name" do
       let(:user) { User.first }
-      let(:hi) { Hierarchy.first }
+      let(:hierarchy) { Hierarchy.first }
       let(:he) { HierarchyEntry.first }
       let(:sr) { SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id) }
       before do
@@ -116,7 +116,7 @@ describe SyncPeerLog do
         ar = AgentRole.gen()
         tar = TranslatedAgentRole.gen()
         tar.update_attributes(label: "Contributor", agent_role_id: ar.id, language_id: Language.first.id)
-        hi.update_column(:label, 'Encyclopedia of Life Contributors')
+        hierarchy.update_column(:label, 'Encyclopedia of Life Contributors')
         taxon_concept = TaxonConcept.first
         taxon_concept.update_column(:origin_id, taxon_concept.id)
         TaxonConceptPreferredEntry.create(taxon_concept_id: taxon_concept.id, hierarchy_entry_id: he.id)
@@ -154,7 +154,6 @@ describe SyncPeerLog do
     
     describe ".update_common_name" do
       let(:user) { User.first }
-      let(:hi) { Hierarchy.first }
       let(:he) { HierarchyEntry.first }
       let(:sr) { SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id) }
       let(:name) { Name.gen } 
@@ -218,7 +217,6 @@ describe SyncPeerLog do
     
     describe ".delete_common_name" do
       let(:user) { User.first }
-      let(:hi) { Hierarchy.first }
       let(:he) { HierarchyEntry.first }
       let(:sr) { SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id) }
       let(:name) { Name.gen } 
@@ -266,7 +264,6 @@ describe SyncPeerLog do
     
     describe ".vet_common_name" do
       let(:user) { User.first }
-      let(:hi) { Hierarchy.first }
       let(:he) { HierarchyEntry.first }
       let(:sr) { SynonymRelation.find(TranslatedSynonymRelation.find_by_label_and_language_id("common name", Language.first.id).synonym_relation_id) }
       let(:name) { Name.gen } 
@@ -358,7 +355,7 @@ describe SyncPeerLog do
       end
       it "curates association" do
         udo = UsersDataObject.find_by_user_id_and_data_object_id(user.id, data_object.id)
-        expect(udo.visibility_id).to eq(Visibility.visible.id)
+        expect(udo.visible?).to be_true
       end
     end
     
@@ -462,7 +459,7 @@ describe SyncPeerLog do
       it "creates a reference" do
         expect(ref.full_reference).to eq("Test reference.") 
         expect(ref.user_submitted).to eq(true)
-        expect(ref.visibility_id).to eq(Visibility.visible.id)
+        expect(ref.visible?).to be_true
         expect(ref.published).to eq(1)
       end
       it "creates data object" do
@@ -540,7 +537,7 @@ describe SyncPeerLog do
       it "creates reference" do
         expect(ref.full_reference).to eq("Test reference.") 
         expect(ref.user_submitted).to eq(true)
-        expect(ref.visibility_id).to eq(Visibility.visible.id)
+        expect(ref.visible?).to be_true
         expect(ref.published).to eq(1)
       end
       it "updates data object" do
@@ -752,7 +749,7 @@ describe SyncPeerLog do
     describe ".create_user" do
       subject(:user) { User.find_by_origin_id_and_site_id(100, 2) }
       
-      context "successful creation" do
+      context "when successful creation" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id, sync_object_type_id: SyncObjectType.user.id,
@@ -809,7 +806,7 @@ describe SyncPeerLog do
     describe ".update_user" do
       subject(:user) { User.first }
       
-      context "successful update" do
+      context "when successful update" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: 2)
@@ -829,14 +826,14 @@ describe SyncPeerLog do
         end
       end
       #TODO handle pull failures  
-      context "failed update user not found" do
+      context "when update fails because the user is not found" do
       end
     end
     
     describe ".activate_user" do
       subject(:user) { User.first }
       
-      context "successful activate" do
+      context "when successful activate" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: 2, active: false)
@@ -854,14 +851,14 @@ describe SyncPeerLog do
         end
       end
       #TODO handle pull failures  
-      context "failed update user not found" do
+      context "when activation fails because the user isn't found" do
       end
     end
     
     describe ".update_by_admin_user" do
       subject(:user) { User.first }
       
-      context "successful update" do
+      context "when successful update" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: 2)
@@ -881,7 +878,7 @@ describe SyncPeerLog do
         end
       end
       #TODO handle pull failures  
-      context "failed update user not found" do
+      context "when update fails because the user isn't found" do
       end
     end
     
@@ -932,7 +929,7 @@ describe SyncPeerLog do
       let(:comment_parent) { Collection.first }
       subject(:comment) { Comment.find_by_origin_id_and_site_id(20, PEER_SITE_ID) }
       
-      context "successful creation" do
+      context "when successful creation" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -965,7 +962,7 @@ describe SyncPeerLog do
         end
       end
       #TODO handle pull failures  
-      context "failed creation: user not found" do
+      context "when creation fails because the comment isn't found" do
       end
     end
     
@@ -975,7 +972,7 @@ describe SyncPeerLog do
       subject(:comment) { Comment.gen(user_id: user.id, parent_id: comment_parent.id,
                                      parent_type: "Collection", body: "comment") }
       
-      context "successful update" do
+      context "when successful update" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -984,7 +981,7 @@ describe SyncPeerLog do
           sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id, sync_object_type_id: SyncObjectType.comment.id,
                                           user_site_object_id: user.origin_id, sync_object_id: comment.origin_id, user_site_id: user.site_id,
                                           sync_object_site_id: comment.site_id)
-          parameters_values_hash = { body: "new comment" }
+          parameters_values_hash = { body: "new comment", updated_at: Time.now }
           create_log_action_parameters(parameters_values_hash, sync_peer_log)
           sync_peer_log.process_entry
           comment.reload
@@ -998,11 +995,11 @@ describe SyncPeerLog do
       end
       
       #TODO handle pull failures    
-      context "failed update comment not founde" do
+      context "when update fails because the comment is not found" do
       end
       
       # handle synchronization conflict: last update wins
-      context "failed update: elder update" do
+      context "when update fails because there is a newer update" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1031,7 +1028,7 @@ describe SyncPeerLog do
       subject(:comment) { Comment.gen(user_id: user.id, parent_id: comment_parent.id,
                                      parent_type: "Collection", body: "comment") }
                                      
-      context "successful deletion" do
+      context "when successful deletion" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1053,7 +1050,7 @@ describe SyncPeerLog do
         end
       end
       #TODO handle pull failures  
-      context "failed deletion: comment not found" do
+      context "when deletion fails because the comment isn't found" do
       end
     end
      
@@ -1063,7 +1060,7 @@ describe SyncPeerLog do
       subject(:comment) { Comment.gen(user_id: user.id, parent_id: comment_parent.id,
                                      parent_type: "Collection", body: "comment") }
                                      
-      context "successful hide" do
+      context "when successful hide" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1083,7 +1080,7 @@ describe SyncPeerLog do
         end
       end
       #TODO handle pull failures  
-      context "failed hide: comment not found" do
+      context "when hide fails because the comment isn't found" do
       end
     end
     
@@ -1094,7 +1091,7 @@ describe SyncPeerLog do
                                      parent_type: "Collection", body: "comment",
                                      visible_at: nil) }
                                      
-      context "successful show" do
+      context "when successful show" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1117,7 +1114,7 @@ describe SyncPeerLog do
       end
       
       # handle synchronization conflict: last update wins
-      context "failed show: elder show" do
+      context "when show fails because there is a newer show" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1140,7 +1137,7 @@ describe SyncPeerLog do
       end
       
       #TODO handle pull failures  
-      context "failed show comment not found" do
+      context "when show fails because the comment isn't found" do
       end
     end
   end
@@ -1151,7 +1148,7 @@ describe SyncPeerLog do
       let(:collection_item) { CollectionItem.where("collection_id = ? and collected_item_id = ?", collection.id, user.id).first }
       subject(:collection) { Collection.find_by_origin_id_and_site_id(30, PEER_SITE_ID) }
         
-      context "successful creation" do
+      context "when successful creation" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1208,7 +1205,7 @@ describe SyncPeerLog do
       let(:user) { User.first }
       subject(:collection) { Collection.first }
       
-      context "successful update" do
+      context "when successful update" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1228,7 +1225,7 @@ describe SyncPeerLog do
       end
       
       #TODO handle pull failures    
-      context "failed update: collection not founde" do
+      context "when update fails because the collection isn't found" do
       end
       
       # handle synchronization conflict: last update wins
@@ -1256,7 +1253,7 @@ describe SyncPeerLog do
       let(:user) { User.first }
       subject(:collection) { Collection.first }
       
-      context "successful deletion" do
+      context "when successful deletion" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1277,7 +1274,7 @@ describe SyncPeerLog do
       end
       
       #TODO handle pull failures  
-      context "failed deletion: collection not found" do
+      context "when deletion fails because the collection isn't found" do
       end
     end
   end
@@ -1288,7 +1285,7 @@ describe SyncPeerLog do
       subject(:collection_item) { CollectionItem.where("collection_id = ? and collected_item_id = ?", collection.id, user.id).first }
       let(:collection) { Collection.gen }
         
-      context "successful creation" do
+      context "when successful creation" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1334,7 +1331,7 @@ describe SyncPeerLog do
       let(:collection) { Collection.gen(name: "collection") }
       let(:ref) { Ref.find_by_full_reference("reference") }
       
-      context "successful update" do
+      context "when successful update" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1374,7 +1371,7 @@ describe SyncPeerLog do
           expect(ref.user_submitted).to eq(true)
         end
         it "sets 'visibility_id' to 'visible'" do
-          expect(ref.visibility_id).to eq(Visibility.visible.id)
+          expect(ref.visible?).to be_true
         end
         it "sets 'published' to '1'" do
           expect(ref.published).to eq(1)
@@ -1394,11 +1391,11 @@ describe SyncPeerLog do
       end
       
       #TODO handle pull failures    
-      context "failed update: collection not founde" do
+      context "when update fails because the collection isn't found" do
       end
       
       # handle synchronization conflict: last update wins
-      context "failed update: elder update" do
+      context "when update fails because there is a newer update" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1432,7 +1429,7 @@ describe SyncPeerLog do
       let(:collection_job) { CollectionJob.find_by_collection_id_and_user_id_and_command(collection.id,
                               user.id, "copy") }
                               
-      context "successful creation" do
+      context "when successful creation" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1514,7 +1511,7 @@ describe SyncPeerLog do
       let(:collection_job) { CollectionJob.find_by_collection_id_and_user_id_and_command(collection.id,
                               user.id, "remove") }
       
-      context "successful creation" do
+      context "when successful creation" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1576,7 +1573,7 @@ describe SyncPeerLog do
       subject(:translated_content_page) { TranslatedContentPage.find_by_content_page_id_and_language_id(content_page.id, language.id) }
       let(:language) { Language.english }
       
-      context "successful creation" do
+      context "when successful creation" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1622,7 +1619,7 @@ describe SyncPeerLog do
         end
       end
       
-      context "failed creation: elder creation" do
+      context "when creation fails because there is a newer creation" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1651,7 +1648,7 @@ describe SyncPeerLog do
       let(:content_page) { ContentPage.gen }
       subject(:translated_content_page) { TranslatedContentPage.gen(content_page: content_page, language: Language.english) } 
       
-      context "successful update" do
+      context "when successful update" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user = User.first
@@ -1688,7 +1685,7 @@ describe SyncPeerLog do
       end
       
      #TODO handle pull failures  
-      context "failed update: translated content page not found" do
+      context "when update fails because the translated content page isn't found" do
       end
     end
     
@@ -1696,7 +1693,7 @@ describe SyncPeerLog do
       let(:translated_content_page) { TranslatedContentPage.gen(content_page: content_page, language: Language.english, title: "Test Content Page") }
       subject(:content_page) { ContentPage.gen }
       let(:language) { Language.english }
-      context "successful deletion" do
+      context "when successful deletion" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user = User.first
@@ -1723,7 +1720,7 @@ describe SyncPeerLog do
       end
       
      #TODO handle pull failures  
-      context "failed deletion translated content page not found" do
+      context "when update fails because the translated content page isn't found" do
       end
     end
   end
@@ -1735,7 +1732,7 @@ describe SyncPeerLog do
       let(:language) { Language.english }
       let(:translated_content_page) { TranslatedContentPage.find_by_content_page_id_and_language_id(content_page.id, language.id) }
       
-      context "successful creation" do
+      context "when successful creation" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1802,7 +1799,7 @@ describe SyncPeerLog do
         end
       end
       # last create wins
-      context "failed creation: elder creation" do
+      context "when creation fails because there is a newer creation" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           @local_content_page = ContentPage.gen(page_name: "page_name")
@@ -1831,7 +1828,7 @@ describe SyncPeerLog do
       let(:user) { User.first }
       subject(:content_page) { ContentPage.first }
       
-      context "successful update" do
+      context "when successful update" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1850,7 +1847,7 @@ describe SyncPeerLog do
         end
       end
       
-      context "failed update: elder update" do
+      context "when update fails because there is a newer update" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1875,7 +1872,7 @@ describe SyncPeerLog do
       let(:user) { User.first }
       subject(:content_page) { ContentPage.gen }
       
-      context "successful update" do
+      context "when successful update" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1898,7 +1895,7 @@ describe SyncPeerLog do
       subject(:content_page) { ContentPage.first }
       let(:lower_page) { ContentPage.gen(parent_content_page_id: "", page_name: "lower_page",
                                          active: "1", sort_order: 2) }
-      context "successful swap" do
+      context "when successful swap" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -1945,7 +1942,7 @@ describe SyncPeerLog do
       subject(:content_page) { ContentPage.first }
       let(:upper_page) { ContentPage.gen(parent_content_page_id: "", page_name: "upper_page",
                                          active: "1", sort_order: 1) }
-      context "successful swap" do
+      context "when successful swap" do
         before(:all) do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
