@@ -103,7 +103,7 @@ describe UsersController do
     it 'should create a new EOL user and send verification email if registration is valid'
     it 'should not create a new user if registration is invalid'
     
-    describe 'create user syncronization' do
+    describe 'create user synchronization' do
       before(:all) do
         SyncObjectType.create_enumerated
         SyncObjectAction.create_enumerated
@@ -114,7 +114,7 @@ describe UsersController do
         let(:peer_log) { SyncPeerLog.first }
         subject(:user) { User.first }
         
-        context "successful creation" do
+        context "when successful creation" do
           before do
             truncate_tables(["sync_peer_logs","sync_log_action_parameters", "users"])
             post :create, { user: { username: 'user_1', given_name: 'user', 
@@ -166,7 +166,7 @@ describe UsersController do
           end
         end
         
-        context "failed creation: missing 'username'" do
+        context "when creation fails because 'username' should not be empty" do
           before do
             truncate_tables(["sync_peer_logs","sync_log_action_parameters","users"])
             post :create, { user: { given_name: 'user', 
@@ -182,7 +182,7 @@ describe UsersController do
           end
         end
         
-        context "failed creation: missing 'email'" do
+        context "when creation fails because 'email' should not be empty" do
           before do
             truncate_tables(["sync_peer_logs","sync_log_action_parameters","users"])
             post :create, { user: { username: 'user_1', given_name: 'user', 
@@ -197,7 +197,7 @@ describe UsersController do
           end
         end
         
-        context "failed creation: missing 'password'" do
+        context "when creation fails because 'password' should not be empty" do
           before do
             truncate_tables(["sync_peer_logs","sync_log_action_parameters","users"])
             post :create, { user: { username: 'user_1', given_name: 'user', 
@@ -303,7 +303,7 @@ describe UsersController do
       assigns[:user].curator_level_id.should == CuratorLevel.assistant_curator.id
     end
     
-    describe 'update user syncronization' do
+    describe 'update user synchronization' do
       before(:all) do
         SyncObjectType.create_enumerated
         SyncObjectAction.create_enumerated
@@ -314,7 +314,7 @@ describe UsersController do
         let(:peer_log) { SyncPeerLog.first }
         subject(:user) { User.gen }
         
-        context "successful update" do
+        context "when successful update" do
           before do
             truncate_tables(["sync_peer_logs","sync_log_action_parameters","users"])
             user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
@@ -353,7 +353,7 @@ describe UsersController do
           end
         end
         
-        context "failed update: user should login" do
+        context "when update fails because the user isn't logged in" do
           before do
             truncate_tables(["sync_peer_logs","sync_log_action_parameters","users"])
             user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)

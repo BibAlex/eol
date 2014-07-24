@@ -15,7 +15,7 @@ describe Administrator::UserController do
                                curator_scope: "Rodents of Borneo") }
       let(:admin) { User.gen(username: "admin", password: "admin") }
       
-      context "successful update" do
+      context "when successful update" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users"])
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)

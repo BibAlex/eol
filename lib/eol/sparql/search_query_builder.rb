@@ -1,20 +1,32 @@
+# NOTE - this is a little odd. It's got its own little set of SPARQL-writing functions, which really should be generalized and made available in the other
+# classes that might want to call SPARQL. That said, these methods could be better-generalized, too.
 module EOL
   module Sparql
     class SearchQueryBuilder
 
       def initialize(options)
+        # TODO - this is neat and all, but lacks transparency, since we don't
+        # know what options are available to .prepare_search_query. So, this
+        # should be a list of variables.
         options.each { |k,v| instance_variable_set("@#{k}", v) }
         @per_page ||= TaxonData::DEFAULT_PAGE_SIZE
         @page ||= 1
+        @only_count = true if @count_value_uris
       end
 
       # Class method to build a query
       # This is likely the only thing that will get called outside this class
+      # 
+      # NOTE - options are (currently) every single instance variable you see
+      # in this class. (TODO - clarify)
       def self.prepare_search_query(options)
         builder = EOL::Sparql::SearchQueryBuilder.new(options)
         builder.prepare_query
       end
 
+      # TODO - this is only used in this lib, so could be a private method
+      # (but class methods cannot be private, soooo... decide what to do.)
+      #
       # Basic query assembler
       def self.build_query(select, where, order, limit)
         "#{ select } WHERE {
@@ -50,13 +62,13 @@ module EOL
       # representing the final Sparql search query
       def prepare_query
         if @taxon_concept && TaxonData.is_clade_searchable?(@taxon_concept)
-          inner_query = EOL::Sparql::SearchQueryBuilder.build_query_with_taxon_filter(@taxon_concept.id, inner_select_clause, where_clause, order_clause)
+          inner_query = EOL::Sparql::SearchQueryBuilder.build_query_with_taxon_filter(@taxon_concept.id, inner_select_clause, where_clause, inner_order_clause)
         else
-          inner_query = EOL::Sparql::SearchQueryBuilder.build_query(inner_select_clause, where_clause, order_clause, nil)
+          inner_query = EOL::Sparql::SearchQueryBuilder.build_query(inner_select_clause, where_clause, inner_order_clause, nil)
         end
         # this is strange, but in order to properly do sorts, limits, and offsets there should be a subquery
         # see http://virtuoso.openlinksw.com/dataspace/doc/dav/wiki/Main/VirtTipsAndTricksHowToHandleBandwidthLimitExceed
-        EOL::Sparql::SearchQueryBuilder.build_query(outer_select_clause, inner_query, nil, limit_clause)
+        EOL::Sparql::SearchQueryBuilder.build_query(outer_select_clause, inner_query, outer_order_clause, limit_clause)
       end
 
       def where_clause
@@ -77,15 +89,23 @@ module EOL
       end
 
       def outer_select_clause
-        @only_count ?
-          "SELECT COUNT(*) as ?count" :
+        if @count_value_uris
+          "SELECT ?value, COUNT(*) as ?count"
+        elsif @only_count
+          "SELECT COUNT(*) as ?count"
+        else
           "SELECT DISTINCT ?attribute ?value ?unit_of_measure_uri ?statistical_method ?life_stage ?sex ?data_point_uri ?graph ?taxon_concept_id"
+        end
       end
 
       def inner_select_clause
-        @only_count ?
-          "SELECT DISTINCT ?data_point_uri" :
+        if @count_value_uris
+          "SELECT DISTINCT ?data_point_uri, ?value"
+        elsif @only_count
+          "SELECT DISTINCT ?data_point_uri"
+        else
           "SELECT ?attribute ?value ?unit_of_measure_uri ?statistical_method ?life_stage ?sex ?data_point_uri ?graph ?taxon_concept_id"
+        end
       end
 
       def filter_clauses
@@ -110,6 +130,9 @@ module EOL
           end
           filter_clauses += ") . "
         end
+        if @count_value_uris
+          filter_clauses += "FILTER(isURI(?value)) . "
+        end
         filter_clauses
       end
 
@@ -117,13 +140,20 @@ module EOL
         @only_count ? "" : "LIMIT #{ @per_page } OFFSET #{ ((@page.to_i - 1) * @per_page) }"
       end
 
-      def order_clause
+      def inner_order_clause
         unless @only_count
           if @sort == 'asc'
             return "ORDER BY ASC(xsd:float(?value)) ASC(?value)"
           elsif @sort == 'desc'
             return "ORDER BY DESC(xsd:float(?value)) DESC(?value)"
           end
+        end
+        ""
+      end
+
+      def outer_order_clause
+        if @count_value_uris
+          return "GROUP BY ?value ORDER BY DESC(?count)"
         end
         ""
       end

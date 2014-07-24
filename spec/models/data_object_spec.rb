@@ -279,9 +279,9 @@ describe DataObject do
 
     let(:dato_with_refs) do
       dato_with_refs = DataObject.gen
-      dato_with_refs.add_ref('published visible reference', 1, Visibility.visible)
-      dato_with_refs.add_ref('published invisible reference', 1, Visibility.invisible)
-      dato_with_refs.add_ref('unpublished visible reference', 0, Visibility.visible)
+      dato_with_refs.add_ref_with_published_and_visibility('published visible reference', 1, Visibility.visible)
+      dato_with_refs.add_ref_with_published_and_visibility('published invisible reference', 1, Visibility.invisible)
+      dato_with_refs.add_ref_with_published_and_visibility('unpublished visible reference', 0, Visibility.visible)
       dato_with_refs
     end
 
@@ -537,6 +537,8 @@ describe DataObject do
     full_curator = build_curator(@taxon_concept, level: :full)
     master_curator = build_curator(@taxon_concept, level: :master)
     admin = User.gen(admin: 1)
+    # Without this, the data object will have errors (url not accessible):
+    allow(EOLWebService).to receive(:url_accepted?) { true }
     params = { data_type_id: DataType.text.id.to_s,
                license_id: nil,
                object_title: "",
@@ -552,6 +554,8 @@ describe DataObject do
     options[:user] = @user
     dato = DataObject.create_user_text(params, options)
     dato.link?.should be_true
+    expect(dato.users_data_object).to_not be_nil
+    dato.users_data_object.vetted_id.should == Vetted.unknown.id
     dato.users_data_object.vetted_id.should == Vetted.unknown.id
     dato.users_data_object.visibility_id.should == Visibility.visible.id
     options[:user] = assistant_curator

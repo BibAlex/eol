@@ -290,6 +290,9 @@ Eol::Application.routes.draw do
   end
 
   resource :admin, :only => [:show] do
+    collection do
+      get :recount_collection_items
+    end
     resources :content_pages, :controller => 'admins/content_pages' do
       member do
         post 'move_up'
@@ -397,13 +400,6 @@ Eol::Application.routes.draw do
   # Old V1 admin search logs:
   resources :search_logs, :controller => 'administrator/search_logs'
 
-  # Facebook integration
-  resources :facebook, :only => [:index] do
-    collection do
-      get 'channel'
-    end
-  end
-
   resources :news_items, :only => [:index, :show] do
     resources :translated_news_items, :as => :translations, :except => [:show, :index]
   end
@@ -468,13 +464,6 @@ Eol::Application.routes.draw do
   match '/expire_taxa/:id' => 'content#expire_multiple', :id => /\d+/, :as => 'expire_taxa'
   match '/language' => 'content#language', :as => 'language'
 
-  resources :donations, except: [:index, :destroy]
-  get '/donate', to: redirect('/donations/new')
-  get '/donation', to: redirect('/donations/new')
-  get '/donations', to: redirect('/donations/new')
-  # TODO - remove this:
-  match 'content/donate_complete' => 'content#donate_complete'
-
   # Search (note there is more search at the end of the file; it is expensive):
   match '/search' => 'search#index', :as => 'search'
   # having this as :q instead of :id was interfering with WillPaginate. See #WEB-4508
@@ -497,6 +486,7 @@ Eol::Application.routes.draw do
   match '/data_objects/:id/remove_association/:hierarchy_entry_id' => 'data_objects#remove_association',
     :as => 'remove_association'
 
+  # TODO - make these resources
   # Named taxon routes:
   match '/pages/:id/literature/bhl_title/:title_item_id' => 'taxa/literature#bhl_title', :as => 'bhl_title'
   match '/pages/:id/entries/:hierarchy_entry_id/literature/bhl_title/:title_item_id' => 'taxa/literature#bhl_title',
@@ -513,6 +503,7 @@ Eol::Application.routes.draw do
   match '/privacy' => 'content#show', :defaults => {:id => 'privacy'}, :as => 'privacy'
   match '/curators' => 'content#show', :defaults => {:id => 'curators'}, :as => 'curators'
   match '/traitbank' => 'content#show', :defaults => {:id => 'traitbank'}, :as => 'traitbank'
+  match '/traithbank' => 'content#show', :defaults => {:id => 'traitbank'}, :as => 'traitbank' # Typo in newsletter. TODO - remove after 12-1-2014.
   match '/curators/*ignore' => 'content#show', :defaults => {:id => 'curators'}
   match '/info/:id' => 'content#show', :as => 'cms_page'
   match '/info/*crumbs' => 'content#show', :as => 'cms_crumbs'
@@ -580,7 +571,7 @@ Eol::Application.routes.draw do
 
   resources :eol_configs, only: :update do
     collection do
-      get 'change'
+      post 'change'
     end
   end
 
@@ -598,6 +589,14 @@ Eol::Application.routes.draw do
 
   resource :curator_activity_logs, :only => 'index' do
     get 'last_ten_minutes'
+  end
+
+  # Old donation routes (for posterity):
+  if Rails.configuration.donate_header_url
+    get '/donate', to: redirect(Rails.configuration.donate_header_url)
+    get '/donation', to: redirect(Rails.configuration.donate_header_url)
+    get '/donations', to: redirect(Rails.configuration.donate_header_url)
+    get '/donations/new', to: redirect(Rails.configuration.donate_header_url)
   end
 
   # Named API Routes:

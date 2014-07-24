@@ -15,10 +15,10 @@ describe CollectionJobsController do
       let(:add_collection_item_peer_log) { SyncPeerLog.last }
       let(:user) { User.gen }
       let(:collection) { Collection.gen(name: "base_collection") }
-      let(:empty_collection) { Collection.gen(name: "empty_collection") }
+      let(:another_collection) { Collection.gen(name: "another_collection") }
       let(:item) { Collection.gen(name: "item") }
       subject(:collection_job) { CollectionJob.first }
-      context "successful creation" do
+      context "when successful creation" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","collection_jobs",
             "collection_items_collection_jobs","collection_jobs_collections","users",
@@ -27,15 +27,15 @@ describe CollectionJobsController do
           session[:user_id] = user.id
           collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
           collection.users = [user]
-          empty_collection.update_attributes(origin_id: empty_collection.id, site_id: PEER_SITE_ID)
-          empty_collection.users = [user]
+          another_collection.update_attributes(origin_id: another_collection.id, site_id: PEER_SITE_ID)
+          another_collection.users = [user]
           item.update_attributes(origin_id: item.id, site_id: PEER_SITE_ID)
           CollectionItem.gen(name: "#{item.name}", collected_item_type: "Collection",
                              collected_item_id: item.id, collection_id: collection.id)
           
           post :create, { collection_job: { collection_id: collection.id, 
                          command: "copy", all_items: true, overwrite: 0,
-                         collection_ids: [empty_collection] }, 
+                         collection_ids: [another_collection] }, 
                          commit: "Copy", scope: "all_items" }
         end
         it "creates sync peer log for 'collection job'" do
@@ -98,7 +98,7 @@ describe CollectionJobsController do
           expect(add_collection_item_peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
         end
         it "has correct 'object_id' for 'add collection item'" do
-          expect(add_collection_item_peer_log.sync_object_id).to eq(empty_collection.origin_id)
+          expect(add_collection_item_peer_log.sync_object_id).to eq(another_collection.origin_id)
         end
         it "creates sync log action parameter for 'item_id'" do
           collected_item_id_parameter = SyncLogActionParameter.where(peer_log_id: add_collection_item_peer_log.id, parameter: "item_id")
@@ -122,7 +122,7 @@ describe CollectionJobsController do
         end
       end
       
-      context "failed creation: user should login" do
+      context "when creation fails because the user isn't logged in" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","collection_jobs",
                       "collection_items_collection_jobs","collection_jobs_collections","users",
@@ -130,14 +130,14 @@ describe CollectionJobsController do
           user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
           collection.update_attributes(origin_id: collection.id, site_id: PEER_SITE_ID)
           collection.users = [user]
-          empty_collection.update_attributes(origin_id: empty_collection.id, site_id: PEER_SITE_ID)
-          empty_collection.users = [user]
+          another_collection.update_attributes(origin_id: another_collection.id, site_id: PEER_SITE_ID)
+          another_collection.users = [user]
           item.update_attributes(origin_id: item.id, site_id: PEER_SITE_ID)
           CollectionItem.gen(name: "#{item.name}", collected_item_type: "Collection",
                              collected_item_id: item.id, collection_id: collection.id)
           expect { post :create, { collection_job: { collection_id: collection.id, 
                                 command: "copy", all_items: true, overwrite: 0,
-                                collection_ids: [empty_collection] }, collection_name: "collection", 
+                                collection_ids: [another_collection] }, collection_name: "collection", 
                                 commit: "Copy", scope: "all_items" } }.to raise_error(EOL::Exceptions::MustBeLoggedIn)
         end
         it "doesn't create sync peer logs" do
@@ -158,7 +158,7 @@ describe CollectionJobsController do
       let(:item) { Collection.gen(name: "item") }
       subject(:collection_job) { CollectionJob.first }
         
-      context "successful creation" do
+      context "when successful creation" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","collection_jobs",
                            "collection_items_collection_jobs","collection_jobs_collections","users",
@@ -253,7 +253,7 @@ describe CollectionJobsController do
         end
       end
       
-      context "failed creation: user should login" do
+      context "when creation fails because the user isn't logged in" do
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","collection_jobs",
                            "collection_items_collection_jobs","collection_jobs_collections","users",

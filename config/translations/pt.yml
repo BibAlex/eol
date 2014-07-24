@@ -11,12 +11,14 @@
 # Author: Luckas Blade
 # Author: Malafaya
 # Author: McDutchie
+# Author: Polyethylen
 # Author: SandroHc
 # Author: Sarilho1
+# Author: Waldir
 pt: 
   0_1_or_2: 0, 1 ou 2
   0_or_1: 0 ou 1
-  a_pipe_delimited_list_of_licenses: uma lista de licenças delimitadas com barra vertical |  ou 'all' para obter objectos sob qualquer licença. Licenças com abreviatura cc- são todas
+  a_pipe_delimited_list_of_licenses: uma lista de licenças delimitadas com barra vertical | ou 'all' para obter objetos sob qualquer licença. Licenças com abreviatura cc- são todas licenças %{creative_commons_link}. Visite o site deles para mais informação sobre as várias licenças que oferecem.
   a_pipe_delimited_list_of_spm_info_item_subject_names: uma lista de nomes de temas de elementos de informação SPM delimitada por uma barra vertical | ou 'all' para obter texto sobre qualquer assunto
   a_taxon: um taxon
   a_total_of_comment_were_found_matching_your_criteria: 
@@ -215,7 +217,6 @@ pt:
         curation_on_my_watched_item: Acções de curadores sobre objectos, taxa, colecções ou comunidades na sua lista de páginas vigiadas
         eol_newsletter: Enviem-me a newsletter trimestral da EOL
         i_am_being_watched: Foi adicionado à lista de páginas vigiadas de outro membro
-        invitation_to_community: Convite para participar numa comunidade
         made_me_a_manager: Fizeram de si um gerente de uma coleção ou comunidade
         member_joined_my_community: Uma comunidade que gere tem um novo membro
         member_joined_my_watched_community: Novos membros aderiram a uma comunidade onde é membro
@@ -624,7 +625,7 @@ pt:
   click_on_a_username_to_view_the_users_detailed_profile: Clique em um nome de usuário para ver o perfil detalhado de um usuário, clique no tipo de dados para ver o objeto que foi comentado (use o botão Voltar do seu navegador para voltar aqui), clique em "editar" para editar o comentário ou clique em "apagar" para eliminar permanentemente o comentário.
   close_this_window_to_return_to_edit_window: FECHE ESTA JANELA PARA VOLTAR À JANELA DE EDIÇÃO
   cms_available_in_languages: "Esta página está disponível em:"
-  cms_missing_content_message: Pedimos desculpa, mas esta página não está disponível nesta língua.
+  cms_missing_content_message: Pedimos desculpa, mas esta página não está disponível no idioma selecionado %{selected_language}.
   cms_missing_content_title: Falta a tradução
   collect_item: Coletar item
   collection_created_notice: Coleção <em>%{collection_name}</em> criada com sucesso.
@@ -766,7 +767,7 @@ pt:
   content_partner_agreement_cancel_edit_agreement_link: Cancelar
   content_partner_agreement_cancel_new_agreement_link: Cancelar
   content_partner_agreement_cancel_sign_agreement_link: Cancelar
-  content_partner_agreement_create_successful_notice: Aceitou com êxito os termos do parceiro de conteúdo, pode adicionar recursos de dados.
+  content_partner_agreement_create_successful_notice: Termos do parceiro de conteúdo criados com sucesso.
   content_partner_agreement_create_unsuccessful_error: Desculpe, ocorreu um erro, parece haver um problema técnico com acordos de parceiro de conteúdo. Por favor, tente novamente. Se o problema persistir, por favor informe a EOL.
   content_partner_agreement_signed_successful_notice: Aceitou com êxito os termos do parceiro de conteúdo, pode adicionar recursos de dados.
   content_partner_agreement_signed_unsuccessful_error: Desculpe, ocorreu um erro, parece haver um problema técnico com acordos de parceiro de conteúdo. Por favor, tente novamente. Se o problema persistir, por favor informe a EOL.
@@ -1060,16 +1061,6 @@ pt:
   did_you_mean: "Você quis dizer: %{suggestions} ?"
   disabled_for_now: DESABILITADO POR AGORA
   discover_link: Descobrir
-  donation_amount_legend: Quanto gostaria de contribuir hoje?
-  donation_amount_other_label: Outro
-  donation_confirmation: Confirmação de doação
-  donation_error_no_amount: Por favor, selecione um valor de doação.
-  donation_error_only_numbers: Por favor introduza um valor utilizando apenas números.
-  donation_introduction_paragraph_one: A EOL está a crescer todos os dias. Encorajamos a explorar a EOL e aproveitar tudo o que ela tem a oferecer. Pedimos que ajude esta iniciativa a crescer através das suas contribuições de conteúdo, expertise e apoio financeiro.
-  donation_introduction_paragraph_two: Através da sua doação generosa, a Enciclopédia da Vida continua a oferecer acesso global ao conhecimento sobre a vida na Terra.
-  donation_sponsorship_content_title: Patrocínio de conteúdo
-  donation_sponsorship_fellowships_title: Bolsas
-  donation_sponsorship_infrastructure_title: Infra-estrutura básica
   dont_show_unknown_registered_dates_v1_users_all_prior_to_jan_5_2009: Não mostrar datas registadas desconhecidas (usuários da V1, todos anteriores a 5 de janeiro de 2009)
   dublin_core: Dublin Core
   duplicate_items_were_ignored: Itens duplicados foram ignorados.
@@ -1235,8 +1226,8 @@ pt:
   frequency_never: Nunca
   frequency_weekly: Semanalmente
   from_community: da comunidade %{community}
-  gbif_occurrence_disclaimer: Este mapa é baseado em registos de ocorrência disponíveis através do GBIF e pode não representar a totalidade da distribuição do taxon
-  gbif_occurrence_learn_more_link: Aprenda mais sobre mapas de ocorrência do GBIF.
+  gbif_occurrence_disclaimer: Este mapa é baseado em registos de ocorrência disponíveis através da <a rel='nofollow' href='http://www.gbif.org/' >rede GBIF</a> e pode não representar a totalidade da distribuição.
+  gbif_occurrence_learn_more_link: Acesse estes dados através do Portal do GBIF.
   general_site_admin: administrador geral do site
   get_help_choosing_a_subchapter: Obtenha ajuda a escolher um subcapítulo
   get_more_tasks: obter mais tarefas
@@ -1577,6 +1568,8 @@ pt:
   jsonp_by_adding_a_callback_parameter: ... e JSONP, adicionando um parâmetro de retorno (callback)
   just_pages_with_pictures_and_text: Apenas as páginas com imagens e texto
   key: Chave
+  known_uris: 
+    please_select_category_for_stats: Por favor, selecione uma categoria para ver as estatísticas.
   label: Etiqueta
   language: "Língua:"
   language_selector_advisory_information: Esta é uma lista de línguas em que o conteúdo do site está disponível. Para mudar a língua atual, selecione uma língua alternativa a partir desta lista.
@@ -1934,7 +1927,7 @@ pt:
   this_is_a_flat_list_of_10_million_strings: Esta é uma lista simples de 10 milhões de caracteres - não o vamos deixar navegar por ela
   this_is_a_focus_collection_for_community: Este é o foco de %{community}.
   this_is_the_label_that_will_be_used_for_attribution: Esta é a etiqueta que será usada para atribuição
-  threat_status_header_colon: "Estado de conservação IUCN:"
+  threat_status_header_colon: "Estado de conservação <abbr title=\"União Internacional para a Conservação da Natureza e dos Recursos Naturais\">IUCN</abbr>:"
   time_ago: há %{time_passed}
   title: Título
   to_process_your_donation_please_proceed: Para processar a sua doação, prossiga
@@ -1983,8 +1976,12 @@ pt:
     other: "%{count} artigos adicionados"
   user_activity_stats_articles_added_dropdown: Artigos adicionados
   user_activity_stats_header: Atividade
-  user_activity_stats_objects_curated: Objectos curados
-  user_activity_stats_taxa_curated: Taxa curados
+  user_activity_stats_objects_curated: 
+    one: "%{count} objeto curado"
+    other: "%{count} objectos curados"
+  user_activity_stats_taxa_curated: 
+    one: "%{count} taxon curado"
+    other: "%{count} taxa curados"
   username: Nome de utilizador
   username_colon: "Nome de utilizador:"
   users: 
@@ -2016,7 +2013,7 @@ pt:
   users_form_account_header: Sua conta
   value_default: (padrão)
   value_empty: (vazio)
-  versions_colon: "Versão:"
+  versions_colon: "Versões:"
   visible_title: Visível
   visitors: Visitantes
   vivisimo: Vivisimo
@@ -2024,6 +2021,7 @@ pt:
   welcome: Bem-vindo
   will_paginate: 
     next_label: Próximo
+    page_gap: "&hellip;"
     previous_label: Anterior
   yahoo: Yahoo
   year: Ano

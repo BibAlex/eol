@@ -13,6 +13,7 @@ class DataObject < ActiveRecord::Base
   include EOL::ActivityLoggable
   include IdentityCache
   extend SiteSpecific
+  include Refable
 
   belongs_to :data_type
   belongs_to :data_subtype, class_name: DataType.to_s, foreign_key: :data_subtype_id
@@ -75,6 +76,7 @@ class DataObject < ActiveRecord::Base
   validates_presence_of :rights_holder, if: :rights_required?
   validates_inclusion_of :rights_holder, in: '', unless: :rights_required?
   validates_length_of :rights_statement, maximum: 300
+  validate :source_url_is_valid, if: :is_link?
 
   before_validation :default_values
   after_create :clean_values
@@ -210,7 +212,7 @@ class DataObject < ActiveRecord::Base
     DataObject.find(data_object_id, select: 'published').published?
   end
 
-  # TODO - there is a lot of replication (ha!) here with #replicate below. Extract.
+  # TODO - there is a lot of duplication here with #replicate below. Extract.
   def self.create_user_text(params, options)
     DataObject.set_subtype_if_link_object(params, options)
     DataObject.populate_rights_holder_or_data_subtype(params, options)
@@ -307,6 +309,10 @@ class DataObject < ActiveRecord::Base
   def recalculate_rating
     self.update_column(:data_rating, average_rating)
     data_rating
+  end
+
+  def has_been_rated?
+    users_data_objects_ratings.count > 0
   end
 
   def rating_from_user(u)
@@ -1133,6 +1139,12 @@ class DataObject < ActiveRecord::Base
   end
 
 private
+
+  def source_url_is_valid
+    if is_link? && (source_url.blank? || ! EOLWebService.url_accepted?(source_url))
+      errors[:source_url] << I18n.t(:url_not_accessible)
+    end
+  end
 
   # This is relatively expensive... but accurate.
   def image_title_with_taxa

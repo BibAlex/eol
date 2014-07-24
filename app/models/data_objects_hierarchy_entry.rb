@@ -25,5 +25,5 @@ class DataObjectsHierarchyEntry < ActiveRecord::Base
   def guid
     data_object.guid
   end
-
+  
 end

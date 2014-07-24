@@ -9,6 +9,10 @@ class TaxonConceptName < ActiveRecord::Base
   belongs_to :taxon_concept
   belongs_to :vetted
 
+  def can_be_deleted_by?(user)
+    agents.map(&:user).include?(user)
+  end
+
   def self.sort_by_language_and_name(taxon_concept_names)
     taxon_concept_names.compact.sort_by do |tcn|
       language_iso = tcn.language.blank? ? '' : tcn.language.iso_639_1
@@ -16,6 +20,16 @@ class TaxonConceptName < ActiveRecord::Base
        tcn.preferred * -1,
        tcn.name.try(:string)]
     end
+  end
+
+  def to_jsonld
+    jsonld = { '@type' => 'gbif:VernacularName',
+                          'dwc:vernacularName' => { language.iso_639_1 => name.string },
+                          'dwc:taxonID' => KnownUri.taxon_uri(taxon_concept_id) }
+    if preferred?
+      jsonld['gbif:isPreferredName'] = true
+    end
+    jsonld
   end
 
   # TODO - why pass in by_whom, here? We don't use it. I'm assuming it's a duck-type for now and leaving it, but...

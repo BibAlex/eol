@@ -4,6 +4,8 @@ include SyncPeerLogHelper::ClassMethods
 
 class CollectionsController < ApplicationController
 
+  # TODO - review these. There are too many and as a result there's some redundancy in, for example, checking whether the user is logged in on unpublished
+  # collections
   before_filter :login_with_open_authentication, only: :show
   before_filter :modal, only: [:choose_editor_target, :choose_collect_target]
   before_filter :find_collection, except: [:new, :create, :choose_editor_target, :choose_collect_target, :cache_inaturalist_projects]
@@ -400,6 +402,8 @@ private
           (SELECT collected_item_type, collected_item_id, #{destination.id}, NOW(), NOW(), #{current_user.id}
             FROM collection_items WHERE collection_id = #{source.id})"
       )
+      # Because we did it manually, the count (shown in searches) will be off, so fix it:
+      destination.update_attribute(collection_items_count, destination.collection_items.count)
       # TODO - we should actually count the items and store that in the collection activity log. Lots of work:
       log_activity(collection_id: destination.id, activity: Activity.bulk_add)
     end
@@ -605,6 +609,7 @@ private
   def user_able_to_view_collection
     unless @collection && current_user.can_read?(@collection)
       if logged_in?
+        # TODO - second argument to constructor should be an I18n key for a human-readable error.
         raise EOL::Exceptions::SecurityViolation, "User with ID=#{current_user.id} does not have read access to Collection with ID=#{@collection.id}"
       else
         raise EOL::Exceptions::MustBeLoggedIn, "Non-authenticated user does not have read access to Collection with id=#{@collection.id}"
@@ -616,6 +621,7 @@ private
   def user_able_to_edit_collection
     unless @collection && current_user.can_edit_collection?(@collection)
       if logged_in?
+        # TODO - second argument to constructor should be an I18n key for a human-readable error.
         raise EOL::Exceptions::SecurityViolation, "User with ID=#{current_user.id} does not have edit access to Collection with ID=#{@collection.id}"
       else
         raise EOL::Exceptions::MustBeLoggedIn, "Non-authenticated user does not have edit access to Collection with id=#{@collection.id}"

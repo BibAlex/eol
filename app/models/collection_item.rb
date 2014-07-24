@@ -3,6 +3,8 @@
 # ...Also note, that to be "collectable", you must implement #summary_name and #collected_name.
 class CollectionItem < ActiveRecord::Base
 
+  include Refable
+
   belongs_to :collection, touch: true
   belongs_to :collected_item, polymorphic: true
   belongs_to :added_by_user, class_name: User.to_s, foreign_key: :added_by_user_id
@@ -84,6 +86,11 @@ class CollectionItem < ActiveRecord::Base
 
   def as_json(options = {})
     super(options.merge(include: :collected_item))
+  end
+  
+  def older_than?(compared_arg, compared_criteria)
+    compared_time = compared_arg.class.name == self.class.name ? compared_arg.send(compared_criteria) : compared_arg
+    self.send(compared_criteria).nil? ||  self.send(compared_criteria) < compared_time
   end
 
 end

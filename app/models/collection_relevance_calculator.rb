@@ -9,6 +9,7 @@ class CollectionRelevanceCalculator
 
   attr_accessor :collection
 
+  # TODO - this logging is miserable and doesn't cover enough. Improve.
   def self.perform(id)
     Rails.logger.info "++ #{Time.now.strftime("%F %T")} - CollectionRelevanceCalculator performing for collection ##{id}."
     begin
@@ -34,6 +35,8 @@ class CollectionRelevanceCalculator
     return 100 if score >= 100
     collection.update_attributes(relevance: score.to_i)
   end
+
+private
 
   def calculate_feature_relevance
     features = count_containing_collections(is_featured: true)

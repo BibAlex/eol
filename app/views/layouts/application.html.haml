@@ -15,7 +15,8 @@
     - unless @meta_data[:keywords].blank?
       %meta{ :name => "keywords", :content => h(raw(strip_tags(@meta_data[:keywords]))) }
     - # Google Webmaster Tools verification. Must persist to maintain verified ownership.
-    %meta{ name: 'google-site-verification', content: 'lgSVZdLE0qfuWJnvwdMUzYge1rSxfozVLGUys1XTknw' }
+    - Rails.configuration.google_site_verification_keys.each do |key|
+      %meta{ name: 'google-site-verification', content: key }
     - # Prevents generation of links to "smart tags"
     %meta{ :name => "MSSmartTagsPreventParsing", :content => "true" }
     - full_version = ENV["APP_VERSION"].blank? ? I18n.t(:development_version_name) : ENV["APP_VERSION"]
@@ -46,6 +47,8 @@
       = stylesheet_include_i18n_merged 'application_pack', :media => "all"
     /[if IE 7]
       = stylesheet_include_i18n_merged 'ie7', :media => "all"
+    -# TODO - Try loading jQuery from a CDN like http://code.jQuery.com/jQuery-latest.min.js …Though I don’t want to use “latest”. … :)
+
     = javascript_include_tag 'application'
 
     = csrf_meta_tags
@@ -61,17 +64,9 @@
           /========================
 
     #banner
-      %p
-        %strong= I18n.t(:traitbank_intro).html_safe
-        = I18n.t(:traitbank_description)
-        &nbsp;
-        %small •
-        &nbsp;
-        = link_to I18n.t(:traitbank_info_page), '/traitbank'
-        &nbsp;
-        %small •
-        &nbsp;
-        = link_to I18n.t(:traitbank_data_search), data_search_path
+      .site_column
+        - translation_key = EolConfig.banner_i18n_key rescue :traitbank_banner
+        %p= I18n.t(translation_key).html_safe
     #header
       .section
         %h1= link_to I18n.t(:encyclopedia_of_life), root_url, { :title => I18n.t(:home_page_link_advisory_information) }
@@ -124,36 +119,18 @@
       = render '/layouts/footer'
       = yield :footer
     = javascript_include_tag 'head.load.min'
+    - if @jsonld
+      %script{ type: 'application/ld+json' }
+        :plain
+          #{ JSON.pretty_generate(@jsonld) }
+    - elsif @jsonld_url
+      %script{ type: 'application/ld+json', src: @jsonld_url, defer: true }
     - if $GOOGLE_ANALYTICS_ID && $ENABLE_ANALYTICS
       :javascript
         var _gaq = _gaq || [];
         _gaq.push(['_setAccount', '#{$GOOGLE_ANALYTICS_ID}']);
         _gaq.push(['_trackPageview']);
         EOL.after_onload_JS(('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js');
-      - if $ENABLED_SOCIAL_PLUGINS
-        :javascript
-          head.ready("ga.js", function() {
-            head.js('#{ asset_path('ga_social_tracking.js') }');
-            head.ready('#{ File.basename(asset_path('ga_social_tracking.js')) }', function() {
-              var facebook = "#{$ENABLED_SOCIAL_PLUGINS.include?(:facebook) ? true : nil};"
-              var twitter = "#{$ENABLED_SOCIAL_PLUGINS.include?(:twitter) ? true : nil};"
-              if (facebook) { EOL.loadFacebook("#{$FACEBOOK_APP_ID}",""); }
-              if (twitter) { EOL.loadTwitter(); }
-            });
-          });
-    - elsif $ENABLED_SOCIAL_PLUGINS
-      -# NOTE: channel_facebook_url may want to be added to EOL.loadFacebook (second argument), but it's not defined
-      -# anywhere that I can find, so I'm removing it for now.
-      :javascript
-        head.ready("ga.js", function() {
-          head.js('#{ asset_path('ga_social_tracking.js') }');
-          head.ready('#{ File.basename(asset_path('ga_social_tracking.js')) }', function() {
-            var facebook = "#{$ENABLED_SOCIAL_PLUGINS.include?(:facebook) ? true : nil};"
-            var twitter = "#{$ENABLED_SOCIAL_PLUGINS.include?(:twitter) ? true : nil};"
-            if (facebook) { EOL.loadFacebook("#{$FACEBOOK_APP_ID}",""); }
-            if (twitter) { EOL.loadTwitter(); }
-          });
-        });
     - if $GOOGLE_UNIVERSAL_ANALYTICS_ID && $ENABLE_ANALYTICS
       :javascript
         (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
@@ -170,6 +147,7 @@
       %noscript
         %div{ :style => "display: none;" }
           %img{ :src => "http://pixel.quantserve.com/pixel/#{$QUANTCAST_ID}.gif", :height => "1", :width => "1", :alt => "" }
+    -# TODO - update webtrends? http://help.webtrends.com/en/jstag/v9_to_v10_upgrade.html
     - if $ENABLE_WEBTRENDS
       = javascript_include_tag :webtrends
       :javascript

@@ -489,6 +489,7 @@ private
       @page_description = I18n.t(:dato_edit_text_page_description)
       # Be kind, rewind:
       @data_object.attributes = params[:data_object] # Sets them, doesn't save them.
+      @edit_link = @data_object.is_link?
       render action: 'edit', layout: 'basic'
     else
       # Someone PUT directly to /data_objects/NNN with no params.  (Which is... weird.  But hey.)
@@ -544,11 +545,7 @@ private
     references = params[:references].split("\n")
     unless references.blank?
       references.each do |reference|
-        if reference.strip != ''
-          dato.refs << Ref.new(full_reference: reference, user_submitted: true, published: 1,
-                                       visibility: Visibility.visible)
-          sync_create_ref(reference)                       
-        end
+        dato.add_ref(reference, current_user)
       end
     end
   end
@@ -687,13 +684,6 @@ private
       options = {user: current_user, object: comment, action_id: SyncObjectAction.create.id,
                  type_id: SyncObjectType.comment.id, params: sync_params} 
       SyncPeerLog.log_action(options) 
-  end
-  
-  def sync_create_ref(reference)
-    sync_params = {reference: reference}
-    options = {user: current_user, object: nil, action_id: SyncObjectAction.create.id,
-               type_id: SyncObjectType.ref.id, params: sync_params}           
-    SyncPeerLog.log_action(options)  
   end
   
   def sync_curate_association(associations, comments)

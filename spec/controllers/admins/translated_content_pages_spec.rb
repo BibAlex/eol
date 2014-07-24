@@ -40,7 +40,7 @@ describe Admins::TranslatedContentPagesController do
     describe "POST #create" do
      let(:peer_log) {SyncPeerLog.first} 
      
-      context "successful creation" do
+      context "when successful creation" do
         before do
           session[:user_id] = @admin.id
           post :create, { translated_content_page: { language_id: "3", title: "translated content page", 
@@ -104,7 +104,7 @@ describe Admins::TranslatedContentPagesController do
         end
       end
       
-      context "when user has no privileges to create content page" do
+      context "when the user doesn't have  privileges to create translated content page" do
         before do
           post :create, { content_page_id: content_page.id, translated_content_page: { language_id: "3", title: "translated content page", 
                                                    main_content: "<p>main_content</p>\r\n", 
@@ -122,7 +122,7 @@ describe Admins::TranslatedContentPagesController do
         end
       end
       
-      context "invalid content pages parameters: missing body" do
+      context "when creation fails because body of translated content page shouldn't be empty" do
         before(:each) do
           session[:user_id] = @admin.id
           post :create, { translated_content_page: { language_id: "3", title: "translated content page", 
@@ -141,7 +141,7 @@ describe Admins::TranslatedContentPagesController do
         end
       end
       
-      context "invalid content pages parameters: missing title" do
+      context "when creation fails because title of translated content page shouldn't be empty" do
         before(:each) do
           session[:user_id] = @admin.id
           post :create, { translated_content_page: { language_id: "3",
@@ -166,7 +166,7 @@ describe Admins::TranslatedContentPagesController do
      let(:peer_log) { SyncPeerLog.first } 
      subject(:translated_content_page) { TranslatedContentPage.gen(content_page: content_page) } 
      
-      context "successful update" do
+      context "when successful update" do
         before(:each) do
           session[:user_id] = @admin.id
           put :update, { content_page: { last_update_user_id: @admin.id }, 
@@ -229,7 +229,7 @@ describe Admins::TranslatedContentPagesController do
         end
       end
       
-      context "failed update: user havn't privilige to update content page" do
+      context "when the user doesn't have  privileges to update content page" do
         before(:each) do
           put :update, { content_page: { last_update_user_id: @admin.id }, 
                         translated_content_page: { title: "new title", main_content: "<p>main_content</p>\r\n",
@@ -248,7 +248,7 @@ describe Admins::TranslatedContentPagesController do
         end
       end
       
-      context "failed update: missing title" do
+      context "when update fails because title of translated content page shouldn't be empty" do
         before(:each) do
           session[:user_id] = @admin.id
           put :update, { content_page: { last_update_user_id: @admin.id }, 
@@ -268,7 +268,7 @@ describe Admins::TranslatedContentPagesController do
         end
       end
       
-      context "failed update: missing body" do
+      context "when update fails because body of translated content page shouldn't be empty" do
         before(:each) do
           session[:user_id] = @admin.id
           put :update, { content_page: { last_update_user_id: @admin.id }, 
@@ -293,7 +293,7 @@ describe Admins::TranslatedContentPagesController do
      let(:peer_log) { SyncPeerLog.first } 
      subject(:translated_content_page) { TranslatedContentPage.gen(content_page: content_page) } 
      
-      context "successful deletion" do
+      context "when successful deletion" do
         before(:each) do
           session[:user_id] = @admin.id
           delete :destroy, { content_page_id: content_page.id, id: translated_content_page.id }
@@ -328,7 +328,7 @@ describe Admins::TranslatedContentPagesController do
         end
       end
       
-      context "failed deletion" do
+      context "when deletion fails" do
         before do
           delete :destroy, { content_page_id: content_page.id, id: translated_content_page.id }
         end

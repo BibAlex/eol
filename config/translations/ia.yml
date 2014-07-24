@@ -78,11 +78,14 @@ ia:
         email_reports_frequency_hours: Frequentia de reportos per e-mail
       data_object: 
         bibliographic_citation: Citation bibliographic
-        description: Description
+        description: Texto
         object_title: Titulo
         rights_holder: Detentor del derectos
         rights_statement: Declaration del derectos
         source_url: URL de origine
+      data_object_link: 
+        description: Description
+        source_url: URL del ligamine
       eol_statistic: 
         active_curators: Conservatores active
         base_pages: Paginas de base
@@ -185,7 +188,6 @@ ia:
         curation_on_my_watched_item: Actiones conservatori sur objectos, taxones, collectiones o communitates in tu observatorio
         eol_newsletter: Inviar me le bulletin trimestral de EOL
         i_am_being_watched: Tu ha essite addite al observatorio de un altere membro
-        invitation_to_community: Invitation a adherer a un communitate
         made_me_a_manager: Tu ha essite facite gerente de un collection o communitate
         member_joined_my_community: Un nove membro ha adherite a un communitate que tu gere
         member_joined_my_watched_community: Nove membros ha adherite a un communitate ubi tu es membro
@@ -993,8 +995,6 @@ ia:
   delete_community: Deler iste communitate
   detail: Detalio
   development_version_name: V2 VERSION IN DISVELOPPAMENTO - non pro uso public
-  donation_error_no_amount: Per favor selige un amonta a donar.
-  donation_error_only_numbers: Per favor entra un quantitate usante solmente numeros.
   edit_community: Modificar communitate
   edit_my_profile: Modificar mi profilo
   encyclopedia_of_life: Encyclopedia del Vita
@@ -1867,6 +1867,7 @@ ia:
   what_is_this_question: Que es isto?
   will_paginate: 
     next_label: Sequente &#8594;
+    page_gap: "&hellip;"
     previous_label: "&#8592; Precedente"
   you_are_an_admin_so_i_will_show_you_that_the_error_was: "Post que tu es administrator, le message de error es revelate a te:"
   you_are_not_authorized_to_perform_this_action: Tu non es autorisate a exequer iste action.

@@ -8,6 +8,15 @@ class TaxonData < TaxonUserClassificationFilter
   MAXIMUM_DESCENDANTS_FOR_CLADE_RANGES = 15000
   MAXIMUM_DESCENDANTS_FOR_CLADE_SEARCH = 60000
 
+  GGI_URIS = [
+    'http://eol.org/schema/terms/NumberRichSpeciesPagesInEOL',
+    'http://eol.org/schema/terms/NumberOfSequencesInGenBank',
+    'http://eol.org/schema/terms/NumberRecordsInGBIF',
+    'http://eol.org/schema/terms/NumberRecordsInBOLD',
+    'http://eol.org/schema/terms/NumberPublicRecordsInBOLD',
+    'http://eol.org/schema/terms/NumberSpecimensInGGBN',
+    'http://eol.org/schema/terms/NumberReferencesInBHL' ]
+
   # TODO - this doesn't belong here; it has nothing to do with a taxon concept. Move to a DataSearch class. Fix the
   # controller.
   def self.search(options={})
@@ -53,6 +62,15 @@ class TaxonData < TaxonUserClassificationFilter
     end
   end
 
+  def self.counts_of_values_from_search(options={})
+    return { } if options[:attribute].blank?
+    return { } unless EOL::Sparql.connection.counts_of_all_value_known_uris_by_type.keys.map(&:uri).include?(options[:attribute])
+    counts_of_result_value_uris = EOL::Sparql.connection.query(
+      EOL::Sparql::SearchQueryBuilder.prepare_search_query(options.merge({ count_value_uris: true, querystring: nil })))
+    KnownUri.add_to_data(counts_of_result_value_uris)
+    Hash[ counts_of_result_value_uris.collect{ |h| [ h[:value], h[:count] ] } ]
+  end
+
   def self.is_clade_searchable?(taxon_concept)
     taxon_concept.number_of_descendants <= TaxonData::MAXIMUM_DESCENDANTS_FOR_CLADE_SEARCH
   end
@@ -77,7 +95,7 @@ class TaxonData < TaxonUserClassificationFilter
   # NOTE - nil implies bad connection. You should get a TaxonDataSet otherwise!
   def get_data
     if_connection_fails_return(nil) do
-      return @taxon_data_set.dup if @taxon_data_set
+      return @taxon_data_set.dup if defined?(@taxon_data_set)
       taxon_data_set = TaxonDataSet.new(raw_data, taxon_concept_id: taxon_concept.id, language: user.language)
       taxon_data_set.sort
       known_uris = taxon_data_set.collect{ |data_point_uri| data_point_uri.predicate_known_uri }.compact
@@ -115,17 +133,18 @@ class TaxonData < TaxonUserClassificationFilter
 
   def ranges_of_values
     return [] unless should_show_clade_range_data
+    return @ranges_of_values if defined?(@ranges_of_values)
     EOL::Sparql::Client.if_connection_fails_return({}) do
-    results = EOL::Sparql.connection.query(prepare_range_query).delete_if{ |r| r[:measurementOfTaxon] != Rails.configuration.uri_true}
-      KnownUri.add_to_data(results)
-      results.each do |result|
-        [ :min, :max ].each do |m|
-          result[m] = result[m].value.to_f if result[m].is_a?(RDF::Literal)
-          result[m] = DataPointUri.new(DataPointUri.attributes_from_virtuoso_response(result).merge(object: result[m]))
-          result[m].convert_units
+      results = EOL::Sparql.connection.query(prepare_range_query).delete_if{ |r| r[:measurementOfTaxon] != Rails.configuration.uri_true}
+        KnownUri.add_to_data(results)
+        results.each do |result|
+          [ :min, :max ].each do |m|
+            result[m] = result[m].value.to_f if result[m].is_a?(RDF::Literal)
+            result[m] = DataPointUri.new(DataPointUri.attributes_from_virtuoso_response(result).merge(object: result[m]))
+            result[m].convert_units
         end
       end
-      results.delete_if{ |r| r[:min].object.blank? || r[:max].object.blank? || (r[:min].object == 0 && r[:max].object == 0) }
+      @ranges_of_values = results.delete_if{ |r| r[:min].object.blank? || r[:max].object.blank? || (r[:min].object == 0 && r[:max].object == 0) }
     end
   end
 
@@ -135,6 +154,33 @@ class TaxonData < TaxonUserClassificationFilter
     ranges_of_values.select{ |range| KnownUri.uris_for_clade_exemplars.include?(range[:attribute].uri) }
   end
 
+  # we only need a set number of attributes for GGI, and we know there are no associations
+  # so it is more efficient to have a custom query to gather these data. We might be able
+  # to generalize this, for example if we return search results for multiple attributes
+  def data_for_ggi
+    query = "
+      SELECT DISTINCT ?attribute ?value ?data_point_uri ?graph ?taxon_concept_id
+      WHERE {
+        GRAPH ?graph {
+          ?data_point_uri dwc:measurementType ?attribute .
+          ?data_point_uri dwc:measurementValue ?value .
+          FILTER ( ?attribute IN (<#{TaxonData::GGI_URIS.join(">,<")}>))
+        } .
+        {
+          ?data_point_uri dwc:occurrenceID ?occurrence .
+          ?occurrence dwc:taxonID ?taxon .
+          ?data_point_uri eol:measurementOfTaxon eolterms:true .
+          ?taxon dwc:taxonConceptID ?taxon_concept_id .
+          FILTER ( ?taxon_concept_id = <#{UserAddedData::SUBJECT_PREFIX}#{taxon_concept.id}>) .
+        }
+      }
+      LIMIT 100"
+    results = EOL::Sparql.connection.query(query)
+    KnownUri.add_to_data(results)
+    Resource.add_to_data(results)
+    results
+  end
+
   private
 
     def raw_data
@@ -142,9 +188,10 @@ class TaxonData < TaxonUserClassificationFilter
     end
 
     def measurement_data(options = {})
-      selects = "?attribute ?value ?unit_of_measure_uri ?statistical_method ?life_stage ?sex ?data_point_uri ?graph ?taxon_concept_id"
       query = "
-        SELECT DISTINCT #{selects}
+        SELECT DISTINCT ?attribute ?value ?unit_of_measure_uri
+          ?statistical_method ?life_stage ?sex ?data_point_uri ?graph
+          ?taxon_concept_id
         WHERE {
           GRAPH ?graph {
             ?data_point_uri dwc:measurementType ?attribute .
@@ -175,9 +222,9 @@ class TaxonData < TaxonUserClassificationFilter
     end
 
     def association_data(options = {})
-      selects = "?attribute ?value ?target_taxon_concept_id ?inverse_attribute ?data_point_uri ?graph"
       query = "
-        SELECT DISTINCT #{selects}
+        SELECT DISTINCT ?attribute ?value ?target_taxon_concept_id
+          ?inverse_attribute ?data_point_uri ?graph
         WHERE {
           GRAPH ?resource_mappings_graph {
             ?taxon dwc:taxonConceptID ?source_taxon_concept_id .

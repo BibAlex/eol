@@ -25,20 +25,17 @@ class TranslatedContentPage < ActiveRecord::Base
     title + " (" + self.language.iso_639_1 + ")"
   end
 
-  def content_is_blank?
-    self.main_content.blank? && self.left_content.blank?
-  end
-
-  def left_content_is_blank?
-    self.left_content.blank?
-  end
-
   def page_url
     return self.page_name.gsub(' ', '_').downcase
   end
 
   def is_discover_page?
     main_content =~ /discover_content_section/
+  end
+  
+  def older_than?(compared_arg, compared_criteria)
+    compared_time = compared_arg.class.name == self.class.name ? compared_arg.send(compared_criteria) : compared_arg
+    self.send(compared_criteria).nil? ||  self.send(compared_criteria) < compared_time
   end
 
 private
