@@ -928,4 +928,34 @@ class SyncPeerLog < ActiveRecord::Base
       search_suggestion.update_attributes(parameters)
     end
   end
+  
+  def self.create_glossary_term(parameters)
+    # duplicate term then keep last
+    duplicate_term = GlossaryTerm.find_by_term(parameters[:term]) 
+    if duplicate_term.nil? || (duplicate_term && parameters[:action_taken_at] > duplicate_term.created_at)
+      duplicate_term.destroy if duplicate_term
+      parameters[:origin_id] = parameters[:sync_object_id]
+      parameters[:site_id] = parameters[:sync_object_site_id]
+      parameters[:created_at] = parameters[:action_taken_at]
+      parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                                :action_taken_at, :language],parameters)
+      GlossaryTerm.create(parameters)
+    end
+  end
+  
+  def self.hide_user(parameters)
+    user = User.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    admin = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    user.update_column(:hidden, 1)
+    user.hide_comments(admin)
+    user.hide_data_objects
+  end
+  
+  def self.show_user(parameters)
+    user = User.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    admin = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    user.update_column(:hidden, 0)
+    user.unhide_comments(admin)
+    user.unhide_data_objects
+  end
 end

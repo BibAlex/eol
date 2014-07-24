@@ -7,14 +7,41 @@ end
   
 describe SyncPeerLog do
   before(:all) do
-      truncate_all_tables
-      load_foundation_cache
-      SyncObjectType.create_enumerated
-      SyncObjectAction.create_enumerated
-      SpecialCollection.create_enumerated
-      Visibility.create_enumerated
-      Activity.create_enumerated
-      TocItem.gen_if_not_exists(:label => 'overview')
+    truncate_all_tables
+    load_foundation_cache
+    SyncObjectType.create_enumerated
+    SyncObjectAction.create_enumerated
+    SpecialCollection.create_enumerated
+    Visibility.create_enumerated
+    Activity.create_enumerated
+    TocItem.gen_if_not_exists(:label => 'overview')
+  end
+  describe "glossary term" do
+    describe ".create_glossary_term" do
+      let(:taxon_concept) { TaxonConcept.first }
+      before do
+        user = User.first
+        user.update_attributes(active: true, origin_id: user.id, site_id: PEER_SITE_ID, admin: 1)
+        sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id,
+                                        sync_object_type_id: SyncObjectType.glossary_term.id,
+                                        user_site_object_id: user.origin_id,
+                                        user_site_id: user.site_id, 
+                                        sync_object_id: 80, #create a new one with this origin_id 
+                                        sync_object_site_id: PEER_SITE_ID)
+        parameters_values_hash = { term: "create_term", definition: "create_def"}
+        create_log_action_parameters(parameters_values_hash, sync_peer_log)
+        sync_peer_log.process_entry
+      end
+      it "creates new glossary term with the correct parameters" do
+        glossary_term = GlossaryTerm.find_by_origin_id(80)
+        expect(glossary_term).not_to be_nil
+        expect(glossary_term.term).to eq("create_term")
+        expect(glossary_term.definition).to eq("create_def")
+      end
+      after do
+        GlossaryTerm.find_by_origin_id(80).destroy if GlossaryTerm.find_by_origin_id(80)
+      end
+    end
   end
   describe "search suggestion" do
     describe ".create_search_suggestion" do
@@ -855,6 +882,46 @@ describe SyncPeerLog do
       end
       #TODO handle pull failures  
       context "failed update user not found" do
+      end
+    end
+    
+    describe ".hide_user" do
+      subject(:user) { User.first }
+      subject(:admin) { User.last }
+      before(:all) do
+        truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+        user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+        admin.update_attributes(origin_id: admin.id, site_id: PEER_SITE_ID, admin: 1)
+        sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.hide.id, 
+                                        sync_object_type_id: SyncObjectType.user.id,
+                                        user_site_object_id: admin.origin_id, 
+                                        user_site_id: admin.site_id,
+                                        sync_object_id: user.origin_id, 
+                                        sync_object_site_id: user.site_id)
+        sync_peer_log.process_entry
+      end
+      it "hides user" do
+        expect(User.first.hidden).to eq(1)
+      end
+    end
+    
+    describe ".show _user" do
+      subject(:user) { User.first }
+      subject(:admin) { User.last }
+      before(:all) do
+        truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+        user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+        admin.update_attributes(origin_id: admin.id, site_id: PEER_SITE_ID, admin: 1)
+        sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.show.id, 
+                                        sync_object_type_id: SyncObjectType.user.id,
+                                        user_site_object_id: admin.origin_id, 
+                                        user_site_id: admin.site_id,
+                                        sync_object_id: user.origin_id, 
+                                        sync_object_site_id: user.site_id)
+        sync_peer_log.process_entry
+      end
+      it "hides user" do
+        expect(User.first.hidden).to eq(0)
       end
     end
   end

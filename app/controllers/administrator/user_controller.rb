@@ -182,11 +182,11 @@ class Administrator::UserController  < AdminController
   end
 
   def hide
-    user = User.find(params[:id])
-    user.hidden = 1
-    user.save
-    user.hide_comments(current_user)
-    user.hide_data_objects
+    @user = User.find(params[:id])
+    @user.update_column(:hidden, 1)
+    @user.hide_comments(current_user)
+    @user.hide_data_objects
+    sync_hide_user
     # clear home page cached comments
     clear_cached_homepage_activity_logs
     flash[:notice] = I18n.t("admin_user_hide_successful_notice")
@@ -194,11 +194,11 @@ class Administrator::UserController  < AdminController
   end
 
   def unhide
-    user = User.find(params[:id])
-    user.hidden = 0
-    user.save
-    user.unhide_comments(current_user)
-    user.unhide_data_objects
+    @user = User.find(params[:id])
+    @user.update_column(:hidden, 0)
+    @user.unhide_comments(current_user)
+    @user.unhide_data_objects
+    sync_show_user
     # clear home page cached comments
     clear_cached_homepage_activity_logs
     flash[:notice] = I18n.t("admin_user_unhide_successful_notice")
@@ -306,6 +306,18 @@ private
 
     options = { user: admin, object: @user, action_id: SyncObjectAction.update_by_admin.id,
             type_id: SyncObjectType.user.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_hide_user
+    options = { user: current_user, object: @user, action_id: SyncObjectAction.hide.id,
+                type_id: SyncObjectType.user.id, params: { hidden: 0 } }
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_show_user
+    options = { user: current_user, object: @user, action_id: SyncObjectAction.show.id,
+                type_id: SyncObjectType.user.id, params: { hidden: 1 } }
     SyncPeerLog.log_action(options)
   end
 end
