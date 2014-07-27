@@ -114,6 +114,7 @@ class Administrator::UserController  < AdminController
       if EOLConvert.to_boolean(params[:user][:curator_approved])
         @user.grant_curator(:full, by: current_user)
       end
+      sync_create_user
       flash[:notice] = I18n.t("the_new_user_was_created")
       redirect_back_or_default(url_for(action: 'index'))
     else
@@ -319,5 +320,21 @@ private
     options = { user: current_user, object: @user, action_id: SyncObjectAction.show.id,
                 type_id: SyncObjectType.user.id, params: { hidden: 1 } }
     SyncPeerLog.log_action(options)
+  end
+  
+  def sync_create_user
+    collection = @user.watch_collection
+    if collection       
+      sync_params = { language: current_language,
+                      validation_code: @user.validation_code,
+                      remote_ip: request.remote_ip,
+                      created_at: @user.created_at,
+                      collection_site_id: collection.site_id,
+                      collection_origin_id: collection.origin_id }.reverse_merge(params[:user])
+      sync_params = SyncPeerLog.delete_keys([:email, :email_confirmation, :entered_password, :entered_password_confirmation], sync_params)
+      options = { user: @user, object: @user, action_id: SyncObjectAction.create.id,
+                 type_id: SyncObjectType.user.id, params: sync_params }
+      SyncPeerLog.log_action(options)
+    end
   end
 end

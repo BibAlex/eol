@@ -1,5 +1,5 @@
 class ContentPartnerAgreement < ActiveRecord::Base
-
+  extend SiteSpecific
   belongs_to :content_partner
 
   before_save :set_all_other_agreements_to_not_current, if: :is_current

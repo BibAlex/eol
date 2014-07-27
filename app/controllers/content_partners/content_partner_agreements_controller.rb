@@ -28,6 +28,7 @@ class ContentPartners::ContentPartnerAgreementsController < ContentPartnersContr
       else
         flash[:notice] = I18n.t(:content_partner_agreement_create_successful_notice)
       end
+      sync_create_agreement
       redirect_to content_partner_resources_path(@partner), status: :moved_permanently
     else
       if params[:commit_agree_to_terms]
@@ -82,5 +83,13 @@ private
     params[:content_partner_agreement][:signed_on_date] ||= Time.now
     params[:content_partner_agreement][:ip_address] ||= request.remote_ip
     params[:content_partner_agreement][:is_current] ||= true
+  end
+  # TODO upload file
+  def sync_create_agreement
+    sync_params = { partner_origin_id: @partner.origin_id,
+                    partner_site_id: @partner.site_id }
+    options = {user: @current_user, object: @new_agreement, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.agreement.id, params: sync_params}
+    SyncPeerLog.log_action(options)
   end
 end
