@@ -577,9 +577,7 @@ private
                      remote_ip: request.remote_ip,
                      created_at: @user.created_at,
                      collection_site_id: collection.site_id,
-                     collection_origin_id: collection.origin_id,
-                     created_at: @user.created_at,
-                     updated_at: @user.updated_at }.reverse_merge(params[:user])
+                     collection_origin_id: collection.origin_id }.reverse_merge(params[:user])
       sync_params = SyncPeerLog.delete_keys([:email, :email_confirmation, :entered_password, :entered_password_confirmation], sync_params)
       options = {user: @user, object: @user, action_id: SyncObjectAction.create.id,
                  type_id: SyncObjectType.user.id, params: sync_params}

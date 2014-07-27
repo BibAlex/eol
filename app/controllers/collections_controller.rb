@@ -734,9 +734,7 @@ private
   
   # synchronization
   def sync_create_collection
-    sync_params = { created_at: @collection.created_at,
-                    updated_at: @collection.updated_at, 
-                    base: true }.reverse_merge(params[:collection])
+    sync_params = { base: true }.reverse_merge(params[:collection])
     options = {user: current_user, object: @collection, action_id: SyncObjectAction.create.id,
                 type_id: SyncObjectType.collection.id, params: sync_params}       
     SyncPeerLog.log_action(options)
@@ -745,9 +743,7 @@ private
   def sync_create_collection_item
     col_item = CollectionItem.find_by_collection_id_and_collected_item_id(@collection.id, @item.id)
     sync_params = {collected_item_type: params[:item_type], collected_item_name: @item.summary_name,                                                
-                   item_id: @item.origin_id, item_site_id: @item.site_id, base_item: true,
-                   created_at: col_item.created_at,
-                   updated_at: col_item.updated_at } 
+                   item_id: @item.origin_id, item_site_id: @item.site_id, base_item: true } 
                    
     options = {user: current_user, object: @collection, action_id: SyncObjectAction.add.id,
                type_id: SyncObjectType.collection_item.id, params: sync_params}                                                               

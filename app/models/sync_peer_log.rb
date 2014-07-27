@@ -156,14 +156,12 @@ class SyncPeerLog < ActiveRecord::Base
                                        
     user = User.find_site_specific(parameters[:origin_id], parameters[:site_id])
     if user
-      debugger
       user.update_attributes(parameters)
       # call log activity
       user.log_activity(:updated_user)
       
       parameters[:base_url] = base_url
       download_object_logo("User", user, parameters)
-      user.update_attributes(updated_at: parameters[:updated_at])
    end
   end
   
@@ -223,11 +221,10 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.activate_user(parameters)
-    debugger
     user = User.where(site_id: parameters[:sync_object_site_id], origin_id: parameters[:sync_object_id])
     if user && !(user.empty?)
       user = user.first
-      user.update_attributes(active: true, validation_code: nil, updated_at: parameters[:updated_at])
+      user.update_attributes(active: true, validation_code: nil)
       user.add_to_index
       if parameters[:collection_site_id]
         user.build_watch_collection(parameters[:collection_site_id], parameters[:collection_origin_id])
@@ -249,7 +246,6 @@ class SyncPeerLog < ActiveRecord::Base
     collection.save  
     collection.users = [collection_owner] unless collection_owner.nil?           
     CollectionActivityLog.create(collection: collection, user: collection_owner, activity: Activity.create) if base
-    collection.update_attributes(updated_at: parameters[:updated_at])
   end
   
   
@@ -353,13 +349,9 @@ class SyncPeerLog < ActiveRecord::Base
         auto_collect_helper(col, options)
         add_item_to_collection(col, item)
         col_item = CollectionItem.find_by_collection_id_and_collected_item_id(col.id, item.id)
-        col_item.update_attributes(created_at: parameters[:created_at],
-                                   updated_at: parameters[:updated_at])
       elsif parameters[:add_item]
         col_item = CollectionItem.create(name: parameters[:collected_item_name], collected_item_type: parameters[:collected_item_type],
-                                         collection_id: col.id, collected_item_id: item.id,
-                                         created_at: parameters[:created_at],
-                                         updated_at: parameters[:updated_at])
+                                         collection_id: col.id, collected_item_id: item.id)
         CollectionActivityLog.create(collection: col_item.collection, user: user,
                                   activity: Activity.collect, collection_item: col_item)
         col.updated_at = parameters[:collection_updated_at]
@@ -936,5 +928,57 @@ class SyncPeerLog < ActiveRecord::Base
                                 :action_taken_at, :language, :taxon_concept_origin_id, :taxon_concept_site_id],parameters)
       search_suggestion.update_attributes(parameters)
     end
+  end
+  
+  def self.create_glossary_term(parameters)
+    # duplicate term then keep last
+    duplicate_term = GlossaryTerm.find_by_term(parameters[:term]) 
+    if duplicate_term.nil? || (duplicate_term && parameters[:action_taken_at] > duplicate_term.created_at)
+      duplicate_term.destroy if duplicate_term
+      parameters[:origin_id] = parameters[:sync_object_id]
+      parameters[:site_id] = parameters[:sync_object_site_id]
+      parameters[:created_at] = parameters[:action_taken_at]
+      parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                                :action_taken_at, :language],parameters)
+      GlossaryTerm.create(parameters)
+    end
+  end
+  
+  def self.hide_user(parameters)
+    user = User.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    admin = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    user.update_column(:hidden, 1)
+    user.hide_comments(admin)
+    user.hide_data_objects
+  end
+  
+  def self.show_user(parameters)
+    user = User.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    admin = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    user.update_column(:hidden, 0)
+    user.unhide_comments(admin)
+    user.unhide_data_objects
+  end
+  
+  def self.create_agreement(parameters)
+    # TODO upload file
+    parameters[:origin_id] = parameters[:sync_object_id]
+    parameters[:site_id] = parameters[:sync_object_site_id]
+    parameters[:created_at] = parameters[:action_taken_at]
+    partner = ContentPartner.find_site_specific(parameters[:partner_origin_id], parameters[:partner_site_id])
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                              :action_taken_at, :language, :partner_origin_id, :partner_site_id],parameters)
+    agreement = partner.content_partner_agreements.build(parameters)
+    agreement.save
+  end
+  
+  def self.create_contact
+    parameters[:origin_id] = parameters[:sync_object_id]
+    parameters[:site_id] = parameters[:sync_object_site_id]
+    parameters[:created_at] = parameters[:action_taken_at]
+    partner = ContentPartner.find_site_specific(parameters[:partner_origin_id], parameters[:partner_site_id])
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                              :action_taken_at, :language, :partner_origin_id, :partner_site_id],parameters)
+    partner.content_partner_contacts.build(parameters)
   end
 end

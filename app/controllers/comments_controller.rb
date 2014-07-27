@@ -167,9 +167,7 @@ private
                    visible_at: @comment.visible_at,
                    hidden: @comment.hidden,
                    comment_parent_origin_id: @comment.parent.origin_id,
-                   comment_parent_site_id: @comment.parent.site_id,
-                   created_at: @comment.created_at,
-                   updated_at: @comment.updated_at}.reverse_merge(params[:comment])
+                   comment_parent_site_id: @comment.parent.site_id }.reverse_merge(params[:comment])
     sync_params.delete("parent_id")
     sync_params.delete("reply_to_id")
     if parent_comment

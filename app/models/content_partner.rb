@@ -1,5 +1,6 @@
 class ContentPartner < ActiveRecord::Base
- 
+  extend SiteSpecific
+  
   belongs_to :user
   belongs_to :content_partner_status
 

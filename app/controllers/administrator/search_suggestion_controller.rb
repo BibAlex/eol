@@ -48,9 +48,9 @@ class Administrator::SearchSuggestionController < AdminController
   def update
     @search_suggestion = SearchSuggestion.find(params[:id])
     if @search_suggestion.update_attributes(params[:search_suggestion])
+      sync_update_search_suggestion
       flash[:notice] = I18n.t(:search_suggestion_updated)
       redirect_back_or_default(url_for(action: 'index'))
-      sync_update_search_suggestion
     else
       render action: "edit"
     end

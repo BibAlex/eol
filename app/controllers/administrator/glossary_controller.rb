@@ -28,7 +28,9 @@ class Administrator::GlossaryController < AdminController
       flash[:error] = I18n.t(:term_is_already_def_error, term: params[:glossary_term][:term] )
       redirect_to action: 'index', status: :moved_permanently
     else
-      GlossaryTerm.create(params[:glossary_term])
+      @glossary_term = GlossaryTerm.create(params[:glossary_term])
+      @glossary_term.update_attributes(origin_id: @glossary_term.id, site_id: PEER_SITE_ID)
+      sync_create_glossary_term
       redirect_to action: 'index', status: :moved_permanently
     end
   end
@@ -61,5 +63,11 @@ private
     @page_title = $ADMIN_CONSOLE_TITLE
     @navigation_partial = '/admin/navigation'
   end
-
+  
+  def sync_create_glossary_term
+    sync_params = params[:glossary_term]
+    options = {user: current_user, object: @glossary_term, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.glossary_term.id, params: sync_params}
+    SyncPeerLog.log_action(options)
+  end
 end

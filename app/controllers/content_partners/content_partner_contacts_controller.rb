@@ -20,6 +20,7 @@ class ContentPartners::ContentPartnerContactsController < ContentPartnersControl
     @contact = @partner.content_partner_contacts.build(params[:content_partner_contact])
     access_denied && return unless current_user.can_create?(@contact)
     if @contact.save
+      sync_create_contact
       flash[:notice] = I18n.t(:content_partner_contact_create_successful_notice)
       redirect_to content_partner_resources_path(@partner), status: :moved_permanently
     else
@@ -80,5 +81,13 @@ private
   def set_edit_contact_options
     set_contact_options
     @page_subheader = I18n.t(:content_partner_contact_edit_page_subheader)
+  end
+  
+  def sync_create_contact
+    sync_params = { partner_origin_id: @partner.origin_id,
+                    partner_site_id: @partner.site_id }
+    options = { user: current_user, object: @contact, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.contact.id, params: sync_params }
+    SyncPeerLog.log_action(options)
   end
 end

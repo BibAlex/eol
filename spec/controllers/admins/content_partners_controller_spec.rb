@@ -135,5 +135,4 @@ describe Admins::ContentPartnersController do
       assigns[:harvest_events].should == [he]
     end
   end
-
 end

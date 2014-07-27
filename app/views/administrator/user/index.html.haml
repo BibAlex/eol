@@ -77,9 +77,15 @@
               = h user.id
             %td{ :class => column_class }
               - if user.username.nil?
-                = link_to "N/A", edit_administrator_user_path(user)
+                - if user.site_id == PEER_SITE_ID
+                  = link_to "N/A", edit_administrator_user_path(user)
+                - else
+                  = "N/A"
               - else
-                = link_to user.username, edit_administrator_user_path(user)
+                - if user.site_id == PEER_SITE_ID
+                  = link_to user.username, edit_administrator_user_path(user)
+                - else
+                  = link_to user.username, user_path(user)
             %td{ :class => column_class }
               = h user.email
             %td{ :class => column_class }
@@ -93,7 +99,7 @@
             %td{ :class => column_class }
               = user.is_hidden? ? I18n.t("yes_answer") : I18n.t("no_answer")
             %td{ :class => column_class }
-              - if !user.is_curator? and !user.is_content_partner?
+              - if !user.is_curator? and !user.is_content_partner? and user.site_id == PEER_SITE_ID
                 = link_to(I18n.t("hide"), hide_administrator_user_path(user)) unless user.is_hidden?
                 = link_to(I18n.t("show"), unhide_administrator_user_path(user)) if user.is_hidden?
       %br
