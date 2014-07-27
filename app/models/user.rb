@@ -1017,6 +1017,7 @@ public
     else
       sync_params = {collection_origin_id: nil, collection_site_id: nil}
     end
+    sync_params = sync_params.reverse_merge(updated_at: self.updated_at)
     options = {user: self, object: self, action_id: SyncObjectAction.activate.id,
                     type_id: SyncObjectType.user.id, params: sync_params}
     SyncPeerLog.log_action(options)

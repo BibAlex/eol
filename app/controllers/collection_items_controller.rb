@@ -182,7 +182,11 @@ private
   end
   
   def sync_create_collection_item(col, sync_params)
-    sync_params =  sync_params.reverse_merge(collection_updated_at: col.updated_at)
+    item = params[:collection_item][:collected_item_type].constantize.find(params[:collection_item][:collected_item_id])
+    col_item = CollectionItem.find_by_collection_id_and_collected_item_id(col.id, item.id)
+    sync_params =  sync_params.reverse_merge(collection_updated_at: col.updated_at,
+                                             created_at: col_item.created_at,
+                                             updated_at: col_item.updated_at)
     options = {user: current_user, object: col, action_id: SyncObjectAction.add.id,
                type_id: SyncObjectType.collection_item.id, params: sync_params}           
     SyncPeerLog.log_action(options)

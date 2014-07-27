@@ -62,7 +62,7 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.delete_keys(keys, hash)
-    keys.each { |key| hash.delete key}
+    keys.each { |key| hash.delete key }
     hash
   end
   
@@ -83,9 +83,9 @@ class SyncPeerLog < ActiveRecord::Base
     local_peer_logs = get_local_changes(action, sync_object_site_id, sync_object_id, parameters)
     if local_peer_logs.empty?
       SyncPeerLog.create(user_site_id: user_site_id, user_site_object_id: user_site_object_id,
-                       action_taken_at: time, sync_object_action_id: sync_object_action_id,
-                       sync_object_type_id: sync_object_type_id, sync_object_site_id: sync_object_site_id,
-                       sync_object_id: sync_object_id)
+                         action_taken_at: time, sync_object_action_id: sync_object_action_id,
+                         sync_object_type_id: sync_object_type_id, sync_object_site_id: sync_object_site_id,
+                         sync_object_id: sync_object_id)
     else
       delete_local_changes(local_peer_logs)
       return nil
@@ -152,16 +152,18 @@ class SyncPeerLog < ActiveRecord::Base
     parameters[:origin_id] = parameters[:sync_object_id]
     base_url = parameters[:base_url]
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
-                                       :action_taken_at, :base_url],parameters)
+                              :action_taken_at, :base_url],parameters)
                                        
     user = User.find_site_specific(parameters[:origin_id], parameters[:site_id])
     if user
+      debugger
       user.update_attributes(parameters)
       # call log activity
       user.log_activity(:updated_user)
       
       parameters[:base_url] = base_url
       download_object_logo("User", user, parameters)
+      user.update_attributes(updated_at: parameters[:updated_at])
    end
   end
   
@@ -221,10 +223,11 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.activate_user(parameters)
+    debugger
     user = User.where(site_id: parameters[:sync_object_site_id], origin_id: parameters[:sync_object_id])
     if user && !(user.empty?)
       user = user.first
-      user.update_attributes(active: true, validation_code: nil)
+      user.update_attributes(active: true, validation_code: nil, updated_at: parameters[:updated_at])
       user.add_to_index
       if parameters[:collection_site_id]
         user.build_watch_collection(parameters[:collection_site_id], parameters[:collection_origin_id])
@@ -240,14 +243,13 @@ class SyncPeerLog < ActiveRecord::Base
     parameters[:origin_id] = parameters[:sync_object_id]    
     base = parameters[:base]  
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
-                                       :action_taken_at, :language , :base],parameters)
+                              :action_taken_at, :language , :base],parameters)
     
     collection = Collection.new(parameters)
     collection.save  
     collection.users = [collection_owner] unless collection_owner.nil?           
-    
     CollectionActivityLog.create(collection: collection, user: collection_owner, activity: Activity.create) if base
-   
+    collection.update_attributes(updated_at: parameters[:updated_at])
   end
   
   
@@ -263,7 +265,7 @@ class SyncPeerLog < ActiveRecord::Base
         base_url = parameters[:base_url]  
         # remove extra parameters which not needed in creating collection
         parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
-                                         :action_taken_at, :language , :updated_at, :base_url],parameters)
+                                  :action_taken_at, :language , :updated_at, :base_url],parameters)
 
         collection.update_attributes(parameters)
         name_changed = parameters[:name] != collection.name
@@ -340,7 +342,7 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
  # add item to collection
-  def self.add_collection_item(parameters) 
+  def self.add_collection_item(parameters)
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     item = parameters[:collected_item_type].constantize.find_site_specific(parameters[:item_id], parameters[:item_site_id])
     col = Collection.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
@@ -350,9 +352,14 @@ class SyncPeerLog < ActiveRecord::Base
         options = {user: user}
         auto_collect_helper(col, options)
         add_item_to_collection(col, item)
+        col_item = CollectionItem.find_by_collection_id_and_collected_item_id(col.id, item.id)
+        col_item.update_attributes(created_at: parameters[:created_at],
+                                   updated_at: parameters[:updated_at])
       elsif parameters[:add_item]
         col_item = CollectionItem.create(name: parameters[:collected_item_name], collected_item_type: parameters[:collected_item_type],
-                                         collection_id: col.id, collected_item_id: item.id)
+                                         collection_id: col.id, collected_item_id: item.id,
+                                         created_at: parameters[:created_at],
+                                         updated_at: parameters[:updated_at])
         CollectionActivityLog.create(collection: col_item.collection, user: user,
                                   activity: Activity.collect, collection_item: col_item)
         col.updated_at = parameters[:collection_updated_at]

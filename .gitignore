@@ -79,3 +79,5 @@ solr2/solr/data/*
 vendor/eol_org
 tags
 public/files/solr_import_file.csv
+solr2/solr/data/site_search/index/segments.gen
+solr2/solr/data/activity_logs/index/segments.gen
