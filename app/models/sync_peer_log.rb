@@ -972,6 +972,15 @@ class SyncPeerLog < ActiveRecord::Base
     agreement.save
   end
   
+  def self.update_agreement(parameters)
+    # TODO upload file
+    agreement = ContentPartnerAgreement.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    parameters[:updated_at] = parameters[:action_taken_at]
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                              :action_taken_at, :language, :partner_origin_id, :partner_site_id],parameters)
+    agreement.update_attributes(parameters)
+  end
+  
   def self.create_contact
     parameters[:origin_id] = parameters[:sync_object_id]
     parameters[:site_id] = parameters[:sync_object_site_id]

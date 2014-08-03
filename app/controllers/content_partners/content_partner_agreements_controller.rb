@@ -58,6 +58,7 @@ class ContentPartners::ContentPartnerAgreementsController < ContentPartnersContr
       if params[:commit_agree_to_terms]
         flash[:notice] = I18n.t(:content_partner_agreement_signed_successful_notice)
       else
+        sync_update_agreement
         flash[:notice] = I18n.t(:content_partner_agreement_update_successful_notice)
       end
       redirect_to content_partner_resources_path(@partner), status: :moved_permanently
@@ -90,6 +91,14 @@ private
     sync_params = { partner_origin_id: @partner.origin_id,
                     partner_site_id: @partner.site_id }.reverse_merge(params[:content_partner_agreement])
     options = {user: @current_user, object: @new_agreement, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.agreement.id, params: sync_params}
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_agreement
+    sync_params = { partner_origin_id: @partner.origin_id,
+                    partner_site_id: @partner.site_id }.reverse_merge(params[:content_partner_agreement])
+    options = {user: @current_user, object: @agreement, action_id: SyncObjectAction.update.id,
                type_id: SyncObjectType.agreement.id, params: sync_params}
     SyncPeerLog.log_action(options)
   end
