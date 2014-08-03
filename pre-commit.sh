@@ -1,3 +1,4 @@
+echo "entered"
 FILES_PATTERN='\.(rb)'
 FORBIDDEN='search_suggestion_controller.rb'
 git diff --cached --name-only | \
