@@ -10,19 +10,19 @@ describe ContentPartners::ContentPartnerContactsController do
   before(:all) do
     Language.create_english
     ContentPartnerStatus.create_enumerated
+    SyncObjectType.create_enumerated
+    SyncObjectAction.create_enumerated
   end
 
   let(:content_partner) { ContentPartner.gen(full_name: 'Test content partner') }
 
-  before do
-    allow(controller).to receive(:check_authentication) { false }
-    @user = build_stubbed(User)
-    allow(@user).to receive(:can_create?) { true }
-    allow(controller).to receive(:current_user) { @user }
-  end
-
   describe 'GET new' do
-
+    before(:all) do
+      allow(controller).to receive(:check_authentication) { false }
+      @user = build_stubbed(User)
+      allow(@user).to receive(:can_create?) { true }
+      allow(controller).to receive(:current_user) { @user }
+    end
     it 'checks authentication' do
       get :new, content_partner_id: content_partner.id
       expect(controller).to have_received(:check_authentication)
@@ -53,7 +53,12 @@ describe ContentPartners::ContentPartnerContactsController do
   end
 
   describe 'POST create' do
-
+    before(:all) do
+      allow(controller).to receive(:check_authentication) { false }
+      @user = build_stubbed(User)
+      allow(@user).to receive(:can_create?) { true }
+      allow(controller).to receive(:current_user) { @user }
+    end
     it 'checks authentication' do
       post :create, content_partner_contact: {}, content_partner_id: content_partner.id
       expect(controller).to have_received(:check_authentication)
@@ -128,4 +133,74 @@ describe ContentPartners::ContentPartnerContactsController do
 
   it 'will test all the delete stuff'
 
+  describe "Synchronization" do
+    before(:all) do
+      ContentPartnerStatus.create_enumerated
+      SyncObjectType.create_enumerated
+      SyncObjectAction.create_enumerated
+    end
+    describe "POST #create" do
+      let(:current_user) { User.gen }
+      let(:type) { SyncObjectType.contact }
+      let(:action) { SyncObjectAction.create }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id) }
+      let(:contact) { build(ContentPartnerContact, content_partner: content_partner) }
+      before do
+        current_user.update_attributes(origin_id: current_user.id, site_id: PEER_SITE_ID, admin: 1)
+        content_partner.update_attributes(origin_id: content_partner.id, site_id: PEER_SITE_ID)
+        truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+        allow(controller).to receive(:current_user) { current_user }
+        session[:user_id] = current_user.id
+        post :create,
+          content_partner_contact: contact.attributes,
+          content_partner_id: content_partner.id
+      end
+      
+      it "creates sync peer log" do
+        expect(peer_log).not_to be_nil
+      end
+      it "creates sync peer log with correct sync_object_action" do
+        expect(peer_log.sync_object_action_id).to eq(action.id)
+      end
+      it "creates sync peer log with correct sync_object_type" do
+        expect(peer_log.sync_object_type_id).to eq(type.id)
+      end
+      it "creates sync peer log with correct user_site_id" do
+        expect(peer_log.user_site_id).to eq(current_user.site_id)
+      end
+      it "creates sync peer log with correct user_site_object_id" do
+        expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+      end
+      it "creates sync peer log with correct sync_object_id" do
+        expect(peer_log.sync_object_id).to eq(ContentPartnerContact.last.origin_id)
+      end
+      it "creates sync peer log with correct sync_object_site_id" do
+        expect(peer_log.sync_object_site_id).to eq(ContentPartnerContact.last.site_id)
+      end
+      it "creates sync log action parameter for partner_origin_id" do
+        partner_origin_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "partner_origin_id")
+        expect(partner_origin_id_parameter[0][:value]).to eq(content_partner.origin_id.to_s)
+      end
+      it "creates sync log action parameter for partner_site_id" do
+        partner_site_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "partner_site_id")
+        expect(partner_site_id_parameter[0][:value]).to eq(content_partner.site_id.to_s)
+      end
+      it "creates sync log action parameter for full_name" do
+        full_name_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "full_name")
+        expect(full_name_parameter[0][:value]).to eq(ContentPartnerContact.last.full_name)
+      end
+      it "creates sync log action parameter for given_name" do
+        given_name_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "given_name")
+        expect(given_name_parameter[0][:value]).to eq(ContentPartnerContact.last.given_name)
+      end
+      it "creates sync log action parameter for email" do
+        email_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "email")
+        expect(email_parameter[0][:value]).to eq(ContentPartnerContact.last.email)
+      end
+      after(:each) do
+        User.last.destroy
+        ContentPartnerContact.last.destroy if ContentPartnerContact.last 
+      end
+    end
+  end
 end
