@@ -16,6 +16,40 @@ describe SyncPeerLog do
     Activity.create_enumerated
     TocItem.gen_if_not_exists(:label => 'overview')
   end
+  describe "Content partner contact" do
+    describe ".create_contact" do
+      let(:partner) { ContentPartner.gen }
+      before do
+        partner.update_attributes(origin_id: partner.id, site_id: PEER_SITE_ID)
+        user = User.first
+        user.update_attributes(active: true, origin_id: user.id, site_id: PEER_SITE_ID, admin: 1)
+        sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id,
+                                        sync_object_type_id: SyncObjectType.contact.id,
+                                        user_site_object_id: user.origin_id,
+                                        user_site_id: user.site_id, 
+                                        sync_object_id: 80, #create a new one with this origin_id 
+                                        sync_object_site_id: PEER_SITE_ID)
+        parameters_values_hash = { partner_origin_id: partner.origin_id.to_s, partner_site_id: partner.site_id.to_s, 
+                                   given_name: "unique1string", family_name: "unique2string", 
+                                   email: "unique1string.unique2string@example.com",
+                                   contact_role_id: 1, homepage: "", full_name: "", address: "",
+                                   telephone: "", title: "" } # any role it does not matter
+        create_log_action_parameters(parameters_values_hash, sync_peer_log)
+        sync_peer_log.process_entry
+      end
+      it "creates new contact with the correct parameters" do
+        contact = ContentPartnerContact.find_by_origin_id(80)
+        expect(contact).not_to be_nil
+        expect(contact.given_name).to eq("unique1string")
+        expect(contact.family_name).to eq("unique2string")
+        expect(contact.contact_role_id).to eq(1)
+        expect(contact.email).to eq("unique1string.unique2string@example.com")
+      end
+      after do
+        GlossaryTerm.find_by_origin_id(80).destroy if GlossaryTerm.find_by_origin_id(80)
+      end
+    end
+  end
   describe "glossary term" do
     describe ".create_glossary_term" do
       let(:taxon_concept) { TaxonConcept.first }
@@ -28,7 +62,7 @@ describe SyncPeerLog do
                                         user_site_id: user.site_id, 
                                         sync_object_id: 80, #create a new one with this origin_id 
                                         sync_object_site_id: PEER_SITE_ID)
-        parameters_values_hash = { term: "create_term", definition: "create_def"}
+        parameters_values_hash = { term: "create_term", definition: "create_def" }
         create_log_action_parameters(parameters_values_hash, sync_peer_log)
         sync_peer_log.process_entry
       end

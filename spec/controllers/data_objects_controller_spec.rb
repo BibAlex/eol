@@ -137,8 +137,8 @@ describe DataObjectsController do
   
   describe "Synchronization" do
     describe "association Synchronization" do
-      let(:data_object) {DataObject.first} 
-      let(:he) {HierarchyEntry.first} 
+      let(:data_object) { DataObject.first } 
+      let(:he) { HierarchyEntry.first } 
       before(:all) do
         truncate_all_tables
         load_foundation_cache
@@ -149,10 +149,10 @@ describe DataObjectsController do
       end
       
       describe "PUT #save_association" do
-        let(:type) {SyncObjectType.data_object}
-        let(:action) {SyncObjectAction.save_association}
-        let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
-        let(:current_user) {User.gen}
+        let(:type) { SyncObjectType.data_object }
+        let(:action) { SyncObjectAction.save_association }
+        let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id(action.id) }
+        let(:current_user) { User.gen }
         
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users_data_objects","users"])
@@ -194,10 +194,10 @@ describe DataObjectsController do
       end
       
       describe "GET #remove_association" do
-        let(:type) {SyncObjectType.data_object}
-        let(:action) {SyncObjectAction.remove_association}
-        let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
-        let(:curator) {User.gen(curator_level: CuratorLevel.full_curator, credentials: 'Blah', curator_scope: 'More blah')}
+        let(:type) { SyncObjectType.data_object }
+        let(:action) { SyncObjectAction.remove_association }
+        let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id(action.id) }
+        let(:curator) { User.gen(curator_level: CuratorLevel.full_curator, credentials: 'Blah', curator_scope: 'More blah') } 
         
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users_data_objects","users",
@@ -235,7 +235,7 @@ describe DataObjectsController do
       end
       
       describe "PUT #curate_associations" do
-        let(:curator) {User.gen(curator_level: CuratorLevel.full_curator, credentials: 'Blah', curator_scope: 'More blah')}
+        let(:curator) { User.gen(curator_level: CuratorLevel.full_curator, credentials: 'Blah', curator_scope: 'More blah') }
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","users_data_objects","users",
                            "curated_data_objects_hierarchy_entries","comments"])
@@ -257,10 +257,10 @@ describe DataObjectsController do
                                        vetted_id_1: "1"}
           end
           describe "create comment for association" do
-            let(:type) {SyncObjectType.comment}
-            let(:action) {SyncObjectAction.create}
-            let(:comment) {Comment.first}
-            let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
+            let(:type) { SyncObjectType.comment }
+            let(:action) { SyncObjectAction.create }
+            let(:comment) { Comment.first }
+            let(:peer_log) { SyncPeerLog.find_by_sync_object_type_id(type.id) }
             
             it "creates sync peer log" do
               expect(peer_log).not_to be_nil
@@ -302,9 +302,9 @@ describe DataObjectsController do
           end
           
           describe "review association" do
-            let(:type) {SyncObjectType.data_object}
-            let(:action) {SyncObjectAction.curate_associations}
-            let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
+            let(:type) { SyncObjectType.data_object }
+            let(:action) { SyncObjectAction.curate_associations }
+            let(:peer_log) { SyncPeerLog.find_by_sync_object_type_id(type.id) }
             
             it "creates sync peer log" do
               expect(peer_log).not_to be_nil
@@ -374,17 +374,17 @@ describe DataObjectsController do
         TocItem.gen_if_not_exists(label: 'overview')
         taxon_concept.update_attributes(origin_id: taxon_concept.id, site_id: PEER_SITE_ID)
       end
-      let(:current_user) {User.first}
-      let(:taxon_concept) {TaxonConcept.first}
+      let(:current_user) { User.first }
+      let(:taxon_concept) { TaxonConcept.first }
       before do
         current_user.update_attributes(origin_id: current_user.id, site_id: PEER_SITE_ID)
         session[:user_id] = current_user.id
       end
       describe "create new data object synchonization" do
-        let(:data_object) {DataObject.last}
-        let(:ref) {Ref.last}
-        let(:data_obj_taxon_concept) {DataObjectsTaxonConcept.first }
-        let(:col_item) {CollectionItem.first}
+        let(:data_object) { DataObject.last }
+        let(:ref) { Ref.last }
+        let(:data_obj_taxon_concept) { DataObjectsTaxonConcept.first }
+        let(:col_item) { CollectionItem.first }
         
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters","data_objects",
@@ -399,9 +399,9 @@ describe DataObjectsController do
         end
         
         describe "creating reference synchronization" do
-          let(:type) {SyncObjectType.ref}
-          let(:action) {SyncObjectAction.create}
-          let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
+          let(:type) { SyncObjectType.ref }
+          let(:action) { SyncObjectAction.create }
+          let(:peer_log) { SyncPeerLog.find_by_sync_object_type_id(type.id) }
           
           it "creates sync peer log" do
             expect(peer_log).not_to be_nil
@@ -425,10 +425,10 @@ describe DataObjectsController do
         end
         
         describe "creating data_object synchronization" do
-          let(:type) {SyncObjectType.data_object}
-          let(:action) {SyncObjectAction.create}
-          let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
-          let(:toc) {TocItem.find(TocItem.overview.id)}
+          let(:type) { SyncObjectType.data_object }
+          let(:action) { SyncObjectAction.create }
+          let(:peer_log) { SyncPeerLog.find_by_sync_object_type_id(type.id) }
+          let(:toc) { TocItem.find(TocItem.overview.id) }
           
           it "creates sync peer log" do
             expect(peer_log).not_to be_nil
@@ -490,9 +490,9 @@ describe DataObjectsController do
         end
         
         describe "creating collection item synchronization" do
-          let(:type) {SyncObjectType.collection_item}
-          let(:action) {SyncObjectAction.add}
-          let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
+          let(:type) { SyncObjectType.collection_item }
+          let(:action) { SyncObjectAction.add }
+          let(:peer_log) { SyncPeerLog.find_by_sync_object_type_id(type.id) }
           it "creates sync peer log" do
             expect(peer_log).not_to be_nil
           end
@@ -534,9 +534,9 @@ describe DataObjectsController do
       end
       
       describe "update data object synchronization" do
-        let(:data_object) {taxon_concept.add_user_submitted_text(user: current_user)}
-        let(:new_data_object) {DataObject.last}
-        let(:ref) {Ref.last}
+        let(:data_object) { taxon_concept.add_user_submitted_text(user: current_user) }
+        let(:new_data_object) { DataObject.last }
+        let(:ref) { Ref.last }
         
         before(:all) do
           data_object.update_attributes(origin_id: data_object.id, site_id: PEER_SITE_ID)
@@ -556,9 +556,9 @@ describe DataObjectsController do
         end
         
         describe "creating reference synchronization" do
-          let(:type) {SyncObjectType.ref}
-          let(:action) {SyncObjectAction.create}
-          let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
+          let(:type) { SyncObjectType.ref }
+          let(:action) { SyncObjectAction.create }
+          let(:peer_log) { SyncPeerLog.find_by_sync_object_type_id(type.id) }
          
           it "creates sync peer log" do
             expect(peer_log).not_to be_nil
@@ -582,10 +582,10 @@ describe DataObjectsController do
         end
         
         describe "update data object" do
-          let(:type) {SyncObjectType.data_object}
-          let(:action) {SyncObjectAction.update}
-          let(:peer_log) {SyncPeerLog.find_by_sync_object_type_id(type.id)}
-          let(:toc) {TocItem.find(TocItem.overview.id)}
+          let(:type) { SyncObjectType.data_object }
+          let(:action) { SyncObjectAction.update }
+          let(:peer_log) { SyncPeerLog.find_by_sync_object_type_id(type.id) }
+          let(:toc) { TocItem.find(TocItem.overview.id) }
           before(:all) do
             toc.update_attributes(origin_id: toc.id, site_id: PEER_SITE_ID)
           end
@@ -651,10 +651,10 @@ describe DataObjectsController do
       end
       
       describe "rate data object synchronization" do
-        let(:type) {SyncObjectType.data_object}
-        let(:action) {SyncObjectAction.rate}
-        let(:peer_log) {SyncPeerLog.find_by_sync_object_action_id(action.id)}
-        let(:data_obj) {taxon_concept.add_user_submitted_text(user: current_user)}
+        let(:type) { SyncObjectType.data_object }
+        let(:action) { SyncObjectAction.rate }
+        let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id(action.id) }
+        let(:data_obj) { taxon_concept.add_user_submitted_text(user: current_user) }
         before do
           truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
           session[:user_id] = current_user.id

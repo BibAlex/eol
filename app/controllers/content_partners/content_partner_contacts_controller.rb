@@ -20,6 +20,7 @@ class ContentPartners::ContentPartnerContactsController < ContentPartnersControl
     @contact = @partner.content_partner_contacts.build(params[:content_partner_contact])
     access_denied && return unless current_user.can_create?(@contact)
     if @contact.save
+      @contact.update_attributes(origin_id: @contact.id, site_id: PEER_SITE_ID)
       sync_create_contact
       flash[:notice] = I18n.t(:content_partner_contact_create_successful_notice)
       redirect_to content_partner_resources_path(@partner), status: :moved_permanently
@@ -85,7 +86,7 @@ private
   
   def sync_create_contact
     sync_params = { partner_origin_id: @partner.origin_id,
-                    partner_site_id: @partner.site_id }
+                    partner_site_id: @partner.site_id }.merge(params[:content_partner_contact])
     options = { user: current_user, object: @contact, action_id: SyncObjectAction.create.id,
                type_id: SyncObjectType.contact.id, params: sync_params }
     SyncPeerLog.log_action(options)

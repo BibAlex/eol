@@ -908,7 +908,7 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.create_search_suggestion(parameters)
-    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
+    taxon_concept = TaxonConcept.find_site_specific(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
     parameters[:taxon_id] = taxon_concept.id
     parameters[:origin_id] = parameters[:sync_object_id]
     parameters[:site_id] = parameters[:sync_object_site_id]
@@ -919,7 +919,7 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.update_search_suggestion(parameters)
-    taxon_concept = TaxonConcept.find_by_origin_id_and_site_id(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
+    taxon_concept = TaxonConcept.find_site_specific(parameters[:taxon_concept_origin_id], parameters[:taxon_concept_site_id])
     parameters[:taxon_id] = taxon_concept.id
     updated_at = parameters[:action_taken_at]
     parameters[:updated_at] = parameters[:action_taken_at]
@@ -961,7 +961,7 @@ class SyncPeerLog < ActiveRecord::Base
     user.unhide_data_objects
   end
   
-  def self.create_agreement
+  def self.create_agreement(parameters)
     # TODO upload file
     parameters[:origin_id] = parameters[:sync_object_id]
     parameters[:site_id] = parameters[:sync_object_site_id]
@@ -972,13 +972,14 @@ class SyncPeerLog < ActiveRecord::Base
     partner.content_partner_agreements.build(parameters)
   end
   
-  def self.create_contact
+  def self.create_contact(parameters)
     parameters[:origin_id] = parameters[:sync_object_id]
     parameters[:site_id] = parameters[:sync_object_site_id]
     parameters[:created_at] = parameters[:action_taken_at]
     partner = ContentPartner.find_site_specific(parameters[:partner_origin_id], parameters[:partner_site_id])
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                               :action_taken_at, :language, :partner_origin_id, :partner_site_id],parameters)
-    partner.content_partner_contacts.build(parameters)
+    contact = partner.content_partner_contacts.build(parameters)
+    contact.save
   end
 end
