@@ -34,7 +34,6 @@ class Administrator::SearchSuggestionController < AdminController
   end
 
   def create
-    
     @search_suggestion = SearchSuggestion.new(params[:search_suggestion])
     if @search_suggestion.save
       flash[:notice] = I18n.t(:search_suggestion_created)
