@@ -34,7 +34,6 @@ class Administrator::SearchSuggestionController < AdminController
   end
 
   def create
-    
     console.log
     @search_suggestion = SearchSuggestion.new(params[:search_suggestion])
     if @search_suggestion.save

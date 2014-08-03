@@ -1,4 +1,4 @@
-FILES_PATTERN='\.(js|coffee)(\..+)?$'
+FILES_PATTERN='\.(rb)'
 FORBIDDEN='console.log'
 git diff --cached --name-only | \
     grep -E $FILES_PATTERN | \
