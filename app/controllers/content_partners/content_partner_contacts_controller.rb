@@ -45,6 +45,7 @@ class ContentPartners::ContentPartnerContactsController < ContentPartnersControl
     @contact = @partner.content_partner_contacts.find(params[:id])
     access_denied && return unless current_user.can_update?(@contact)
     if @contact.update_attributes(params[:content_partner_contact])
+      sync_update_contact
       flash[:notice] = I18n.t(:content_partner_contact_update_successful_notice)
       redirect_to content_partner_resources_path(@partner), status: :moved_permanently
     else
@@ -59,6 +60,7 @@ class ContentPartners::ContentPartnerContactsController < ContentPartnersControl
     @contact = @partner.content_partner_contacts.find(params[:id])
     access_denied && return unless current_user.can_delete?(@contact)
     if @partner.content_partner_contacts.delete(@contact)
+      sync_delete_contact
       flash[:notice] = I18n.t(:content_partner_contact_delete_successful_notice)
       redirect_to content_partner_resources_path(@partner), status: :moved_permanently
     else
@@ -88,7 +90,22 @@ private
     sync_params = { partner_origin_id: @partner.origin_id,
                     partner_site_id: @partner.site_id }.merge(params[:content_partner_contact])
     options = { user: current_user, object: @contact, action_id: SyncObjectAction.create.id,
-               type_id: SyncObjectType.contact.id, params: sync_params }
+                type_id: SyncObjectType.contact.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_contact
+    sync_params = params[:content_partner_contact]
+    options = { user: current_user, object: @contact, action_id: SyncObjectAction.update.id,
+                type_id: SyncObjectType.contact.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_delete_contact
+    sync_params = { partner_origin_id: @partner.origin_id,
+                    partner_site_id: @partner.site_id }
+    options = { user: current_user, object: @contact, action_id: SyncObjectAction.delete.id,
+                type_id: SyncObjectType.contact.id, params: sync_params }
     SyncPeerLog.log_action(options)
   end
 end

@@ -28,7 +28,6 @@ Eol::Application.configure do
 
   # Raise exception on mass assignment protection for Active Record models
   config.active_record.mass_assignment_sanitizer = :strict
-
   # Log the query plan for queries taking more than this (works
   # with SQLite, MySQL, and PostgreSQL)
   # config.active_record.auto_explain_threshold_in_seconds = 1
@@ -65,7 +64,7 @@ REGISTRY_PUSH_URL = 'push_requests/create'
 REGISTRY_PUSH_QUERY_URL = 'push_requests/show'
 REGISTRY_PULL_URL = 'pull_requests/pull'
 REGISTRY_PULL_REPORT = 'pull_requests/report'
-INIT_UUID = 'd78e8e0a-fab7-11e3-b6c8-000ffe473aab'
+INIT_UUID = '552e6b44-1afe-11e4-a9d6-000ffe473aab'
 SITE_URI = 'http://127.0.0.1:3001'
 SITE_PORT = "3001"
 $SERVER_PORT = 80
