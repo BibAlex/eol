@@ -1,3 +1,6 @@
+require "#{Rails.root}/app/helpers/file_helper"
+include FileHelper::ClassMethods
+
 class Administrator::ContentUploadController < AdminController
 
   layout 'deprecated/left_menu'
@@ -19,6 +22,7 @@ class Administrator::ContentUploadController < AdminController
   def update
     @content_upload = ContentUpload.find(params[:id])
     if @content_upload.update_attributes(params[:content_upload])
+      sync_update_content_upload
       flash[:notice] = I18n.t(:the_content_was_updated)
       redirect_to(action: 'index', status: :moved_permanently)
     else
@@ -36,6 +40,8 @@ class Administrator::ContentUploadController < AdminController
     if @content_upload.save
       @content_upload.update_attributes(user_id: current_user.id, attachment_extension: File.extname(@content_upload.attachment_file_name))
       upload_file(@content_upload)
+      @content_upload.update_attributes(site_id: PEER_SITE_ID, origin_id: @content_upload.id)
+      sync_create_content_upload
       flash[:notice] = I18n.t(:the_file_was_uploaded)
       redirect_to(action: 'index', status: :moved_permanently)
     else
@@ -45,33 +51,30 @@ class Administrator::ContentUploadController < AdminController
 
 private
 
-  def upload_file(content_upload)
-    # TODO - would this be easier with request#host_with_port ?
-    # Update 2/23/14 - request.ip is returning 127.0.0.1, so we should be really careful and make
-    # sure we understand what request.anything will give. We need to be certain this it the
-    # app server **IP**
-    ip_with_port = EOL::Server.ip_address.dup
-    ip_with_port += ":" + request.port.to_s unless ip_with_port.match(/:[0-9]+$/)
-    parameters = 'function=admin_upload&file_path=http://' + ip_with_port + $CONTENT_UPLOAD_PATH + content_upload.id.to_s + "."  + content_upload.attachment_file_name.split(".")[-1]
-    response = EOLWebService.call(parameters: parameters)
-    if response.blank?
-      ErrorLog.create(url: $WEB_SERVICE_BASE_URL, exception_name: "content upload service failed") if $ERROR_LOGGING
-    else
-      response = Hash.from_xml(response)
-      if response["response"].key? "file_path"
-        file_path = response["response"]["file_path"]
-        content_upload.update_column(:attachment_cache_url, file_path) # store new url to file on content server
-      end
-      if response["response"].key? "error"
-        error = response["response"]["error"]
-        ErrorLog.create(url: $WEB_SERVICE_BASE_URL, exception_name: error, backtrace: parameters) if $ERROR_LOGGING
-      end
-    end
-  end
-
   def set_layout_variables
     @page_title = $ADMIN_CONSOLE_TITLE
     @navigation_partial = '/admin/navigation'
+  end
+  
+  def sync_create_content_upload
+    sync_params = { description: params[:content_upload][:description],
+                    link_name: params[:content_upload][:link_name],
+                    logo_cache_url: @content_upload.attachment_cache_url,
+                    logo_file_name: @content_upload.attachment_file_name,
+                    logo_content_type: @content_upload.attachment_content_type,
+                    logo_file_size: @content_upload.attachment_file_size,
+                    base_url: "#{$CONTENT_SERVER}content/" }
+    options = { user: current_user, object: @content_upload, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.content_upload.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_content_upload
+    sync_params = { description: params[:content_upload][:description],
+                    link_name: params[:content_upload][:link_name] }
+    options = { user: current_user, object: @content_upload, action_id: SyncObjectAction.update.id,
+               type_id: SyncObjectType.content_upload.id, params: sync_params }
+    SyncPeerLog.log_action(options)
   end
 
 end

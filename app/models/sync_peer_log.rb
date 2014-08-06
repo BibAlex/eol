@@ -147,12 +147,17 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.update_user(parameters)
+    object_logo_parameters = {logo_cache_url: parameters[:logo_cache_url],
+                              logo_file_name: parameters[:logo_file_name],
+                              logo_content_type: parameters[:logo_content_type],
+                              logo_file_size: parameters[:logo_file_size]}
     parameters[:user_identity_ids] = parameters[:user_identity_ids].split(",")  if parameters[:user_identity_ids]
     parameters[:site_id] = parameters[:sync_object_site_id]
     parameters[:origin_id] = parameters[:sync_object_id]
     base_url = parameters[:base_url]
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
-                              :action_taken_at, :base_url],parameters)
+                              :action_taken_at, :base_url, :logo_cache_url, 
+                              :logo_file_name, :logo_content_type, :logo_file_size],parameters)
                                        
     user = User.find_site_specific(parameters[:origin_id], parameters[:site_id])
     if user
@@ -161,39 +166,52 @@ class SyncPeerLog < ActiveRecord::Base
       user.log_activity(:updated_user)
       
       parameters[:base_url] = base_url
-      download_object_logo("User", user, parameters)
+      download_object_file("User", user, parameters.reverse_merge(object_logo_parameters), "logo")
    end
   end
   
-  def self.download_object_logo(object_type, object, parameters)
-    logo_file_name = parameters[:logo_file_name]
-    if logo_file_name
+  def self.download_object_file(object_type, object, parameters, object_file_type)
+    file_name = parameters[:logo_file_name]
+    if file_name
       base_url = parameters[:base_url]
-      logo_cache_url = parameters[:logo_cache_url]
+      cache_url = parameters[:logo_cache_url]
       directory_name = object_type.downcase.pluralize
-      file_type = logo_file_name[logo_file_name.rindex(".") + 1 , logo_file_name.length ]
-      logo_name = "#{directory_name}_#{object.id}.#{file_type}"
-      file_url = self.get_url(base_url, logo_cache_url,file_type)
-      if download_file?(file_url, logo_name, "logo")   
-        delete_logo(object, directory_name, file_type)
-        
-        # update logo parameters
-        object.update_column(:logo_file_name, logo_name)
-        object.update_column(:logo_content_type, parameters[:logo_content_type])
-        object.update_column(:logo_file_size, parameters[:logo_file_size])
-        
-        upload_object_logo(object)
+      file_type = file_name[file_name.rindex(".") + 1 , file_name.length ]
+      file_name = object_file_type == "file" ? "#{object.id}.#{file_type}" : "#{directory_name}_#{object.id}.#{file_type}"
+      file_url = self.get_url(base_url, cache_url,file_type)
+      if download_file?(file_url, file_name, object_file_type)
+        if parameters[:is_file]
+          update_file_parameters(object, parameters[:logo_file_name], parameters[:logo_content_type],
+                                 parameters[:logo_file_size])
+        else
+          delete_object_file(object, directory_name, file_type)
+          update_logo_parameters(object, parameters[:logo_file_name], parameters[:logo_content_type],
+                                 parameters[:logo_file_size])
+        end
+        upload_object_file(object, object_file_type)
       else
-        log_failed_download(file_url, logo_name, "logo", object_type, object, parameters)
+        log_failed_download(file_url, file_name, file_type, object_type, object, parameters)
       end
     end
   end
   
-  def self.upload_object_logo(object)
-    upload_file(object)
+  def self.update_logo_parameters(object, logo_name, logo_content_type, logo_file_size)
+    object.update_column(:logo_file_name, logo_name)
+    object.update_column(:logo_content_type, logo_content_type)
+    object.update_column(:logo_file_size, logo_file_size)
   end
   
-  def self.delete_logo(object, directory_name, file_type)
+  def self.update_file_parameters(object, attachment_name, attachment_content_type, attachment_file_size)
+    object.update_column(:attachment_file_name, attachment_name)
+    object.update_column(:attachment_content_type, attachment_content_type)
+    object.update_column(:attachment_file_size, attachment_file_size)
+  end
+  
+  def self.upload_object_file(object, object_file_type)
+    object_file_type == "file" ? upload_file(object, SITE_PORT) : upload_object_logo(object)
+  end
+  
+  def self.delete_object_file(object, directory_name, file_type)
     delete_file(object, directory_name, file_type)
   end
   
@@ -252,6 +270,11 @@ class SyncPeerLog < ActiveRecord::Base
   
    # how node site handle update collection action
   def self.update_collection(parameters)
+    object_logo_parameters = {logo_cache_url: parameters[:logo_cache_url],
+                              logo_file_name: parameters[:logo_file_name],
+                              logo_content_type: parameters[:logo_content_type],
+                              logo_file_size: parameters[:logo_file_size]}
+                              
     collection_owner = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     collection = Collection.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if collection
@@ -261,7 +284,9 @@ class SyncPeerLog < ActiveRecord::Base
         base_url = parameters[:base_url]  
         # remove extra parameters which not needed in creating collection
         parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
-                                  :action_taken_at, :language , :updated_at, :base_url],parameters)
+                                  :action_taken_at, :language , :updated_at, :base_url,
+                                  :logo_cache_url, :logo_file_name, :logo_content_type,
+                                  :logo_file_size],parameters)
 
         collection.update_attributes(parameters)
         name_changed = parameters[:name] != collection.name
@@ -271,7 +296,7 @@ class SyncPeerLog < ActiveRecord::Base
         CollectionActivityLog.create({ collection: collection, user_id: collection_owner.id, activity: Activity.change_description }) if description_changed
          
         parameters[:base_url] = base_url
-        download_object_logo("Collection", collection, parameters)        
+        download_object_file("Collection", collection, parameters.reverse_merge(object_logo_parameters), "logo")        
       end
     end  
   end
@@ -757,7 +782,7 @@ class SyncPeerLog < ActiveRecord::Base
     community.initialize_as_created_by(user)
     EOL::GlobalStatistics.increment('communities') if community.published?
     #add logo
-    download_object_logo("Community", community, parameters)
+    download_object_file("Community", community, parameters, "logo")
     options = {user: user, without_flash: true}
     auto_collect_helper(community, options)
     community.collections.each do |focus|
@@ -785,7 +810,7 @@ class SyncPeerLog < ActiveRecord::Base
       community.update_column(:name, parameters[:community_name]) if parameters[:name_change]
       community.update_column(:description, parameters[:community_description]) if parameters[:description_change]
       #UPDATE logo
-      download_object_logo("Community", community, parameters)
+      download_object_file("Community", community, parameters, "logo")
       opts = {user: user, community: community}
       log_community_action(:change_name, opts) if parameters[:name_change] == "1"
       opts = {user: user, community: community}
@@ -990,5 +1015,26 @@ class SyncPeerLog < ActiveRecord::Base
                               :action_taken_at, :language, :partner_origin_id, :partner_site_id],parameters)
     contact = partner.content_partner_contacts.build(parameters)
     contact.save
+  end
+  
+  def self.create_content_upload(parameters)
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    content_upload = ContentUpload.create!(description: parameters[:description],
+                                           link_name: parameters[:link_name],
+                                           created_at: parameters[:action_taken_at],
+                                           origin_id: parameters[:sync_object_id],
+                                           site_id: parameters[:sync_object_site_id])
+    content_upload.update_attributes(user_id: user.id)
+    base_url = parameters[:base_url]
+    parameters[:is_file] = true
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                              :action_taken_at, :language],parameters)
+    download_object_file("content_upload", content_upload, parameters, "file")
+  end
+  
+  def self.update_content_upload(parameters)
+    content_upload = ContentUpload.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    content_upload.update_attributes(description: parameters[:description],
+                                     link_name: parameters[:link_name],)
   end
 end
