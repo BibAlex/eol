@@ -1010,9 +1010,12 @@ class SyncPeerLog < ActiveRecord::Base
     parameters[:origin_id] = parameters[:sync_object_id]
     parameters[:site_id] = parameters[:sync_object_site_id]
     parameters[:created_at] = parameters[:action_taken_at]
-    partner = ContentPartner.find_site_specific(parameters[:partner_origin_id], parameters[:partner_site_id])
-    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
-                              :action_taken_at, :language, :partner_origin_id, :partner_site_id],parameters)
+    partner = ContentPartner.find_site_specific(parameters[:partner_origin_id],
+                parameters[:partner_site_id])
+    parameters = delete_keys([:user_site_id, :user_site_object_id, 
+                               :sync_object_site_id, :sync_object_id,
+                              :action_taken_at, :language, :partner_origin_id, 
+                              :partner_site_id],parameters)
     contact = partner.content_partner_contacts.build(parameters)
     contact.save
   end
@@ -1036,5 +1039,27 @@ class SyncPeerLog < ActiveRecord::Base
     content_upload = ContentUpload.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     content_upload.update_attributes(description: parameters[:description],
                                      link_name: parameters[:link_name],)
+  end
+  
+  def self.update_contact(parameters)
+    parameters[:updated_at] = parameters[:action_taken_at]
+    contact = ContentPartnerContact.find_by_origin_id_and_site_id(
+                parameters[:sync_object_id], parameters[:sync_object_site_id])
+    if contact.older_than?(parameters[:action_taken_at], "updated_at")
+      parameters = delete_keys([:user_site_id, :user_site_object_id, 
+                     :sync_object_site_id, :sync_object_id, :action_taken_at, 
+                     :language],parameters)
+      contact.update_attributes(parameters)
+    end
+  end
+  
+  def self.delete_contact(parameters)
+    partner = ContentPartner.find_site_specific(parameters[:partner_origin_id],
+                parameters[:partner_site_id])
+    contact = ContentPartnerContact.find_by_origin_id_and_site_id(
+                parameters[:sync_object_id], parameters[:sync_object_site_id])
+    if !partner.nil? && !contact.nil?
+      partner.content_partner_contacts.delete(contact)
+    end
   end
 end

@@ -12,6 +12,7 @@
 /log/*.log
 /tmp
 /public/files/sync_logs
+/public/uploads
 .sass-cache/
 
 # Ignore guard (which is an auto-tester):

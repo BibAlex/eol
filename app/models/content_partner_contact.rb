@@ -39,6 +39,11 @@ class ContentPartnerContact < ActiveRecord::Base
     self.save_full_name
   end
 
+  def older_than?(compared_arg, compared_criteria)
+    compared_time = compared_arg.class.name == self.class.name ? compared_arg.send(compared_criteria) : compared_arg
+    self.send(compared_criteria).nil? ||  self.send(compared_criteria) < compared_time
+  end
+  
   protected
     def save_full_name
       self.full_name = "#{self.given_name} #{self.family_name}".strip
