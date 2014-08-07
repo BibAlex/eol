@@ -1,6 +1,7 @@
 class ForumCategory < ActiveRecord::Base
   establish_connection(Rails.env)
-
+  extend SiteSpecific
+  
   belongs_to :user
   has_many :forums
 

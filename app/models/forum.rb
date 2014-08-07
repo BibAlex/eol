@@ -1,5 +1,6 @@
 class Forum < ActiveRecord::Base
   establish_connection(Rails.env)
+  extend SiteSpecific
 
   belongs_to :forum_category
   belongs_to :last_post, class_name: 'ForumPost', foreign_key: :last_post_id
@@ -32,6 +33,11 @@ class Forum < ActiveRecord::Base
 
   def open_topics
     forum_topics.visible.includes(:forum_posts).where("forum_posts.deleted_at IS NULL")
+  end
+  
+  def older_than?(compared_arg, compared_criteria)
+    compared_time = compared_arg.class.name == self.class.name ? compared_arg.send(compared_criteria) : compared_arg
+    self.send(compared_criteria).nil? ||  self.send(compared_criteria) < compared_time
   end
 
   private

@@ -373,7 +373,8 @@ class SyncPeerLog < ActiveRecord::Base
         options = {user: user}
         auto_collect_helper(col, options)
         add_item_to_collection(col, item)
-        col_item = CollectionItem.find_by_collection_id_and_collected_item_id(col.id, item.id)
+        res = CollectionItem.where("collection_id = ? and collected_item_id = ?", col.id, item.id)
+        col_item = res.nil? ? nil: res.first
       elsif parameters[:add_item]
         col_item = CollectionItem.create(name: parameters[:collected_item_name], collected_item_type: parameters[:collected_item_type],
                                          collection_id: col.id, collected_item_id: item.id)
@@ -1060,6 +1061,49 @@ class SyncPeerLog < ActiveRecord::Base
                 parameters[:sync_object_id], parameters[:sync_object_site_id])
     if !partner.nil? && !contact.nil?
       partner.content_partner_contacts.delete(contact)
+    end
+  end
+  
+  def self.create_forum(parameters)
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    forum_category = ForumCategory.find_site_specific(parameters[:forum_category_origin_id], 
+                                                      parameters[:forum_category_site_id])
+    forum = Forum.create(forum_category_id: forum_category.id, 
+                         name: parameters[:name], description: parameters[:description],
+                         user_id: user.id, site_id: parameters[:sync_object_site_id],
+                         origin_id: parameters[:sync_object_id], 
+                         created_at: parameters[:action_taken_at])
+  end
+  
+  def self.update_forum(parameters)
+    
+    forum = Forum.find_site_specific(parameters[:sync_object_id], 
+                                     parameters[:sync_object_site_id])
+    forum_category = ForumCategory.find_site_specific(parameters[:forum_category_origin_id], 
+                                                      parameters[:forum_category_site_id])
+    if forum
+      if forum.older_than?(parameters[:updated_at], "updated_at")
+        forum.update_attributes(forum_category_id: forum_category.id, 
+                                name: parameters[:name], description: parameters[:description],
+                                site_id: parameters[:sync_object_site_id],
+                                origin_id: parameters[:sync_object_id], 
+                                updated_at: parameters[:updated_at])
+      end
+    end
+  end
+  
+  def self.delete_forum(parameters)
+    forum = Forum.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    forum.destroy
+  end
+  
+  def self.swap_forum(parameters)
+   forum = Forum.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    if forum
+      if forum.older_than?(parameters[:updated_at], "swap_updated_at")
+        forum.update_attributes(view_order: parameters[:forum_sort_order],
+                            swap_updated_at: parameters[:updated_at])
+      end
     end
   end
 end
