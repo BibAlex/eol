@@ -1007,6 +1007,7 @@ class SyncPeerLog < ActiveRecord::Base
     agreement.update_attributes(parameters)
   end
   
+  # content_partner_contacts
   def self.create_contact(parameters)
     parameters[:origin_id] = parameters[:sync_object_id]
     parameters[:site_id] = parameters[:sync_object_site_id]
@@ -1064,6 +1065,92 @@ class SyncPeerLog < ActiveRecord::Base
     end
   end
   
+  # news_item
+  def self.create_news_item(parameters)
+    user = User.find_site_specific(parameters[:user_site_object_id], 
+                                   parameters[:user_site_id])
+    existing_news = NewsItem.find_by_page_name(parameters[:"page_name"])
+    if existing_news.nil? || (!existing_news.nil? && existing_news.older_than?(parameters[:action_taken_at], "created_at"))
+      existing_news.destroy if !existing_news.nil? 
+      news_item = NewsItem.new("page_name" => parameters[:"page_name"], 
+                               "display_date(3i)" => parameters[:"display_date(3i)"],
+                               "display_date(2i)" => parameters[:"display_date(2i)"],
+                               "display_date(1i)" => parameters[:"display_date(1i)"],
+                               "display_date(4i)" => parameters[:"display_date(4i)"],
+                               "display_date(5i)" => parameters[:"display_date(5i)"],
+                               "activated_on(3i)" => parameters[:"activated_on(3i)"],
+                               "activated_on(2i)" => parameters[:"activated_on(2i)"],
+                               "activated_on(1i)" => parameters[:"activated_on(1i)"],
+                               "activated_on(4i)" => parameters[:"activated_on(4i)"],
+                               "activated_on(5i)" => parameters[:"activated_on(5i)"],
+                               "active" => parameters[:"active"],
+                               "origin_id" => parameters[:sync_object_id],
+                               "site_id" => parameters[:sync_object_site_id])
+      news_item.translations.build(language_id: parameters[:language_id], 
+                                   title: parameters[:title], 
+                                   body: parameters[:body], 
+                                   active_translation: parameters[:active_translation])
+      news_item.last_update_user_id = user.id 
+      if news_item.save
+        news_item.update_column(:created_at, parameters[:action_taken_at])
+      end 
+    end
+  end
+  
+  def self.update_news_item(parameters)
+    news_item = NewsItem.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    news_item.update_attributes("page_name" => parameters[:page_name], 
+                                "display_date(3i)" => parameters[:"display_date(3i)"],
+                                "display_date(2i)" => parameters[:"display_date(2i)"],
+                                "display_date(1i)" => parameters[:"display_date(1i)"],
+                                "display_date(4i)" => parameters[:"display_date(4i)"],
+                                "display_date(5i)" => parameters[:"display_date(5i)"],
+                                "activated_on(3i)" => parameters[:"activated_on(3i)"],
+                                "activated_on(2i)" => parameters[:"activated_on(2i)"],
+                                "activated_on(1i)" => parameters[:"activated_on(1i)"],
+                                "activated_on(4i)" => parameters[:"activated_on(4i)"],
+                                "activated_on(5i)" => parameters[:"activated_on(5i)"],
+                                "active" => parameters[:active],
+                                "updated_at" => parameters[:action_taken_at])
+  end
+  def self.delete_news_item(parameters)
+    user = User.find_site_specific(parameters[:user_site_object_id], 
+                                   parameters[:user_site_id])
+    news_item = NewsItem.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    news_item = NewsItem.find(news_item.id, include: [:translations])
+    if news_item
+      news_item.last_update_user_id = user.id
+      news_item.destroy
+    end
+  end
+  
+  # news_item
+  def self.create_translated_news_item(parameters)
+    @translated_news_item = @news_item.translations.build(params[:translated_news_item])
+    @news_item.last_update_user_id = current_user.id unless @news_item.blank?
+    @news_item.save
+    news_item = NewsItem.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    user = User.find_site_specific(parameters[:user_site_object_id], 
+                                   parameters[:user_site_id])
+    existing_translated_news = TranslatedNewsItem.find_by_language_id_and_news_item_id(
+      parameters[:"language_id"], news_item.id)
+    if existing_translated_news.nil? ||
+      (!existing_translated_news.nil? && 
+        existing_translated_news.older_than?(parameters[:action_taken_at], "created_at"))
+      existing_translated_news.destroy if !existing_translated_news.nil? 
+      news_item.translations.build(language_id: parameters[:language_id], 
+                                   title: parameters[:title], 
+                                   body: parameters[:body], 
+                                   active_translation: parameters[:active_translation])
+      news_item.last_update_user_id = user.id 
+      if news_item.save
+        news_item.translations.find_by_language_id(parameters[:language_id]).
+          update_column(:created_at, parameters[:action_taken_at])
+      end 
+    end
+  end
+  
+  # Forum
   def self.create_forum(parameters)
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     forum_category = ForumCategory.find_site_specific(parameters[:forum_category_origin_id], 

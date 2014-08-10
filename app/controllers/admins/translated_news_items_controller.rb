@@ -13,6 +13,7 @@ class Admins::TranslatedNewsItemsController < AdminsController
     @translated_news_item = @news_item.translations.build(params[:translated_news_item])
     @news_item.last_update_user_id = current_user.id unless @news_item.blank?
     if @news_item.save
+      sync_create_translated_news_item
       flash[:notice] = I18n.t(:admin_translated_news_item_create_successful_notice,
                               page_name: @news_item.page_name,
                               anchor: @news_item.page_name.gsub(' ', '_').downcase)
@@ -84,4 +85,10 @@ private
                              language: @translated_news_item.language.label.downcase)
   end
 
+  def sync_create_translated_news_item
+    sync_params = params[:translated_news_item]
+    options = { user: current_user, object: @news_item, action_id: SyncObjectAction.create.id,
+                type_id: SyncObjectType.translated_news_item.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
 end

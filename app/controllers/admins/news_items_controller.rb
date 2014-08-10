@@ -20,6 +20,8 @@ class Admins::NewsItemsController < AdminsController
     @news_item.last_update_user_id = current_user.id unless @news_item.blank?
     expire_fragment(action: 'index', action_suffix: "news_#{@translated_news_item.language.iso_639_1}")
     if @news_item.save
+      @news_item.update_attributes(origin_id: @news_item.id, site_id: PEER_SITE_ID)
+      sync_create_news_item
       flash[:notice] = I18n.t(:admin_news_item_create_successful_notice,
                               page_name: @news_item.page_name,
                               anchor: @news_item.page_name.gsub(' ', '_').downcase)
@@ -41,6 +43,7 @@ class Admins::NewsItemsController < AdminsController
   def update
     @news_item = NewsItem.find(params[:id])
     if @news_item.update_attributes(params[:news_item])
+      sync_update_news_item
       flash[:notice] = I18n.t(:admin_news_item_update_successful_notice,
                               page_name: @news_item.page_name,
                               anchor: @news_item.page_name.gsub(' ', '_').downcase)
@@ -61,7 +64,9 @@ class Admins::NewsItemsController < AdminsController
     news_item = NewsItem.find(params[:id], include: [:translations])
     page_name = news_item.page_name
     news_item.last_update_user_id = current_user.id
+    temp_news_item = NewsItem.new(news_item.attributes)
     news_item.destroy
+    sync_delete_news_item(temp_news_item)
     flash[:notice] = I18n.t(:admin_news_item_delete_successful_notice, page_name: page_name)
     redirect_to action: 'index', status: :moved_permanently
   end
@@ -85,5 +90,26 @@ private
   def set_news_item_edit_options
     set_news_items_options
     @page_subheader = I18n.t(:admin_news_item_edit_header, page_name: @news_item.page_name)
+  end
+  
+  def sync_create_news_item
+    sync_params = { language: params[:translated_news_item][:language_id] }.
+      merge(params[:news_item]).reverse_merge(params[:translated_news_item])
+    options = { user: current_user, object: @news_item, action_id: SyncObjectAction.create.id,
+                type_id: SyncObjectType.news_item.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_news_item
+   sync_params = params[:news_item]
+   options = { user: current_user, object: @news_item, action_id: SyncObjectAction.update.id,
+               type_id: SyncObjectType.news_item.id, params: sync_params }
+   SyncPeerLog.log_action(options)
+  end
+  
+  def sync_delete_news_item(temp_news_item)
+    options = { user: current_user, object: temp_news_item, action_id: SyncObjectAction.delete.id,
+                type_id: SyncObjectType.news_item.id, params: {} }
+    SyncPeerLog.log_action(options)
   end
 end
