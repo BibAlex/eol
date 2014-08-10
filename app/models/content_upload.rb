@@ -2,7 +2,8 @@
 # in the content_page model).  Examples of files are PDFs, Word Docs, JPGs, etc. that need to be referenced in these page.
 # The content is stored on the content server and a reference is kept in this model for ease of locating these files.
 class ContentUpload < ActiveRecord::Base
-
+  extend SiteSpecific
+  
   belongs_to :user
   validates_presence_of :link_name
   validates_presence_of :description
@@ -20,8 +21,8 @@ class ContentUpload < ActiveRecord::Base
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       'application/vnd.openxmlformats-officedocument.presentationml.slideshow', 'application/vnd.openxmlformats-officedocument.presentationml.slide',
       'application/msonenote', 'application/pdf', 'application/x-pdf', 'application/zip', 'multipart/x-gzip']
-  validates_attachment_presence :attachment  
-  validates_attachment_size :attachment, in: 0..10.0.megabyte
+  validates_attachment_presence :attachment, if: :is_local?
+  validates_attachment_size :attachment, in: 0..10.0.megabyte, if: :is_local?
 
   def attachment_url # friendly_url, uses the content controller, file method
     "/content/file/#{self.link_name}"    
@@ -35,6 +36,10 @@ class ContentUpload < ActiveRecord::Base
 
   def content_server_url # url on content server
     ContentServer.uploaded_content_url(self.attributes['attachment_cache_url'], self.ext)
+  end
+  
+  def is_local?
+    site_id == PEER_SITE_ID  
   end
   
 end

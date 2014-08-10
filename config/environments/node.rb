@@ -1,6 +1,7 @@
 Eol::Application.configure do
   # Settings specified here will take precedence over those in config/application.rb
-
+  Rails.configuration.show_sparql_queries = false
+  Rails.configuration.google_site_verification_keys = [] # none, by default, but defined.
   # In the development environment your application's code is reloaded on
   # every request. This slows down response time but is perfect for development
   # since you don't have to restart the web server when you make code changes.
@@ -51,7 +52,7 @@ end
 $UNSUBSCRIBE_NOTIFICATIONS_KEY = 'f0de2a0651aa88a090e5679e5e3a7d28'
 # variables used for syncing
 PEER_SITE_ID = 2
-AUTH_CODE = 'd7ae1a68-fab7-11e3-b6c8-000ffe473aab'
+AUTH_CODE = 'd7ae1a68-fab7-11e3-b6c8-000ffe473aac'
 REGISTRY_URL = 'http://localhost:3000/'
 REGISTRY_PUSH_URL = 'push_requests/create'
 REGISTRY_PUSH_QUERY_URL = 'push_requests/show'

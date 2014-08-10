@@ -90,7 +90,7 @@ private
   def sync_create_agreement
     sync_params = { partner_origin_id: @partner.origin_id,
                     partner_site_id: @partner.site_id }.reverse_merge(params[:content_partner_agreement])
-    options = {user: @current_user, object: @new_agreement, action_id: SyncObjectAction.create.id,
+    options = {user: current_user, object: @new_agreement, action_id: SyncObjectAction.create.id,
                type_id: SyncObjectType.agreement.id, params: sync_params}
     SyncPeerLog.log_action(options)
   end
@@ -98,7 +98,7 @@ private
   def sync_update_agreement
     sync_params = { partner_origin_id: @partner.origin_id,
                     partner_site_id: @partner.site_id }.reverse_merge(params[:content_partner_agreement])
-    options = {user: @current_user, object: @agreement, action_id: SyncObjectAction.update.id,
+    options = {user: current_user, object: @agreement, action_id: SyncObjectAction.update.id,
                type_id: SyncObjectType.agreement.id, params: sync_params}
     SyncPeerLog.log_action(options)
   end
