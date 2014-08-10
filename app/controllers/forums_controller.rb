@@ -91,11 +91,11 @@ class ForumsController < ApplicationController
       new_view_order = @next_lowest.view_order
       @next_lowest.update_attributes(view_order: @forum.view_order)
       @next_lowest.update_column(:swap_updated_at, @next_lowest.updated_at)
+      updated_at = @next_lowest.swap_updated_at
       tmp = @forum.view_order
       @forum.update_attributes(view_order: new_view_order)
-      @forum.update_column(:swap_updated_at, @forum.updated_at)
-      sync_swap_order(@next_lowest, tmp)
-      sync_swap_order(@forum, new_view_order)
+      @forum.update_column(:swap_updated_at, updated_at)
+      sync_swap_order(@forum, new_view_order, @next_lowest, tmp. updated_at)
       flash[:notice] = I18n.t('forums.move_successful')
     else
       flash[:error] = I18n.t('forums.move_failed')
@@ -173,9 +173,12 @@ class ForumsController < ApplicationController
     SyncPeerLog.log_action(options)
   end
   
-  def sync_swap_order(forum, forum_order)
+  def sync_swap_order(forum, forum_order, swaped_forum, swaped_forum_order, updated_at)
     sync_params = { forum_sort_order: forum_order,
-                    updated_at: forum.swap_updated_at }
+                    swaped_forum_origin_id: swaped_forum.origin_id,
+                    swaped_forum_site_id: swaped_forum.site_id,
+                    swaped_forum_order: swaped_forum_order,
+                    updated_at: updated_at }
     options = { user: current_user, object: forum, action_id: SyncObjectAction.swap.id,
                type_id: SyncObjectType.forum.id, params: sync_params }
     SyncPeerLog.log_action(options)

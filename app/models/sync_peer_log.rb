@@ -1102,7 +1102,7 @@ class SyncPeerLog < ActiveRecord::Base
     if forum
       if forum.older_than?(parameters[:updated_at], "swap_updated_at")
         forum.update_attributes(view_order: parameters[:forum_sort_order],
-                            swap_updated_at: parameters[:updated_at])
+                                swap_updated_at: parameters[:updated_at])
       end
     end
   end
