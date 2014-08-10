@@ -1,5 +1,5 @@
 class NewsItem < ActiveRecord::Base
-
+  extend SiteSpecific
   uses_translations
 
   belongs_to :user, foreign_key: 'last_update_user_id'
@@ -78,6 +78,11 @@ class NewsItem < ActiveRecord::Base
     translated_news_items
   end
 
+  def older_than?(compared_arg, compared_criteria)
+   compared_time = compared_arg.class.name == self.class.name ? compared_arg.send(compared_criteria) : compared_arg
+   self.send(compared_criteria).nil? ||  self.send(compared_criteria) < compared_time
+  end
+   
 private
 
   def destroy_translations

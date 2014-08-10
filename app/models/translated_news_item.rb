@@ -30,5 +30,9 @@ class TranslatedNewsItem < ActiveRecord::Base
   def title_with_language
     title + " (" + self.language.iso_639_1 + ")"
   end
-
+  
+  def older_than?(compared_arg, compared_criteria)
+   compared_time = compared_arg.class.name == self.class.name ? compared_arg.send(compared_criteria) : compared_arg
+   self.send(compared_criteria).nil? ||  self.send(compared_criteria) < compared_time
+  end
 end
