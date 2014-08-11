@@ -1202,4 +1202,12 @@ class SyncPeerLog < ActiveRecord::Base
                      text: parameters[:text], user_id: user.id, site_id: parameters[:sync_object_site_id],
                      origin_id: parameters[:sync_object_id], created_at: parameters[:action_taken_at])
   end
+  
+  def self.update_post(parameters)
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    post = ForumPost.find_site_specific(parameters[:sync_object_id], 
+                                          parameters[:sync_object_site_id])
+    post.update_attributes(subject: parameters[:subject], text: parameters[:text],
+                           updated_at: parameters[:action_taken_at]) if post
+  end
 end

@@ -68,6 +68,7 @@ class Forums::PostsController < ForumsController
     raise EOL::Exceptions::SecurityViolation,
       "User with ID=#{current_user.id} does not have edit access to ForumPost with ID=#{@post.id}" unless current_user.can_update?(@post)
     if @post.update_attributes(params[:forum_post])
+      sync_update_post
       flash[:notice] = I18n.t('forums.posts.update_successful')
     else
       flash[:error] = I18n.t('forums.posts.update_failed')
@@ -111,6 +112,13 @@ class Forums::PostsController < ForumsController
     sync_params = { topic_origin_id: @topic.origin_id,
                     topic_site_id: @topic.site_id }.reverse_merge(params[:forum_post])
     options = { user: current_user, object: @post, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.post.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_post
+    sync_params = params[:forum_post]
+    options = { user: current_user, object: @post, action_id: SyncObjectAction.update.id,
                type_id: SyncObjectType.post.id, params: sync_params }
     SyncPeerLog.log_action(options)
   end

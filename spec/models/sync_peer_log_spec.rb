@@ -2430,5 +2430,40 @@ describe SyncPeerLog do
         end
       end
     end
+    
+    describe ".update_post" do
+      let(:topic) { ForumTopic.gen }
+      let(:user) { User.first }
+      subject(:forum_post) { ForumPost.gen(user_id: user.id, forum_topic_id: topic.id,
+                                           subject: "post subject", text: "post body")}
+      
+      context "when successful creation" do
+        before(:all) do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          topic.update_attributes(origin_id: topic.id, site_id: PEER_SITE_ID)
+          forum_post.update_attributes(origin_id: forum_post.id, site_id: PEER_SITE_ID)
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id, 
+                                          sync_object_type_id: SyncObjectType.post.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: forum_post.origin_id,
+                                          user_site_id: user.site_id,
+                                          sync_object_site_id: PEER_SITE_ID)
+          parameters_values_hash = { subject: "updated post subject", text: "updated post body" }
+          create_log_action_parameters(parameters_values_hash, sync_peer_log)
+          sync_peer_log.process_entry
+          forum_post.reload
+        end
+        it "updates 'subject' of post" do
+          expect(forum_post.subject).to eq("updated post subject")
+        end
+        it "updates 'text' of post" do
+          expect(forum_post.text).to eq("updated post body")
+        end
+        after(:all) do
+          forum_post.destroy if forum_post
+          topic.destroy if topic
+        end
+      end
+    end
   end
  end
