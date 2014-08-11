@@ -34,6 +34,8 @@ class Forums::PostsController < ForumsController
     @post = ForumPost.new(post_data)
     @post.user_id = current_user.id
     if @post.save
+      @post.update_attributes(origin_id: @post.id, site_id: PEER_SITE_ID)
+      sync_create_post
       flash[:notice] = I18n.t('forums.posts.create_successful')
     else
       flash[:error] = I18n.t('forums.posts.create_failed')
@@ -100,6 +102,17 @@ class Forums::PostsController < ForumsController
       end
     end
     redirect_to forum_topic_path(@post.forum_topic.forum, @post.forum_topic, page: @post.page_in_topic, anchor: "post_#{@post.id}")
+  end
+  
+  private
+  
+  # synchronization
+  def sync_create_post
+    sync_params = { topic_origin_id: @topic.origin_id,
+                    topic_site_id: @topic.site_id }.reverse_merge(params[:forum_post])
+    options = { user: current_user, object: @post, action_id: SyncObjectAction.create.id,
+               type_id: SyncObjectType.post.id, params: sync_params }
+    SyncPeerLog.log_action(options)
   end
 
 end

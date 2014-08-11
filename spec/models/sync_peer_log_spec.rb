@@ -2386,4 +2386,49 @@ describe SyncPeerLog do
       end
     end
   end
+  
+  describe "posts synchronization" do
+    describe ".create_post" do
+      let(:topic) { ForumTopic.gen }
+      let(:user) { User.first }
+      subject(:forum_post) { ForumPost.find_site_specific(100, PEER_SITE_ID)}
+      
+      context "when successful creation" do
+        before(:all) do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          topic.update_attributes(origin_id: topic.id, site_id: PEER_SITE_ID)
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id, 
+                                          sync_object_type_id: SyncObjectType.post.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: 100,
+                                          user_site_id: user.site_id,
+                                          sync_object_site_id: PEER_SITE_ID)
+          parameters_values_hash = { subject: "post subject", text: "post body",
+                                     topic_origin_id: topic.origin_id,
+                                     topic_site_id: topic.site_id }
+          create_log_action_parameters(parameters_values_hash, sync_peer_log)
+          sync_peer_log.process_entry
+        end
+        it "creates new post" do
+          expect(forum_post).not_to be_nil          
+        end
+        it "has the correct 'subject'" do
+          expect(forum_post.subject).to eq("post subject")
+        end
+        it "has the correct 'text'" do
+          expect(forum_post.text).to eq("post body")
+        end
+        it "has the correct 'user_id'" do
+          expect(forum_post.user_id).to eq(user.id)
+        end
+        it "has the correct 'forum_topic_id'" do
+          expect(forum_post.forum_topic_id).to eq(topic.id)
+        end
+        after(:all) do
+          forum_post.destroy if forum_post
+          topic.destroy if topic
+        end
+      end
+    end
+  end
  end

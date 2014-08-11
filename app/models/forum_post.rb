@@ -1,6 +1,7 @@
 class ForumPost < ActiveRecord::Base
   establish_connection(Rails.env)
-
+  extend SiteSpecific
+  
   belongs_to :forum_topic
   belongs_to :user
 

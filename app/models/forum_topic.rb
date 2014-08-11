@@ -1,6 +1,7 @@
 class ForumTopic < ActiveRecord::Base
   establish_connection(Rails.env)
-
+  extend SiteSpecific
+  
   belongs_to :forum
   belongs_to :user
   belongs_to :first_post, class_name: 'ForumPost', foreign_key: :first_post_id

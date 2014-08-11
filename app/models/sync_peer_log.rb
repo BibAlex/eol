@@ -1181,7 +1181,7 @@ class SyncPeerLog < ActiveRecord::Base
   
   def self.delete_forum(parameters)
     forum = Forum.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    forum.destroy
+    forum.destroy if forum
   end
   
   def self.swap_forum(parameters)
@@ -1192,5 +1192,14 @@ class SyncPeerLog < ActiveRecord::Base
                                 swap_updated_at: parameters[:updated_at])
       end
     end
+  end
+  
+  def self.create_post(parameters)
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    topic = ForumTopic.find_site_specific(parameters[:topic_origin_id], 
+                                          parameters[:topic_site_id])
+    ForumPost.create(forum_topic_id: topic.id, subject: parameters[:subject],
+                     text: parameters[:text], user_id: user.id, site_id: parameters[:sync_object_site_id],
+                     origin_id: parameters[:sync_object_id], created_at: parameters[:action_taken_at])
   end
 end
