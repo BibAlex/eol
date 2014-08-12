@@ -95,7 +95,7 @@ class ForumsController < ApplicationController
       tmp = @forum.view_order
       @forum.update_attributes(view_order: new_view_order)
       @forum.update_column(:swap_updated_at, updated_at)
-      sync_swap_order(@forum, new_view_order, @next_lowest, tmp. updated_at)
+      #sync_swap_order(@forum, new_view_order, @next_lowest, tmp. updated_at)
       flash[:notice] = I18n.t('forums.move_successful')
     else
       flash[:error] = I18n.t('forums.move_failed')

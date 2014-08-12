@@ -274,5 +274,127 @@ describe Forums::PostsController do
         end
       end
     end
+    
+    describe "POST #create 'reply'" do
+      let(:peer_log) { SyncPeerLog.where("sync_object_action_id = ? and sync_object_type_id =? 
+                                          and sync_object_id = ? and sync_object_site_id = ?", 
+                                          SyncObjectAction.create.id, SyncObjectType.post.id,
+                                          forum_post.origin_id, PEER_SITE_ID).first }
+      let(:user) { User.first }
+      let(:topic) { ForumTopic.gen }
+      subject(:forum_post) { ForumPost.last }
+      let(:parent_post) { ForumPost.gen(user_id: user.id, forum_topic_id: topic.id) }
+      
+      context "when successful reply" do
+        before do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID, admin: 1)
+          session[:user_id] = user.id
+          topic.update_attributes(origin_id: topic.id, site_id: PEER_SITE_ID)
+          parent_post.update_attributes(origin_id: parent_post.id, site_id: PEER_SITE_ID)
+          post :create, { forum_post: { forum_topic_id: topic.id, subject: "post subject", 
+                                        text: "post body", reply_to_post_id: parent_post.id },
+                          forum_id: Forum.first.id, topic_id: topic.id }
+        end
+        it "creates sync peer log" do
+          expect(peer_log).not_to be_nil
+        end
+        it "has correct action" do
+          expect(peer_log.sync_object_action_id).to eq(SyncObjectAction.create.id)
+        end
+        it "has correct type" do
+          expect(peer_log.sync_object_type_id).to eq(SyncObjectType.post.id)
+        end
+        it "sync peer log 'user_site_id' equal 'PEER_SITE_ID'" do
+          expect(peer_log.user_site_id).to eq(PEER_SITE_ID)
+        end
+        it "has correct 'user_id'" do
+          expect(peer_log.user_site_object_id).to eq(user.id)
+        end
+        it "has correct 'object_site_id'" do
+          expect(peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
+        end
+        it "has correct 'object_id'" do
+          expect(peer_log.sync_object_id).to eq(forum_post.origin_id)
+        end
+        it "creates sync log action parameter for 'subject'" do
+          subject_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "subject")
+          expect(subject_parameter[0][:value]).to eq("post subject")
+        end
+        it "creates sync log action parameter for 'text'" do
+          text_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "text")
+          expect(text_parameter[0][:value]).to eq("post body")
+        end
+        it "creates sync log action parameter for 'topic_origin_id'" do
+          topic_origin_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "topic_origin_id")
+          expect(topic_origin_id_parameter[0][:value].to_i).to eq(topic.origin_id)
+        end
+        it "creates sync log action parameter for 'topic_site_id'" do
+          topic_site_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "topic_site_id")
+          expect(topic_site_id_parameter[0][:value].to_i).to eq(topic.site_id)
+        end
+        it "creates sync log action parameter for 'parent_post_origin_id'" do
+          parent_post_origin_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "parent_post_origin_id")
+          expect(parent_post_origin_id_parameter[0][:value].to_i).to eq(parent_post.origin_id)
+        end
+        it "creates sync log action parameter for 'parent_post_site_id'" do
+          parent_post_site_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "parent_post_site_id")
+          expect(parent_post_site_id_parameter[0][:value].to_i).to eq(parent_post.site_id)
+        end
+        after do
+          forum_post.destroy if forum_post
+          parent_post.destroy if parent_post
+          topic.destroy if topic
+        end
+      end
+      
+      context "when reply fails because 'text' should not be empty" do
+        before do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID, admin: 1)
+          session[:user_id] = user.id
+          topic.update_attributes(origin_id: topic.id, site_id: PEER_SITE_ID)
+          parent_post.update_attributes(origin_id: parent_post.id, site_id: PEER_SITE_ID)
+          post :create, { forum_post: { forum_topic_id: topic.id, subject: "post subject", 
+                                        text: "", reply_to_post_id: parent_post.id },
+                          forum_id: Forum.first.id, topic_id: topic.id }
+        end
+        it "doesn't create sync peer log" do
+          expect(SyncPeerLog.all).to be_blank
+        end
+        it "doesn't create sync log action parameters" do
+          expect(SyncLogActionParameter.all).to be_blank
+        end
+        after do
+          forum_post.destroy if forum_post
+          parent_post.destroy if parent_post
+          topic.destroy if topic
+        end
+      end
+      
+      context "when creation fails because the user isn't logged in" do
+        before do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID, admin: 1)
+          topic.update_attributes(origin_id: topic.id, site_id: PEER_SITE_ID)
+          parent_post.update_attributes(origin_id: parent_post.id, site_id: PEER_SITE_ID)
+          post :create, { forum_post: { forum_topic_id: topic.id, subject: "post subject", 
+                                        text: "post body", reply_to_post_id: parent_post.id },
+                          forum_id: Forum.first.id, topic_id: topic.id }
+        end
+        it "doesn't create sync peer log" do
+          expect(SyncPeerLog.all).to be_blank
+        end
+        it "doesn't create sync log action parameters" do
+          expect(SyncLogActionParameter.all).to be_blank
+        end
+        after do
+          forum_post.destroy if forum_post
+          parent_post.destroy if parent_post
+          topic.destroy if topic
+        end
+      end
+    end
+    
   end
 end

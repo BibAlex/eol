@@ -22,7 +22,7 @@ class Forums::TopicsController < ForumsController
     if session[:submitted_data]
       topic_data ||= session[:submitted_data][:forum_topic]
       session.delete(:submitted_data)
-    end
+    end 
     topic_data[:title] = topic_data[:forum_posts_attributes]["0"][:subject]
     topic_data[:user_id] = current_user.id
     topic_data[:forum_posts_attributes]["0"][:user_id] = current_user.id

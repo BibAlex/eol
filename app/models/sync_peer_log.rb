@@ -1198,16 +1198,24 @@ class SyncPeerLog < ActiveRecord::Base
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     topic = ForumTopic.find_site_specific(parameters[:topic_origin_id], 
                                           parameters[:topic_site_id])
+    parent_post = ForumPost.find_site_specific(parameters[:parent_post_origin_id], parameters[:parent_post_site_id]) if parameters[:parent_post_origin_id]
+    parent_post_id = parent_post.nil? ? nil : parent_post.id
     ForumPost.create(forum_topic_id: topic.id, subject: parameters[:subject],
                      text: parameters[:text], user_id: user.id, site_id: parameters[:sync_object_site_id],
-                     origin_id: parameters[:sync_object_id], created_at: parameters[:action_taken_at])
+                     origin_id: parameters[:sync_object_id], created_at: parameters[:action_taken_at],
+                     reply_to_post_id: parent_post_id, edit_count: parameters[:edit_count])
   end
   
   def self.update_post(parameters)
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     post = ForumPost.find_site_specific(parameters[:sync_object_id], 
                                           parameters[:sync_object_site_id])
-    post.update_attributes(subject: parameters[:subject], text: parameters[:text],
-                           updated_at: parameters[:action_taken_at]) if post
+    if post
+      if post.older_than?(parameters[:updated_at], "updated_at")
+        post.update_attributes(subject: parameters[:subject], text: parameters[:text],
+                               updated_at: parameters[:updated_at],
+                               edit_count: parameters[:edit_count])
+      end
+    end
   end
 end
