@@ -94,11 +94,13 @@ class Forums::PostsController < ForumsController
       if @post.forum_topic.forum_posts.visible.count == 1
         @post.forum_topic.update_attributes({ deleted_at: Time.now, deleted_by_user_id: current_user.id })
         @post.update_attributes({ deleted_at: Time.now, deleted_by_user_id: current_user.id })
+        sync_delete_post(@post.forum_topic.deleted_at)
         flash[:notice] = I18n.t('forums.posts.topic_and_post_delete_successful')
         redirect_to forum_path(@post.forum_topic.forum)
         return
       else
         @post.update_attributes({ deleted_at: Time.now, deleted_by_user_id: current_user.id })
+        sync_delete_post
         flash[:notice] = I18n.t('forums.posts.delete_successful')
       end
     end
@@ -127,6 +129,18 @@ class Forums::PostsController < ForumsController
     sync_params = { edit_count: @post.edit_count, 
                     updated_at: @post.updated_at }.reverse_merge(params[:forum_post])
     options = { user: current_user, object: @post, action_id: SyncObjectAction.update.id,
+                type_id: SyncObjectType.post.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_delete_post(topic_deleted_at = nil)
+    sync_params = { post_deleted_at: @post.deleted_at,
+                    edit_count: @post.edit_count }
+    if topic_deleted_at
+      sync_params = sync_params.reverse_merge({ topic_deleted_at: topic_deleted_at, topic_origin_id: @post.forum_topic.origin_id,
+                                  topic_site_id: @post.forum_topic.site_id })
+    end
+    options = { user: current_user, object: @post, action_id: SyncObjectAction.delete.id,
                 type_id: SyncObjectType.post.id, params: sync_params }
     SyncPeerLog.log_action(options)
   end

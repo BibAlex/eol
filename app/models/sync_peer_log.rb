@@ -1232,6 +1232,7 @@ class SyncPeerLog < ActiveRecord::Base
     end
   end
   
+  #posts
   def self.create_post(parameters)
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     topic = ForumTopic.find_site_specific(parameters[:topic_origin_id], 
@@ -1254,6 +1255,17 @@ class SyncPeerLog < ActiveRecord::Base
                                updated_at: parameters[:updated_at],
                                edit_count: parameters[:edit_count])
       end
+    end
+  end
+  
+  def self.delete_post(parameters)
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    post = ForumPost.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    topic = ForumTopic.find_site_specific(parameters[:topic_origin_id], parameters[:topic_site_id])
+    if post
+      post.update_attributes({ deleted_at: parameters[:post_deleted_at], deleted_by_user_id: user.id,
+                               edit_count: parameters[:edit_count] })
+      topic.update_attributes({ deleted_at: parameters[:topic_deleted_at], deleted_by_user_id: user.id }) if topic
     end
   end
   
@@ -1289,5 +1301,5 @@ class SyncPeerLog < ActiveRecord::Base
     if topic.forum_posts.visible.count == 0
       topic.update_attributes({ deleted_at: parameters[:action_taken_at], deleted_by_user_id: user.id }) 
     end
-  end
+  end  
 end
