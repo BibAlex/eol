@@ -1,6 +1,7 @@
 class ForumPost < ActiveRecord::Base
   establish_connection(Rails.env)
-
+  extend SiteSpecific
+  
   belongs_to :forum_topic
   belongs_to :user
 
@@ -62,6 +63,11 @@ class ForumPost < ActiveRecord::Base
 
   def deleted?
     deleted_at != nil
+  end
+  
+  def older_than?(compared_arg, compared_criteria)
+    compared_time = compared_arg.class.name == self.class.name ? compared_arg.send(compared_criteria) : compared_arg
+    self.send(compared_criteria).nil? ||  self.send(compared_criteria) < compared_time
   end
 
   private

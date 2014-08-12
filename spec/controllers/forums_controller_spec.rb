@@ -207,7 +207,7 @@ describe ForumsController do
           forum.update_attributes(origin_id: forum.id, site_id: PEER_SITE_ID)
           put :update, { forum: { forum_category_id: forum_category.id, name: "forum", 
                                    description: "forum description" },
-                           id: forum.id}
+                           id: forum.id }
         end
         it "creates sync peer log" do
           expect(peer_log).not_to be_nil
@@ -245,6 +245,53 @@ describe ForumsController do
         it "creates sync log action parameter for 'forum_category_site_id'" do
           forum_category_site_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "forum_category_site_id")
           expect(forum_category_site_id_parameter[0][:value].to_i).to eq(forum_category.site_id)
+        end
+        after do
+          forum.destroy if forum
+          forum_category.destroy if forum_category
+        end
+      end
+    end
+    
+    describe "DELETE #destroy" do
+      let(:peer_log) { SyncPeerLog.where("sync_object_action_id = ? and sync_object_type_id =? 
+                                          and sync_object_id = ? and sync_object_site_id = ?", 
+                                          SyncObjectAction.delete.id, SyncObjectType.forum.id,
+                                          forum.origin_id, PEER_SITE_ID).first }
+      let(:user) { User.first }
+      let(:forum_category) { ForumCategory.gen }
+      subject(:forum) { Forum.gen(user_id: user.id) }
+      
+      context "when successful update" do
+        before do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID,
+                                 admin: 1)
+          session[:user_id] = user.id
+          forum_category.update_attributes(origin_id: forum_category.id, site_id: PEER_SITE_ID)
+          forum.update_attributes(origin_id: forum.id, site_id: PEER_SITE_ID)
+          delete :destroy, { id: forum.id }
+        end
+        it "creates sync peer log" do
+          expect(peer_log).not_to be_nil
+        end
+        it "has correct action" do
+          expect(peer_log.sync_object_action_id).to eq(SyncObjectAction.delete.id)
+        end
+        it "has correct type" do
+          expect(peer_log.sync_object_type_id).to eq(SyncObjectType.forum.id)
+        end
+        it "sync peer log 'user_site_id' equal 'PEER_SITE_ID'" do
+          expect(peer_log.user_site_id).to eq(PEER_SITE_ID)
+        end
+        it "has correct 'user_id'" do
+          expect(peer_log.user_site_object_id).to eq(user.id)
+        end
+        it "has correct 'object_site_id'" do
+          expect(peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
+        end
+        it "has correct 'object_id'" do
+          expect(peer_log.sync_object_id).to eq(forum.origin_id)
         end
         after do
           forum.destroy if forum

@@ -34,6 +34,8 @@ class Forums::PostsController < ForumsController
     @post = ForumPost.new(post_data)
     @post.user_id = current_user.id
     if @post.save
+      @post.update_attributes(origin_id: @post.id, site_id: PEER_SITE_ID)
+      sync_create_post
       flash[:notice] = I18n.t('forums.posts.create_successful')
     else
       flash[:error] = I18n.t('forums.posts.create_failed')
@@ -66,6 +68,7 @@ class Forums::PostsController < ForumsController
     raise EOL::Exceptions::SecurityViolation,
       "User with ID=#{current_user.id} does not have edit access to ForumPost with ID=#{@post.id}" unless current_user.can_update?(@post)
     if @post.update_attributes(params[:forum_post])
+      sync_update_post
       flash[:notice] = I18n.t('forums.posts.update_successful')
     else
       flash[:error] = I18n.t('forums.posts.update_failed')
@@ -100,6 +103,32 @@ class Forums::PostsController < ForumsController
       end
     end
     redirect_to forum_topic_path(@post.forum_topic.forum, @post.forum_topic, page: @post.page_in_topic, anchor: "post_#{@post.id}")
+  end
+  
+  private
+  
+  # synchronization
+  def sync_create_post
+    sync_params = { topic_origin_id: @topic.origin_id,
+                    topic_site_id: @topic.site_id,
+                    edit_count: @post.edit_count }.reverse_merge(params[:forum_post])
+    parent_post = ForumPost.find(params[:forum_post][:reply_to_post_id].to_i)  unless params[:forum_post][:reply_to_post_id].blank?
+    if parent_post
+      sync_params.delete("reply_to_post_id")
+      sync_params = sync_params.reverse_merge(parent_post_origin_id: parent_post.origin_id,
+                                              parent_post_site_id: parent_post.site_id)
+    end
+    options = { user: current_user, object: @post, action_id: SyncObjectAction.create.id,
+                type_id: SyncObjectType.post.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_post
+    sync_params = { edit_count: @post.edit_count, 
+                    updated_at: @post.updated_at }.reverse_merge(params[:forum_post])
+    options = { user: current_user, object: @post, action_id: SyncObjectAction.update.id,
+                type_id: SyncObjectType.post.id, params: sync_params }
+    SyncPeerLog.log_action(options)
   end
 
 end
