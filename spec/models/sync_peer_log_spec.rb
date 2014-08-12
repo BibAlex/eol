@@ -2550,5 +2550,41 @@ describe SyncPeerLog do
         end
       end
     end
+    
+    describe ".delete_post" do
+      let(:topic) { ForumTopic.gen }
+      let(:user) { User.first }
+      subject(:forum_post) { ForumPost.gen(user_id: user.id, forum_topic_id: topic.id,
+                                           subject: "post subject", text: "post body")}
+      
+      context "when successful deletion" do
+        before(:all) do
+          @deleted_at = Time.now
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          topic.update_attributes(origin_id: topic.id, site_id: PEER_SITE_ID)
+          forum_post.update_attributes(origin_id: forum_post.id, site_id: PEER_SITE_ID)
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.delete.id, 
+                                          sync_object_type_id: SyncObjectType.post.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: forum_post.origin_id,
+                                          user_site_id: user.site_id,
+                                          sync_object_site_id: PEER_SITE_ID)
+          parameters_values_hash = { edit_count: 1, post_deleted_at: @deleted_at }
+          create_log_action_parameters(parameters_values_hash, sync_peer_log)
+          sync_peer_log.process_entry
+          forum_post.reload
+        end
+        it "deletes the post" do
+          expect(forum_post.deleted_at.utc.to_s).to eq(@deleted_at.utc.to_s)
+        end
+        it "has correct 'deleted_by_user_id'" do
+          expect(forum_post.deleted_by_user_id).to eq(user.id)
+        end
+        after(:all) do
+          forum_post.destroy if forum_post
+          topic.destroy if topic
+        end
+      end
+    end
   end
  end

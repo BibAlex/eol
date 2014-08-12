@@ -396,5 +396,77 @@ describe Forums::PostsController do
       end
     end
     
+    describe "DELETE #destroy" do
+      let(:peer_log) { SyncPeerLog.where("sync_object_action_id = ? and sync_object_type_id =? 
+                                          and sync_object_id = ? and sync_object_site_id = ?", 
+                                          SyncObjectAction.delete.id, SyncObjectType.post.id,
+                                          forum_post.origin_id, PEER_SITE_ID).first }
+      let(:user) { User.first }
+      let(:topic) { ForumTopic.gen }
+      subject(:forum_post) { ForumPost.gen(user_id: user.id, forum_topic_id: topic.id) }
+      
+      context "when successful deletion" do
+        before do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID, admin: 1)
+          session[:user_id] = user.id
+          topic.update_attributes(origin_id: topic.id, site_id: PEER_SITE_ID)
+          forum_post.update_attributes(origin_id: forum_post.id, site_id: PEER_SITE_ID)
+          delete :destroy, { forum_id: Forum.first.id, topic_id: topic.id,
+                             id: forum_post.id }
+        end
+        it "creates sync peer log" do
+          expect(peer_log).not_to be_nil
+        end
+        it "has correct action" do
+          expect(peer_log.sync_object_action_id).to eq(SyncObjectAction.delete.id)
+        end
+        it "has correct type" do
+          expect(peer_log.sync_object_type_id).to eq(SyncObjectType.post.id)
+        end
+        it "sync peer log 'user_site_id' equal 'PEER_SITE_ID'" do
+          expect(peer_log.user_site_id).to eq(PEER_SITE_ID)
+        end
+        it "has correct 'user_id'" do
+          expect(peer_log.user_site_object_id).to eq(user.id)
+        end
+        it "has correct 'object_site_id'" do
+          expect(peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
+        end
+        it "has correct 'object_id'" do
+          expect(peer_log.sync_object_id).to eq(forum_post.origin_id)
+        end
+        it "creates sync log action parameter for 'post_deleted_at'" do
+          forum_post.reload
+          post_deleted_at_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "post_deleted_at")
+          expect(post_deleted_at_parameter[0][:value]).to eq(forum_post.deleted_at.utc.to_s(:db))
+        end
+        after do
+          forum_post.destroy if forum_post
+          topic.destroy if topic
+        end
+      end
+      
+      context "when creation fails because the user isn't logged in" do
+        before do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID, admin: 1)
+          topic.update_attributes(origin_id: topic.id, site_id: PEER_SITE_ID)
+          forum_post.update_attributes(origin_id: forum_post.id, site_id: PEER_SITE_ID)
+          delete :destroy, { forum_id: Forum.first.id, topic_id: topic.id,
+                             id: forum_post.id }
+        end
+        it "doesn't create sync peer log" do
+          expect(SyncPeerLog.all).to be_blank
+        end
+        it "doesn't create sync log action parameters" do
+          expect(SyncLogActionParameter.all).to be_blank
+        end
+        after do
+          forum_post.destroy if forum_post
+          topic.destroy if topic
+        end
+      end
+    end    
   end
 end
