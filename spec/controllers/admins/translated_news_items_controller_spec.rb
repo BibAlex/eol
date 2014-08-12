@@ -148,4 +148,179 @@ describe Admins::TranslatedNewsItemsController do
     end
   end
 
+  describe "Synchronization" do
+    
+    before(:all) do
+      SyncObjectType.create_enumerated
+      SyncObjectAction.create_enumerated
+    end
+    
+    describe "POST #create" do
+      let(:current_user) { User.gen }
+      let(:type) { SyncObjectType.translated_news_item }
+      let(:action) { SyncObjectAction.create }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(
+        action.id, type.id) }
+      let(:news_item) { NewsItem.gen(page_name: "name") }
+      before do
+        news_item.update_attributes(origin_id: news_item.id, site_id: PEER_SITE_ID)
+        current_user.update_attributes(origin_id: current_user.id, site_id: PEER_SITE_ID, admin: 1)
+        truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+        allow(controller).to receive(:current_user) { current_user }
+        session[:user_id] = current_user.id
+        post :create,
+          news_item_id: news_item.id, 
+          translated_news_item: { "language_id"=>"1", 
+                                  "title"=>"un1", 
+                                  "body"=>"<p>un1</p>\r\n", 
+                                  "active_translation"=>"1" }
+      end
+      it "creates sync peer log" do
+        expect(peer_log).not_to be_nil
+      end
+      it "creates sync peer log with correct sync_object_action" do
+        expect(peer_log.sync_object_action_id).to eq(action.id)
+      end
+      it "creates sync peer log with correct sync_object_type" do
+        expect(peer_log.sync_object_type_id).to eq(type.id)
+      end
+      it "creates sync peer log with correct user_site_id" do
+        expect(peer_log.user_site_id).to eq(current_user.site_id)
+      end
+      it "creates sync peer log with correct user_site_object_id" do
+        expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+      end
+      it "creates sync peer log with correct sync_object_id" do
+        expect(peer_log.sync_object_id).to eq(news_item.origin_id)
+      end
+      it "creates sync peer log with correct sync_object_site_id" do
+        expect(peer_log.sync_object_site_id).to eq(news_item.site_id)
+      end
+      it "creates sync log action parameter for language_id" do
+        language_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "language_id")
+        expect(language_id_parameter[0][:value]).to eq("1")
+      end
+      it "creates sync log action parameter for title" do
+        title_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "title")
+        expect(title_parameter[0][:value]).to eq("un1")
+      end
+      after(:each) do
+        User.find(current_user.id).destroy
+        NewsItem.find(news_item.id).destroy
+        if TranslatedNewsItem.find_by_language_id_and_news_item_id(1, news_item.id)
+          TranslatedNewsItem.find_by_language_id_and_news_item_id(1, news_item.id).destroy 
+        end
+      end
+    end
+    
+    describe "PUT #update" do
+      let(:current_user) { User.gen }
+      let(:type) { SyncObjectType.translated_news_item }
+      let(:action) { SyncObjectAction.update }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id) }
+      let(:news_item) { NewsItem.gen(page_name: "name") }
+      before do
+        translated_news_item = TranslatedNewsItem.create(title: "title", body: "body",
+          language_id: 1, news_item_id: news_item.id)
+        news_item.update_attributes(origin_id: news_item.id, site_id: PEER_SITE_ID)
+        current_user.update_attributes(origin_id: current_user.id, site_id: PEER_SITE_ID, admin: 1)
+        truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+        allow(controller).to receive(:current_user) { current_user }
+        session[:user_id] = current_user.id
+        put :update,
+          news_item_id: news_item.id,
+          id: translated_news_item.id,
+          translated_news_item: { "language_id"=>"1", 
+                                  "title"=>"updated_un1", 
+                                  "body"=>"<p>un1</p>\r\n", 
+                                  "active_translation"=>"1" }
+      end
+      it "creates sync peer log" do
+        expect(peer_log).not_to be_nil
+      end
+      it "creates sync peer log with correct sync_object_action" do
+        expect(peer_log.sync_object_action_id).to eq(action.id)
+      end
+      it "creates sync peer log with correct sync_object_type" do
+        expect(peer_log.sync_object_type_id).to eq(type.id)
+      end
+      it "creates sync peer log with correct user_site_id" do
+        expect(peer_log.user_site_id).to eq(current_user.site_id)
+      end
+      it "creates sync peer log with correct user_site_object_id" do
+        expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+      end
+      it "creates sync peer log with correct sync_object_id" do
+        expect(peer_log.sync_object_id).to eq(news_item.origin_id)
+      end
+      it "creates sync peer log with correct sync_object_site_id" do
+        expect(peer_log.sync_object_site_id).to eq(news_item.site_id)
+      end
+      it "creates sync log action parameter for language_id" do
+        language_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "language_id")
+        expect(language_id_parameter[0][:value]).to eq("1")
+      end
+      it "creates sync log action parameter for title" do
+        title_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "title")
+        expect(title_parameter[0][:value]).to eq("updated_un1")
+      end
+      after(:each) do
+        User.find(current_user.id).destroy
+        NewsItem.find(news_item.id).destroy 
+        if TranslatedNewsItem.find_by_language_id_and_news_item_id(1, news_item.id)
+          TranslatedNewsItem.find_by_language_id_and_news_item_id(1, news_item.id).destroy 
+        end
+      end
+    end
+    
+    describe "DELETE #destroy" do
+      let(:current_user) { User.gen }
+      let(:type) { SyncObjectType.translated_news_item }
+      let(:action) { SyncObjectAction.delete }
+      let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id) }
+      let(:news_item) { NewsItem.gen(page_name: "name") }
+      before do
+        news_item.update_attributes(origin_id: news_item.id, site_id: PEER_SITE_ID)
+        translated_news_item = TranslatedNewsItem.create(title: "title", body: "body",
+          language_id: 1, news_item_id: news_item.id)
+        current_user.update_attributes(origin_id: current_user.id, site_id: PEER_SITE_ID, admin: 1)
+        truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+        allow(controller).to receive(:current_user) { current_user }
+        session[:user_id] = current_user.id
+        delete :destroy,
+          news_item_id: news_item.id,
+          id: translated_news_item.id
+      end
+      
+      it "creates sync peer log" do
+        expect(peer_log).not_to be_nil
+      end
+      it "creates sync peer log with correct sync_object_action" do
+        expect(peer_log.sync_object_action_id).to eq(action.id)
+      end
+      it "creates sync peer log with correct sync_object_type" do
+        expect(peer_log.sync_object_type_id).to eq(type.id)
+      end
+      it "creates sync peer log with correct user_site_id" do
+        expect(peer_log.user_site_id).to eq(current_user.site_id)
+      end
+      it "creates sync peer log with correct user_site_object_id" do
+        expect(peer_log.user_site_object_id).to eq(current_user.origin_id)
+      end
+      it "creates sync peer log with correct sync_object_id" do
+        expect(peer_log.sync_object_id).to eq(news_item.origin_id)
+      end
+      it "creates sync peer log with correct sync_object_site_id" do
+        expect(peer_log.sync_object_site_id).to eq(news_item.site_id)
+      end
+      it "creates sync log action parameter for language_id" do
+        language_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "language_id")
+        expect(language_id_parameter[0][:value]).to eq("1")
+      end
+      after(:each) do
+        User.find(current_user.id).destroy
+        NewsItem.find(news_item.id).destroy
+      end
+    end
+  end
 end

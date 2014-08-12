@@ -18,22 +18,22 @@ describe Admins::NewsItemsController do
         allow(controller).to receive(:current_user) { current_user }
         session[:user_id] = current_user.id
         post :create,
-          "news_item"=>{ "page_name"=>"un1", 
-                         "display_date(3i)"=>"5",
-                         "display_date(2i)"=>"8",
-                         "display_date(1i)"=>"2014",
-                         "display_date(4i)"=>"12",
-                         "display_date(5i)"=>"42",
-                         "activated_on(3i)"=>"5",
-                         "activated_on(2i)"=>"8",
-                         "activated_on(1i)"=>"2014",
-                         "activated_on(4i)"=>"12",
-                         "activated_on(5i)"=>"42", 
-                         "active"=>"1" }, 
-          "translated_news_item"=>{ "language_id"=>"1", 
-                                    "title"=>"un1", 
-                                    "body"=>"<p>un1</p>\r\n", 
-                                    "active_translation"=>"1" }
+          news_item: { "page_name"=>"un1", 
+                       "display_date(3i)"=>"5",
+                       "display_date(2i)"=>"8",
+                       "display_date(1i)"=>"2014",
+                       "display_date(4i)"=>"12",
+                       "display_date(5i)"=>"42",
+                       "activated_on(3i)"=>"5",
+                       "activated_on(2i)"=>"8",
+                       "activated_on(1i)"=>"2014",
+                       "activated_on(4i)"=>"12",
+                       "activated_on(5i)"=>"42", 
+                       "active"=>"1" }, 
+          translated_news_item: { "language_id"=>"1", 
+                                  "title"=>"un1", 
+                                  "body"=>"<p>un1</p>\r\n", 
+                                  "active_translation"=>"1" }
       end
       
       it "creates sync peer log" do
@@ -70,7 +70,7 @@ describe Admins::NewsItemsController do
         expect(title_parameter[0][:value]).to eq("un1")
       end
       after(:each) do
-        User.last.destroy
+        User.find(user.id).destroy
         NewsItem.last.destroy if NewsItem.last 
       end
     end
@@ -89,18 +89,18 @@ describe Admins::NewsItemsController do
         session[:user_id] = current_user.id
         put :update,
           id: news_item.id,
-          "news_item"=>{ "page_name"=>"un1", 
-                         "display_date(3i)"=>"5",
-                         "display_date(2i)"=>"8",
-                         "display_date(1i)"=>"2014",
-                         "display_date(4i)"=>"12",
-                         "display_date(5i)"=>"42",
-                         "activated_on(3i)"=>"5",
-                         "activated_on(2i)"=>"8",
-                         "activated_on(1i)"=>"2014",
-                         "activated_on(4i)"=>"12",
-                         "activated_on(5i)"=>"42", 
-                         "active"=>"1" }
+          news_item: { "page_name"=>"un1", 
+                       "display_date(3i)"=>"5",
+                       "display_date(2i)"=>"8",
+                       "display_date(1i)"=>"2014",
+                       "display_date(4i)"=>"12",
+                       "display_date(5i)"=>"42",
+                       "activated_on(3i)"=>"5",
+                       "activated_on(2i)"=>"8",
+                       "activated_on(1i)"=>"2014",
+                       "activated_on(4i)"=>"12",
+                       "activated_on(5i)"=>"42", 
+                       "active"=>"1" }
       end
       
       it "creates sync peer log" do
@@ -129,7 +129,7 @@ describe Admins::NewsItemsController do
         expect(page_name_parameter[0][:value]).to eq("un1")
       end
       after(:each) do
-        User.last.destroy
+        User.find(user.id).destroy
         NewsItem.find(news_item.id).destroy if NewsItem.find(news_item.id) 
       end
     end
@@ -172,7 +172,8 @@ describe Admins::NewsItemsController do
         expect(peer_log.sync_object_site_id).to eq(news_item.site_id)
       end
       after(:each) do
-        User.last.destroy
+        User.find(user.id).destroy
+        NewsItem.find(news_item.id).destroy 
       end
     end
   end

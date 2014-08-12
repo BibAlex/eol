@@ -28,6 +28,11 @@ class Forums::TopicsController < ForumsController
     topic_data[:forum_posts_attributes]["0"][:user_id] = current_user.id
     @topic = ForumTopic.new(topic_data)
     if @topic.save
+      @topic.reload
+      update_topic_sync_ids
+      first_post = update_first_post_sync_ids
+      sync_create_topic(Forum.find(params[:forum_id]), first_post, 
+        topic_data[:forum_posts_attributes]["0"][:text])
       flash[:notice] = I18n.t('forums.topics.create_successful')
     else
       flash[:error] = I18n.t('forums.topics.create_failed')
@@ -43,6 +48,7 @@ class Forums::TopicsController < ForumsController
     @topic = ForumTopic.find(params[:id])
     if @topic.forum_posts.visible.count == 0
       @topic.update_attributes({ deleted_at: Time.now, deleted_by_user_id: current_user.id })
+      sync_delete_topic
       flash[:notice] = I18n.t('forums.topics.delete_successful')
     else
       flash[:error] = I18n.t('forums.topics.delete_failed_not_empty')
@@ -50,4 +56,28 @@ class Forums::TopicsController < ForumsController
     redirect_to forum_path(@topic.forum)
   end
 
+  private
+  def update_topic_sync_ids
+    @topic.update_attributes(origin_id: @topic.id, site_id: PEER_SITE_ID)
+  end
+  
+  def update_first_post_sync_ids
+    first_post = @topic.first_post
+    first_post.update_attributes(origin_id: first_post.id, site_id: PEER_SITE_ID)
+    first_post
+  end
+  
+  def sync_create_topic(forum, first_post, text)
+    sync_params = { forum_origin_id: forum.origin_id, forum_site_id: forum.site_id,
+      first_post_origin_id: first_post.origin_id, first_post_site_id: first_post.site_id, 
+      subject: @topic.title, text: text } 
+    options = { user: current_user, object: @topic, action_id: SyncObjectAction.create.id,
+                type_id: SyncObjectType.topic.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
+  def sync_delete_topic
+     options = { user: current_user, object: @topic, action_id: SyncObjectAction.delete.id,
+       type_id: SyncObjectType.topic.id, params: {} }
+     SyncPeerLog.log_action(options)
+   end
 end

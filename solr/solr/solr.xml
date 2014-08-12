@@ -27,3 +27,4 @@
       <core name="activity_logs" instanceDir="./cores/activity_logs/" dataDir="./data/activity_logs"/>
   </cores>
 </solr>
+<abortOnConfigurationError>false</abortOnConfigurationError>
