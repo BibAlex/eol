@@ -4,7 +4,8 @@ class SyncObjectType < ActiveRecord::Base
   
   enumerated :object_type, %w(User common_name Collection content_page Community Comment Ref collection_item
                         data_object collection_job dummy_type translated_content_page glossary_term search_suggestion
-                        agreement contact news_item translated_news_item content_upload forum topic post)
+                        agreement contact news_item translated_news_item content_upload forum topic post
+                        category)
   def is_dummy?
     self.object_type == 'dummy_type'
   end 

@@ -17,6 +17,60 @@ describe SyncPeerLog do
     TocItem.gen_if_not_exists(:label => 'overview')
   end
   
+  describe "Forum Categories" do
+    describe ".create_category" do
+      before do
+        user = User.first
+        user.update_attributes(active: true, origin_id: user.id, site_id: PEER_SITE_ID, admin: 1)
+        sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id,
+                                        sync_object_type_id: SyncObjectType.category.id,
+                                        user_site_object_id: user.origin_id,
+                                        user_site_id: user.site_id, 
+                                        sync_object_id: 80, #create a new one with this origin_id 
+                                        sync_object_site_id: PEER_SITE_ID)
+        parameters_values_hash = { title: "cat_title", description: "cat_description"}
+        create_log_action_parameters(parameters_values_hash, sync_peer_log)
+        sync_peer_log.process_entry
+      end
+      it "creates new category" do
+        category = ForumCategory.find_by_title_and_description("cat_title", "cat_description")
+        expect(category).not_to be_nil
+      end
+      after do
+        if ForumCategory.find_by_title_and_description("cat_title", "cat_description")
+          ForumCategory.find_by_title_and_description("cat_title", "cat_description").destroy
+        end
+      end
+    end
+    
+    describe ".update_category" do
+      let(:category) {ForumCategory.gen}
+      before do
+        category.update_attributes(origin_id: category.id, site_id: PEER_SITE_ID)
+        user = User.first
+        user.update_attributes(active: true, origin_id: user.id, site_id: PEER_SITE_ID, admin: 1)
+        sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.update.id,
+                                        sync_object_type_id: SyncObjectType.category.id,
+                                        user_site_object_id: user.origin_id,
+                                        user_site_id: user.site_id, 
+                                        sync_object_id: category.origin_id, 
+                                        sync_object_site_id: category.site_id)
+        parameters_values_hash = { title: "new_cat_title", description: "new_cat_description"}
+        create_log_action_parameters(parameters_values_hash, sync_peer_log)
+        sync_peer_log.process_entry
+      end
+      it "updates category" do
+        category = ForumCategory.find_by_title_and_description("new_cat_title", "new_cat_description")
+        expect(category).not_to be_nil
+      end
+      after do
+        if ForumCategory.find_by_title_and_description("new_cat_title", "new_cat_description")
+          ForumCategory.find_by_title_and_description("new_cat_title", "new_cat_description").destroy
+        end
+      end
+    end
+  end
+  
   describe "Forum Topics" do
     describe ".create_topic" do
       let(:forum) { Forum.gen }
@@ -48,6 +102,9 @@ describe SyncPeerLog do
         expect(topic.first_post.origin_id).to eq(90)
       end
       after do
+        if ForumTopic.find_by_forum_id_and_origin_id(forum.id, 80)
+          ForumTopic.find_by_forum_id_and_origin_id(forum.id, 80).destroy
+        end
         Forum.find(forum.id).destroy if Forum.find(forum.id)
       end
     end

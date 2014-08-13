@@ -14,6 +14,7 @@ class Forums::CategoriesController < ForumsController
     @category.user_id = current_user.id
 
     if @category.save
+      sync_create_or_update_category("create")
       flash[:notice] = I18n.t('forums.categories.create_successful')
     else
       flash[:error] = I18n.t('forums.categories.create_failed')
@@ -37,6 +38,7 @@ class Forums::CategoriesController < ForumsController
     raise EOL::Exceptions::SecurityViolation,
       "User with ID=#{current_user.id} does not have edit access to ForumCategory with ID=#{@category.id}" unless current_user.can_update?(@category)
     if @category.update_attributes(params[:forum_category])
+      sync_create_or_update_category("update")
       flash[:notice] = I18n.t('forums.categories.update_successful')
     else
       flash[:error] = I18n.t('forums.categories.update_failed')
@@ -88,4 +90,17 @@ class Forums::CategoriesController < ForumsController
     redirect_to forums_path
   end
 
+  private 
+    def sync_create_or_update_category(action)
+      if action == "create"      
+        action_id = SyncObjectAction.create.id
+      else 
+        action_id = SyncObjectAction.update.id 
+      end
+      sync_params = params[:forum_category]
+      options = { user: current_user, object: @category, action_id: action_id,
+                  type_id: SyncObjectType.category.id, params: sync_params }
+      SyncPeerLog.log_action(options)
+    end
+    
 end

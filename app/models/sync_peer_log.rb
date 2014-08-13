@@ -1302,4 +1302,21 @@ class SyncPeerLog < ActiveRecord::Base
       topic.update_attributes({ deleted_at: parameters[:action_taken_at], deleted_by_user_id: user.id }) 
     end
   end  
+  
+  # Forum Categories
+  def self.create_category(parameters)
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    category = ForumCategory.create(title: parameters[:title], description: parameters[:description])
+    category.update_attributes(user_id: user.id, created_at: parameters[:action_taken_at], 
+      updated_at: parameters[:action_taken_at])
+  end
+  
+  def self.update_category(parameters)
+    category = ForumCategory.find_site_specific(parameters[:sync_object_id], 
+      parameters[:sync_object_site_id])
+    if category
+      category.update_attributes(title: parameters[:title], description: parameters[:description], 
+        updated_at: parameters[:action_taken_at])
+    end
+  end
 end
