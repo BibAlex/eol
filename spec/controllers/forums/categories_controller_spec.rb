@@ -99,4 +99,55 @@ describe Forums::CategoriesController do
       expect { post :destroy, :id => c.id }.not_to raise_error
     end
   end
+  
+  describe "synchronization" do
+    before(:all) do
+        SyncObjectType.create_enumerated
+        SyncObjectAction.create_enumerated
+    end
+    
+    describe "DELETE #destroy" do
+      let(:peer_log) { SyncPeerLog.where("sync_object_action_id = ? and sync_object_type_id =? 
+                                          and sync_object_id = ? and sync_object_site_id = ?", 
+                                          SyncObjectAction.delete.id, SyncObjectType.category.id,
+                                          forum_category.origin_id, PEER_SITE_ID).first }
+      let(:user) { User.first }
+      subject(:forum_category) { ForumCategory.gen }
+      
+      context "when successful destroy" do
+        before do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID,
+                                 admin: 1)
+          session[:user_id] = user.id
+          forum_category.update_attributes(origin_id: forum_category.id, site_id: PEER_SITE_ID)
+          delete :destroy, { id: forum_category.id }
+        end
+        it "creates sync peer log" do
+          expect(peer_log).not_to be_nil
+        end
+        it "has correct action" do
+          expect(peer_log.sync_object_action_id).to eq(SyncObjectAction.delete.id)
+        end
+        it "has correct type" do
+          expect(peer_log.sync_object_type_id).to eq(SyncObjectType.category.id)
+        end
+        it "sync peer log 'user_site_id' equal 'PEER_SITE_ID'" do
+          expect(peer_log.user_site_id).to eq(PEER_SITE_ID)
+        end
+        it "has correct 'user_id'" do
+          expect(peer_log.user_site_object_id).to eq(user.id)
+        end
+        it "has correct 'object_site_id'" do
+          expect(peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
+        end
+        it "has correct 'object_id'" do
+          expect(peer_log.sync_object_id).to eq(forum_category.origin_id)
+        end
+        after do
+          forum_category.destroy if forum_category
+        end
+      end
+    end
+  end
 end

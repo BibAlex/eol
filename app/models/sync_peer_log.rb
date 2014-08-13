@@ -1229,4 +1229,9 @@ class SyncPeerLog < ActiveRecord::Base
       topic.update_attributes({ deleted_at: parameters[:topic_deleted_at], deleted_by_user_id: user.id }) if topic
     end
   end
+  
+  def self.delete_category(parameters)
+    category = ForumCategory.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    category.destroy if category
+  end
 end

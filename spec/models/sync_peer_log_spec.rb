@@ -2587,4 +2587,32 @@ describe SyncPeerLog do
       end
     end
   end
+  
+  describe "categories synchronization" do
+    describe ".delete_post" do
+      let(:forum_category) { ForumCategory.gen(user_id: user.id) }
+      let(:user) { User.first }
+      
+      context "when successful deletion" do
+        before(:all) do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          forum_category.update_attributes(origin_id: forum_category.id, site_id: PEER_SITE_ID)
+          @forum_category_id = forum_category.id
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.delete.id, 
+                                          sync_object_type_id: SyncObjectType.category.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: forum_category.origin_id,
+                                          user_site_id: user.site_id,
+                                          sync_object_site_id: PEER_SITE_ID)
+          sync_peer_log.process_entry
+        end
+        it "deletes forum category" do
+          expect(ForumCategory.find_site_specific(@forum_category_id, PEER_SITE_ID)).to be_nil
+        end
+        after(:all) do
+          forum_category.destroy if forum_category
+        end
+      end
+    end
+  end
  end
