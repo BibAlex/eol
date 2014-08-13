@@ -6,7 +6,7 @@ class NewsItem < ActiveRecord::Base
 
   validates_presence_of :page_name
   validates_length_of :page_name, maximum: 255
-  validates_uniqueness_of :page_name, scope: :id
+  validates_uniqueness_of :page_name, scope: :id, :if => :is_local?
 
   before_destroy :destroy_translations # TODO: can we have dependent: :destroy on translations rather than this custom callback?
 
@@ -91,4 +91,7 @@ private
     end
   end
 
+  def is_local?
+    site_id == PEER_SITE_ID  
+  end
 end

@@ -39,6 +39,7 @@ class Admins::TranslatedNewsItemsController < AdminsController
       @news_item = NewsItem.find(params[:news_item_id], include: :translations)
       @news_item.last_update_user_id = current_user.id
       @news_item.save
+      sync_update_translated_news_item
       flash[:notice] = I18n.t(:admin_translated_news_item_update_successful_notice,
                               page_name: @news_item.page_name,
                               language: @translated_news_item.language.label,
@@ -60,6 +61,7 @@ class Admins::TranslatedNewsItemsController < AdminsController
     translated_news_item = TranslatedNewsItem.find(params[:id], include: :language)
     language = translated_news_item.language
     translated_news_item.destroy
+    sync_delete_translated_news_item(news_item, language.id)
     flash[:notice] = I18n.t(:admin_translated_news_item_delete_successful_notice,
                             page_name: page_name, language: language.label)
     redirect_to news_items_path, status: :moved_permanently
@@ -88,6 +90,20 @@ private
   def sync_create_translated_news_item
     sync_params = params[:translated_news_item]
     options = { user: current_user, object: @news_item, action_id: SyncObjectAction.create.id,
+                type_id: SyncObjectType.translated_news_item.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_translated_news_item
+    sync_params = { language_id: @translated_news_item.language_id }.merge(params[:translated_news_item])
+    options = { user: current_user, object: @news_item, action_id: SyncObjectAction.update.id,
+                type_id: SyncObjectType.translated_news_item.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_delete_translated_news_item(news_item, language_id)
+    sync_params = { language_id: language_id }
+    options = { user: current_user, object: news_item, action_id: SyncObjectAction.delete.id,
                 type_id: SyncObjectType.translated_news_item.id, params: sync_params }
     SyncPeerLog.log_action(options)
   end
