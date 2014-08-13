@@ -1319,4 +1319,9 @@ class SyncPeerLog < ActiveRecord::Base
         updated_at: parameters[:action_taken_at])
     end
   end
+  
+  def self.delete_category(parameters)
+    category = ForumCategory.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    category.destroy if category
+  end
 end

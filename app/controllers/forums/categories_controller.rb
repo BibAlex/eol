@@ -55,6 +55,7 @@ class Forums::CategoriesController < ForumsController
       "User with ID=#{current_user.id} does not have edit access to ForumCategory with ID=#{@category.id}" unless current_user.can_delete?(@category)
     if @category.forums.count == 0
       @category.destroy
+      sync_destroy_category
       flash[:notice] = I18n.t('forums.categories.delete_successful')
     else
       flash[:error] = I18n.t('forums.categories.delete_failed_not_empty')
@@ -88,6 +89,14 @@ class Forums::CategoriesController < ForumsController
       flash[:error] = I18n.t('forums.categories.move_failed')
     end
     redirect_to forums_path
+  end
+  
+  private
+  # synchronization
+  def sync_destroy_category
+    options = { user: current_user, object: @category, action_id: SyncObjectAction.delete.id,
+                type_id: SyncObjectType.category.id, params: {} }
+    SyncPeerLog.log_action(options)
   end
 
   private 
