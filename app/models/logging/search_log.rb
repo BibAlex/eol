@@ -1,9 +1,10 @@
 class SearchLog < LazyLoggingModel
   establish_connection("#{Rails.env}_logging")
+  extend SiteSpecific
 
   belongs_to :ip_address
   belongs_to :taxon_concept
-
+  
   validates_presence_of :search_term
 
   def self.log(params, request, user)
@@ -18,7 +19,7 @@ class SearchLog < LazyLoggingModel
      opts[:user_id] = user.id unless user.nil?
 
      begin
-       create opts.merge(params)
+        create opts.merge(params)
      rescue => e
        Rails.logger.warn("Bogus invocation of SearchLog creation function by user #{user.id}")
        Rails.logger.warn(e.message)

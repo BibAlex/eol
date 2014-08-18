@@ -1324,4 +1324,19 @@ class SyncPeerLog < ActiveRecord::Base
     category = ForumCategory.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     category.destroy if category
   end
+  
+  #search_log
+  def self.create_search_log(parameters)
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    SearchLog.create(search_term: parameters[:search_term], 
+                     search_type: parameters[:search_type],
+                     total_number_of_results: parameters[:total_number_of_results],
+                     ip_address_raw: parameters[:ip_address_raw], 
+                     user_agent: parameters[:user_agent], 
+                     path: parameters[:path],
+                     user_id: user.id, 
+                     site_id: parameters[:sync_object_site_id],
+                     origin_id: parameters[:sync_object_id],
+                     created_at: parameters[:action_taken_at]) 
+  end
 end

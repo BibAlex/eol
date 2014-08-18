@@ -124,6 +124,11 @@ class SearchController < ApplicationController
       req,
       current_user)
     @logged_search_id = logged_search.nil? ? '' : logged_search.id
+    if logged_search
+      obj = SearchLog.find(@logged_search_id)
+      obj.update_attributes(origin_id: obj.id, site_id: PEER_SITE_ID)
+      sync_log_search(obj)
+    end
   end
 
   def autocomplete_taxon
@@ -183,5 +188,17 @@ class SearchController < ApplicationController
     return true if @params_type.include?('All') || @params_type.include?('Data')
     false
   end
-
+  
+  # synchronization
+  def sync_log_search(logged_search)
+    sync_params = { search_term: logged_search.search_term,
+                    search_type: logged_search.search_type,
+                    total_number_of_results: logged_search.total_number_of_results,
+                    ip_address_raw: logged_search.ip_address_raw,
+                    user_agent: logged_search.user_agent,
+                    path: logged_search.path }
+    options = { user: current_user, object: logged_search, action_id: SyncObjectAction.create.id,
+                type_id: SyncObjectType.search_log.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
 end
