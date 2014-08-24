@@ -111,7 +111,6 @@ class ContentPartners::ResourcesController < ContentPartnersController
   # GET /content_partners/:content_partner_id/resources/:id/force_harvest
   # POST /content_partners/:content_partner_id/resources/:id/force_harvest
   def force_harvest
-    debugger
     ContentPartner.with_master do
       @partner = ContentPartner.find(params[:content_partner_id], include: {resources: :resource_status })
       @resource = @partner.resources.find(params[:id])
