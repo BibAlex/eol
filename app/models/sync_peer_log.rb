@@ -1307,14 +1307,15 @@ class SyncPeerLog < ActiveRecord::Base
   def self.create_category(parameters)
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
     category = ForumCategory.create(title: parameters[:title], description: parameters[:description])
-    category.update_attributes(user_id: user.id, created_at: parameters[:action_taken_at], 
-      updated_at: parameters[:action_taken_at])
+    category.update_attributes(origin_id: parameters[:sync_object_id], 
+      site_id: parameters[:sync_object_site_id], user_id: user.id, 
+        created_at: parameters[:action_taken_at], updated_at: parameters[:action_taken_at])
   end
   
   def self.update_category(parameters)
     category = ForumCategory.find_site_specific(parameters[:sync_object_id], 
       parameters[:sync_object_site_id])
-    if category
+    if category && category.older_than?(parameters[:action_taken_at], "updated_at")
       category.update_attributes(title: parameters[:title], description: parameters[:description], 
         updated_at: parameters[:action_taken_at])
     end
@@ -1323,5 +1324,65 @@ class SyncPeerLog < ActiveRecord::Base
   def self.delete_category(parameters)
     category = ForumCategory.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     category.destroy if category
+  end
+  
+  #content_partner
+  def self.update_content_partner(parameters)
+    user = User.find_site_specific(parameters[:partner_user_origin_id], parameters[:partner_user_site_id])
+    object_logo_parameters = {logo_cache_url: parameters[:logo_cache_url],
+                              logo_file_name: parameters[:logo_file_name],
+                              logo_content_type: parameters[:logo_content_type],
+                              logo_file_size: parameters[:logo_file_size]}
+    base_url = parameters[:base_url]
+    action_taken_at = parameters[:action_taken_at]
+    partner = ContentPartner.find_site_specific(parameters[:sync_object_id], 
+      parameters[:sync_object_site_id])
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                              :action_taken_at, :base_url, :logo_cache_url, 
+                              :logo_file_name, :logo_content_type, :logo_file_size, :language,
+                              :partner_user_origin_id, :partner_user_site_id],parameters)
+    if partner && partner.older_than?(action_taken_at, "updated_at")
+      partner.update_attributes(parameters)
+      partner.update_attributes(user_id: user.id)
+      object_logo_parameters[:base_url] = base_url
+      download_object_file("ContentPartner", partner, object_logo_parameters, "logo")
+    end
+  end
+  
+  # Resources
+  def self.create_resource(parameters)
+    port = parameters[:port]
+    partner = ContentPartner.find_site_specific(parameters[:partner_origin_id], 
+      parameters[:partner_site_id])
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                             :action_taken_at, :base_url, :logo_cache_url, 
+                             :logo_file_name, :logo_content_type, :logo_file_size,
+                             :partner_origin_id, :partner_site_id, :port],parameters)
+    resource = partner.resources.build(parameters)
+    if resource.save
+      resource.upload_resource_to_content_master!(port)
+    end
+  end
+  
+  def self.update_resource(parameters)
+    port = parameters[:port]
+    resource = Resource.find_site_specific(:sync_object_id, sync_object_site_id)
+    
+    if parameters[:commit_update_settings_only]
+      upload_required = false
+    else
+      existing_dataset_file_size = resource.dataset_file_size
+      # we need to check the accesspoint URL before saving the updated resource
+      upload_required = (resource.accesspoint_url != parameters[:accesspoint_url] || !parameters[:dataset].blank?)
+    end
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                              :action_taken_at, :base_url, :logo_cache_url, 
+                              :logo_file_name, :logo_content_type, :logo_file_size,
+                              :port, :commit_update_settings_only],parameters)
+    if resource.update_attributes(parameters)
+      if upload_required
+        resource.upload_resource_to_content_master!(port)
+      end
+    end
   end
 end

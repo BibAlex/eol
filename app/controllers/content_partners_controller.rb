@@ -86,6 +86,7 @@ class ContentPartnersController < ApplicationController
     if @partner.update_attributes(params[:content_partner])
       EOL::GlobalStatistics.clear('content_partners') # Needs to be re-calculated.
       upload_logo(@partner) unless params[:content_partner][:logo].blank?
+      sync_update_content_partner
       flash[:notice] = I18n.t(:content_partner_update_successful_notice)
       redirect_to @partner, status: :moved_permanently
     else
@@ -130,4 +131,17 @@ private
                           [I18n.t(:sort_by_oldest_option), 'oldest']]
   end
 
+  def sync_update_content_partner
+    user = @partner.user
+    sync_params = @partner.attributes
+    sync_params[:base_url] = "#{$CONTENT_SERVER}content/" 
+    sync_params[:partner_user_origin_id] = user.origin_id
+    sync_params[:partner_user_site_id] = user.site_id
+    sync_params.delete("id")
+    sync_params.delete("user_id")
+    options = {user: current_user, object: @partner, action_id: SyncObjectAction.update.id,
+                  type_id: SyncObjectType.content_partner.id, params: sync_params}
+    SyncPeerLog.log_action(options)
+   
+  end
 end

@@ -14,6 +14,7 @@ class Forums::CategoriesController < ForumsController
     @category.user_id = current_user.id
 
     if @category.save
+      @category.update_attributes(origin_id: @category.id, site_id: PEER_SITE_ID)
       sync_create_or_update_category("create")
       flash[:notice] = I18n.t('forums.categories.create_successful')
     else

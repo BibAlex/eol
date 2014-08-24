@@ -31,7 +31,9 @@ class ContentPartners::ResourcesController < ContentPartnersController
     @resource = @partner.resources.build(params[:resource])
     access_denied unless current_user.can_create?(@resource)
     if @resource.save
+      @resource.update_attributes(origin_id: @resource.id, site_id: PEER_SITE_ID)
       @resource.upload_resource_to_content_master!(request.port.to_s)
+      sync_create_resource
       unless [ResourceStatus.uploaded.id, ResourceStatus.validated.id].include?(@resource.resource_status_id)
         if @resource.resource_status_id = ResourceStatus.validation_failed.id
           flash[:error] = I18n.t(:content_partner_resource_validation_unsuccessful_error)
@@ -76,6 +78,7 @@ class ContentPartners::ResourcesController < ContentPartnersController
     if @resource.update_attributes(params[:resource])
       if upload_required
         @resource.upload_resource_to_content_master!(request.port.to_s)
+        sync_update_resource
         unless [ResourceStatus.uploaded.id, ResourceStatus.validated.id].include?(@resource.resource_status_id)
           if @resource.resource_status_id = ResourceStatus.validation_failed.id
             flash[:error] = I18n.t(:content_partner_resource_validation_unsuccessful_error)
@@ -108,6 +111,7 @@ class ContentPartners::ResourcesController < ContentPartnersController
   # GET /content_partners/:content_partner_id/resources/:id/force_harvest
   # POST /content_partners/:content_partner_id/resources/:id/force_harvest
   def force_harvest
+    debugger
     ContentPartner.with_master do
       @partner = ContentPartner.find(params[:content_partner_id], include: {resources: :resource_status })
       @resource = @partner.resources.find(params[:id])
@@ -166,5 +170,27 @@ private
   def set_new_resource_options
     set_resource_options
     @page_subheader = I18n.t(:content_partner_resource_new_subheader)
+  end
+  
+  def sync_create_resource
+    partner = ContentPartner.find(params[:content_partner_id])
+    sync_params = { port: request.port.to_s, partner_origin_id:partner.origin_id, partner_site_id: partner.site_id }.
+      merge(@resource.attributes)
+    sync_params.delete("id")
+    sync_params.delete("content_partner_id")
+    options = { user: current_user, object: @resource, action_id: SyncObjectAction.create.id,
+                type_id: SyncObjectType.resource.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_resource
+    # TODO descide whether to do @resource.attributes or params[:resource]
+    sync_params = { port: request.port.to_s, commit_update_settings_only: params[:commit_update_settings_only]}.
+      merge(params[:resource])
+    sync_params.delete("id")
+    sync_params.delete("content_partner_id")
+    options = { user: current_user, object: @resource, action_id: SyncObjectAction.update.id,
+                type_id: SyncObjectType.resource.id, params: sync_params }
+    SyncPeerLog.log_action(options)
   end
 end

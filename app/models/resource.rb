@@ -18,6 +18,7 @@
 # dwc_archive_url is specific to LifeDesks, which refused to add taxonomy to their resource files
 class Resource < ActiveRecord::Base
 
+  extend SiteSpecific
   belongs_to :service_types
   belongs_to :license
   belongs_to :dataset_license, class_name: 'License'

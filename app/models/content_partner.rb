@@ -174,6 +174,11 @@ class ContentPartner < ActiveRecord::Base
     full_name
   end
 
+  def older_than?(compared_arg, compared_criteria)
+   compared_time = compared_arg.class.name == self.class.name ? compared_arg.send(compared_criteria) : compared_arg
+   self.send(compared_criteria).nil? ||  self.send(compared_criteria) < compared_time
+  end
+  
 private
   def set_default_content_partner_status
     self.content_partner_status = ContentPartnerStatus.active if self.content_partner_status.blank?
