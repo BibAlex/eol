@@ -4,7 +4,7 @@ class SyncObjectAction < ActiveRecord::Base
 
   enumerated :object_action, %w(create update update_by_admin activate delete vet remove
                          hide show add swap join save_association remove_association
-                        curate_associations rate add_refs leave add_translation)
+                        curate_associations rate add_refs leave add_translation request_publish)
                         
   def is_delete?
     self.object_action == 'delete'

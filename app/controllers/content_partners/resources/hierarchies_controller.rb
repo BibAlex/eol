@@ -22,6 +22,7 @@ class ContentPartners::Resources::HierarchiesController < ContentPartners::Resou
     access_denied unless current_user.is_admin? && @resource.id == params[:resource_id].to_i &&
                          @partner.id == params[:content_partner_id].to_i
     if @hierarchy.update_attributes(params[:hierarchy])
+      sync_update_hierarchy
       Rails.cache.delete('hierarchies/browsable_by_label')
       flash[:notice] = I18n.t(:content_partner_resource_hierarchy_update_successful_notice)
       store_location params[:return_to]
@@ -42,6 +43,7 @@ class ContentPartners::Resources::HierarchiesController < ContentPartners::Resou
     access_denied unless @resource.id == params[:resource_id].to_i && current_user.can_update?(@resource) &&
                          @partner.id == params[:content_partner_id].to_i && request.post?
     if @hierarchy.request_to_publish_can_be_made? && @hierarchy.update_attributes(request_publish: true)
+      sync_request_publish_hierarchy
       flash[:notice] = I18n.t(:content_partner_resource_hierarchy_update_successful_notice)
       Notifier.content_partner_resource_hierarchy_publish_request(@partner, @resource, @hierarchy, current_user).deliver
     else
@@ -49,5 +51,19 @@ class ContentPartners::Resources::HierarchiesController < ContentPartners::Resou
     end
     store_location params[:return_to] unless params[:return_to].blank?
     redirect_back_or_default content_partner_resource_path(@partner, @resource)
+  end
+  
+  private 
+  def sync_update_hierarchy
+    sync_params = params[:hierarchy]
+    options = { user: current_user, object: @hierarchy, action_id: SyncObjectAction.update.id,
+                type_id: SyncObjectType.hierarchy.id, params: sync_params }
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_request_publish_hierarchy
+    options = { user: current_user, object: @hierarchy, action_id: SyncObjectAction.request_publish.id,
+                type_id: SyncObjectType.hierarchy.id, params: {} }
+    SyncPeerLog.log_action(options)
   end
 end

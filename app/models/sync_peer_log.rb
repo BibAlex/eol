@@ -1366,7 +1366,7 @@ class SyncPeerLog < ActiveRecord::Base
   
   def self.update_resource(parameters)
     port = parameters[:port]
-    resource = Resource.find_site_specific(:sync_object_id, sync_object_site_id)
+    resource = Resource.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     
     if parameters[:commit_update_settings_only]
       upload_required = false
@@ -1399,5 +1399,23 @@ class SyncPeerLog < ActiveRecord::Base
                      site_id: parameters[:sync_object_site_id],
                      origin_id: parameters[:sync_object_id],
                      created_at: parameters[:action_taken_at]) 
+  end
+  
+  # Hierarchy
+  def self.update_hierarchy(parameters)
+    hierarchy = Hierarchy.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    action_taken_at = parameters[:action_taken_at]
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
+                              :action_taken_at, :language],parameters)
+    if hierarchy && hierarchy.older_than?(action_taken_at, "updated_at")
+      hierarchy.update_attributes(parameters)
+      hierarchy.update_attributes(updated_at: action_taken_at)
+    end
+  end
+  def self.request_publish_hierarchy(parameters)
+    hierarchy = Hierarchy.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    if hierarchy && hierarchy.older_than?(parameters[:action_taken_at], "request_publish_at")
+      hierarchy.update_attributes(request_publish: true, request_publish_at: parameters[:action_taken_at])
+    end
   end
 end
