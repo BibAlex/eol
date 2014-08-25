@@ -100,6 +100,9 @@ class KnownUrisController < ApplicationController
     allowed_units_target_ids = params[:known_uri].delete(:allowed_units_target_ids)
     @known_uri = KnownUri.new(params[:known_uri])
     if @known_uri.save
+      # update sync ids
+      @known_uri.update_attributes(origin_id: @known_uri.id, site_id: PEER_SITE_ID)
+      sync_create_known_uri
       if allowed_units_target_ids
         allowed_units_target_ids.each do |target_known_uri_id|
           KnownUriRelationship.create(to_known_uri: KnownUri.find(target_known_uri_id), from_known_uri: @known_uri,
@@ -346,6 +349,34 @@ class KnownUrisController < ApplicationController
     EOL::Sparql::Client.clear_uri_caches
     KnownUri.clear_uri_caches
     expire_fragment('glossary_in_lang_' + current_language.iso_code)
+  end
+  
+  # synchronization
+  def sync_create_known_uri
+    sync_params = { created_at: @known_uri.created_at }.reverse_merge(params[:known_uri][:translated_known_uris_attributes]["0"])
+    parameters = params[:known_uri]
+    parameters[:toc_sync_ids] = get_toc_sync_ids(parameters[:toc_item_ids]) if parameters[:toc_item_ids]
+    parameters.delete("toc_item_ids")
+    parameters.delete("translated_known_uris_attributes")
+    sync_params = sync_params.reverse_merge(parameters)
+    options = { user: current_user, object: @known_uri, action_id: SyncObjectAction.create.id,
+                type_id: SyncObjectType.known_uri.id, params: sync_params }       
+    SyncPeerLog.log_action(options)
+  end
+  
+  def get_toc_sync_ids(toc_ids)
+    tocs_sync_ids = ""
+    toc_ids.each do |toc_id|
+      if toc_id
+        toc_sync_ids = get_object_sync_ids(TocItem.find(toc_id.to_i))
+        tocs_sync_ids += toc_sync_ids + " "
+      end
+    end
+    tocs_sync_ids
+  end
+  
+  def get_object_sync_ids(object)
+    sync_ids = "#{object.origin_id},#{object.site_id}" if object
   end
 
 end

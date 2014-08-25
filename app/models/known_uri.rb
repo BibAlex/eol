@@ -16,6 +16,7 @@ class KnownUri < ActiveRecord::Base
 
   extend EOL::Sparql::SafeConnection # Note we ONLY need the class methods, so #extend
   extend EOL::LocalCacheable
+  extend SiteSpecific
   include EOL::CuratableAssociation
 
   include Enumerated
@@ -64,7 +65,8 @@ class KnownUri < ActiveRecord::Base
     :translated_known_uris_attributes, :toc_items, :toc_item_ids, :description, :uri_type, :uri_type_id,
     :translations, :exclude_from_exemplars, :name, :known_uri_relationships_as_subject, :attribution,
     :ontology_information_url, :ontology_source_url, :position, :group_by_clade, :clade_exemplar,
-    :exemplar_for_same_as, :value_is_text, :hide_from_glossary
+    :exemplar_for_same_as, :value_is_text, :hide_from_glossary, :origin_id, :site_id,
+    :created_at
 
   accepts_nested_attributes_for :translated_known_uris
 
@@ -394,6 +396,11 @@ class KnownUri < ActiveRecord::Base
       definition: definition,
       attribution: attribution
     )
+  end
+  
+  def older_than?(compared_arg, compared_criteria)
+    compared_time = compared_arg.class.name == self.class.name ? compared_arg.send(compared_criteria) : compared_arg
+    self.send(compared_criteria).nil? ||  self.send(compared_criteria) < compared_time
   end
 
   private
