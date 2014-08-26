@@ -1405,20 +1405,21 @@ class SyncPeerLog < ActiveRecord::Base
   def self.create_known_uri(parameters)
     local_known_uri = KnownUri.where("uri = ? ", parameters[:uri]).first
     if local_known_uri.nil? || local_known_uri.older_than?(parameters[:created_at], "created_at")
+      local_known_uri.destroy if local_known_uri
       parameters[:site_id] = parameters[:sync_object_site_id]
       parameters[:origin_id] = parameters[:sync_object_id] 
       parameters[:toc_item_ids] = get_toc_ids(parameters[:toc_sync_ids]) if parameters[:toc_sync_ids]
       
-      translated_known_uris_attributes = { name: parameters[:name], 
+      translated_known_uris_attributes = { "0" =>  { name: parameters[:name], 
                                            language_id: parameters[:language_id],
                                            definition: parameters[:definition],
                                            comment: parameters[:comment],
-                                           attribution: parameters[:attribution] }
+                                           attribution: parameters[:attribution] } }
+      parameters[:translated_known_uris_attributes] = translated_known_uris_attributes
       parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, 
                                 :sync_object_id, :action_taken_at, :language, :name, 
                                 :comment, :language_id, :definition,
                                 :attribution, :toc_sync_ids],parameters)
-      
       KnownUri.create(parameters)
     end
   end
@@ -1426,9 +1427,11 @@ class SyncPeerLog < ActiveRecord::Base
   def self.get_toc_ids(tocs_sync_ids)
     tocs_ids = []
     tocs_sync_ids.split.each do |toc_sync_ids|
-      sync_ids = toc_sync_ids.split(",") if toc_sync_ids
-      known_uri = KnownUri.find_site_specific(sync_ids[0], sync_ids[1])
-      tocs_ids << known_uri.id.to_s if known_uri
+      if toc_sync_ids
+        sync_ids = toc_sync_ids.split(",") 
+        toc_item = TocItem.find_site_specific(sync_ids[0].to_i, sync_ids[1].to_i)
+        tocs_ids << toc_item.id.to_s if toc_item
+      end
     end
     tocs_ids
   end

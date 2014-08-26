@@ -2921,4 +2921,85 @@ describe SyncPeerLog do
       end
     end
   end
+  
+  describe "known uris log synchronization" do
+    describe ".create_known_uri" do
+      let(:user) { User.first }
+      subject(:known_uri) { KnownUri.find_site_specific(100, PEER_SITE_ID)}
+      let(:translated_known_uri) { TranslatedKnownUri.where("language_id = ? and known_uri_id = ? ",
+                                                                 1, known_uri.id).first}
+      
+      context "when successful creation" do
+        before(:all) do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id, 
+                                          sync_object_type_id: SyncObjectType.known_uri.id,
+                                          user_site_object_id: user.origin_id, sync_object_id: 100,
+                                          user_site_id: user.site_id,
+                                          sync_object_site_id: PEER_SITE_ID)
+          parameters_values_hash = { created_at: Time.now, position: "50",
+                                     uri: "http://uri", uri_type_id: "1",
+                                     ontology_information_url: "http://info",
+                                     ontology_source_url: "http://source",
+                                     group_by_clade: "1", clade_exemplar: "0",
+                                     value_is_text: "0", hide_from_glossary: "0",
+                                     language_id: "1", name: "contributor",
+                                     comment: "comment", definition: "definition",
+                                     attribution: "attribution" }
+          create_log_action_parameters(parameters_values_hash, sync_peer_log)
+          sync_peer_log.process_entry
+        end
+        it "creates new known uri" do
+          expect(known_uri).not_to be_nil          
+        end
+        it "has the correct 'uri'" do
+          expect(known_uri.uri).to eq("http://uri")
+        end
+        it "has the correct 'ontology_information_url'" do
+          expect(known_uri.ontology_information_url).to eq("http://info")
+        end
+        it "has the correct 'ontology_source_url'" do
+          expect(known_uri.ontology_source_url).to eq("http://source")
+        end
+        it "has the correct 'position'" do
+          expect(known_uri.position).to eq(50)
+        end
+        it "has the correct 'uri_type_id'" do
+          expect(known_uri.uri_type_id).to eq(1)
+        end
+        it "has the correct 'hide_from_glossary'" do
+          expect(known_uri.hide_from_glossary).to eq(false)
+        end
+        it "has the correct 'value_is_text'" do
+          expect(known_uri.value_is_text).to eq(false)
+        end
+        it "has the correct 'clade_exemplar'" do
+          expect(known_uri.clade_exemplar).to eq(false)
+        end
+        it "has the correct 'group_by_clade'" do
+          expect(known_uri.group_by_clade).to eq(true)
+        end
+        it "creates new translated known uri" do
+          expect(translated_known_uri).not_to be_nil          
+        end
+        it "has the correct 'name' for translated_known_uri" do
+          expect(translated_known_uri.name).to eq("contributor")
+        end
+        it "has the correct 'comment' for translated_known_uri" do
+          expect(translated_known_uri.comment).to eq("comment")
+        end
+        it "has the correct 'definition' for translated_known_uri" do
+          expect(translated_known_uri.definition).to eq("definition")
+        end
+        it "has the correct 'attribution' for translated_known_uri" do
+          expect(translated_known_uri.attribution).to eq("attribution")
+        end
+        after(:all) do
+          translated_known_uri.destroy if translated_known_uri
+          known_uri.destroy if known_uri
+        end
+      end
+    end
+  end
  end

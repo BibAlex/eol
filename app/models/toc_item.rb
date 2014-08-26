@@ -1,5 +1,5 @@
 class TocItem < ActiveRecord::Base
-
+  extend SiteSpecific
   self.table_name = 'table_of_contents'
   
   uses_translations(foreign_key: 'table_of_contents_id')

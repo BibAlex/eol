@@ -353,7 +353,8 @@ class KnownUrisController < ApplicationController
   
   # synchronization
   def sync_create_known_uri
-    sync_params = { created_at: @known_uri.created_at }.reverse_merge(params[:known_uri][:translated_known_uris_attributes]["0"])
+    sync_params = { created_at: @known_uri.created_at,
+                    position: @known_uri.position }.reverse_merge(params[:known_uri][:translated_known_uris_attributes]["0"])
     parameters = params[:known_uri]
     parameters[:toc_sync_ids] = get_toc_sync_ids(parameters[:toc_item_ids]) if parameters[:toc_item_ids]
     parameters.delete("toc_item_ids")
