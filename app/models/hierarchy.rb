@@ -13,6 +13,7 @@
 require 'invert'
 
 class Hierarchy < ActiveRecord::Base
+  extend SiteSpecific
   belongs_to :agent           # This is the attribution.
   has_and_belongs_to_many :collection_types
   has_one :resource
@@ -176,6 +177,11 @@ class Hierarchy < ActiveRecord::Base
     end
   end
 
+  def older_than?(compared_arg, compared_criteria)
+    compared_time = compared_arg.class.name == self.class.name ? compared_arg.send(compared_criteria) : compared_arg
+    self.send(compared_criteria).nil? ||  self.send(compared_criteria) < compared_time
+  end
+  
 private
   def reset_request_publish
     self.request_publish = false
