@@ -1443,6 +1443,29 @@ class SyncPeerLog < ActiveRecord::Base
     end
   end
   
+  def self.update_known_uri(parameters)
+    known_uri = KnownUri.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    if known_uri.older_than?(parameters[:updated_at], "updated_at")
+      parameters[:toc_item_ids] = get_toc_ids(parameters[:toc_sync_ids]) if parameters[:toc_sync_ids]
+      
+      translated_known_uris_attributes = { name: parameters[:name], 
+                                           language_id: parameters[:language_id],
+                                           definition: parameters[:definition],
+                                           comment: parameters[:comment],
+                                           attribution: parameters[:attribution] }
+      translated_known_uri =  TranslatedKnownUri.where("language_id = ? and known_uri_id = ? ",
+                                                        parameters[:language_id], known_uri.id).first
+      translated_known_uri.update_attributes(translated_known_uris_attributes)
+      parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, 
+                                :sync_object_id, :action_taken_at, :language, :name, 
+                                :comment, :language_id, :definition,
+                                :attribution, :toc_sync_ids],parameters)
+      known_uri.update_attributes(parameters)
+    end
+  end
+  
+  
+  
   def self.get_toc_ids(tocs_sync_ids)
     tocs_ids = []
     tocs_sync_ids.split.each do |toc_sync_ids|
@@ -1453,5 +1476,26 @@ class SyncPeerLog < ActiveRecord::Base
       end
     end
     tocs_ids
+  end
+  
+  #known uris relationship
+  def self.create_known_uri_relationship(parameters)
+    from_uri = KnownUri.find_site_specific(parameters[:from_uri_origin_id], parameters[:from_uri_site_id])
+    to_uri = KnownUri.find_site_specific(parameters[:to_uri_origin_id], parameters[:to_uri_site_id])
+    if from_uri && to_uri
+      local_known_uri_relation_ship = KnownUriRelationship.where("from_known_uri_id = ? 
+                                                                  and to_known_uri_id = ?
+                                                                  and relationship_uri = ?",
+                                                                  from_uri.id, to_uri.id,
+                                                                  parameters[:relationship_uri]).first
+      if local_known_uri_relation_ship.nil?
+        KnownUriRelationship.create(relationship_uri: parameters[:relationship_uri],
+                                    created_at: parameters[:created_at],
+                                    to_known_uri_id: to_uri.id,
+                                    from_known_uri_id: from_uri.id)
+      elsif local_known_uri_relation_ship.older_than?(parameters[:created_at], "created_at")
+        local_known_uri_relation_ship.update_attributes(created_at: parameters[:created_at])
+      end
+    end
   end
 end

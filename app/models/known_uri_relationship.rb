@@ -9,7 +9,8 @@ class KnownUriRelationship < ActiveRecord::Base
   belongs_to :from_known_uri, class_name: KnownUri.name, foreign_key: :from_known_uri_id
   belongs_to :to_known_uri, class_name: KnownUri.name, foreign_key: :to_known_uri_id
 
-  attr_accessible :from_known_uri, :from_known_uri_id, :to_known_uri, :to_known_uri_id, :relationship_uri
+  attr_accessible :from_known_uri, :from_known_uri_id, :to_known_uri, :to_known_uri_id, :relationship_uri,
+                  :created_at
 
   validates_uniqueness_of :to_known_uri_id, scope: [ :from_known_uri_id, :relationship_uri ]
   validate :known_uris_should_be_known
@@ -76,6 +77,11 @@ class KnownUriRelationship < ActiveRecord::Base
       from_known_uri.set_default_preferred_for_same_as_group
       to_known_uri.set_default_preferred_for_same_as_group
     end
+  end
+  
+  def older_than?(compared_arg, compared_criteria)
+    compared_time = compared_arg.class.name == self.class.name ? compared_arg.send(compared_criteria) : compared_arg
+    self.send(compared_criteria).nil? ||  self.send(compared_criteria) < compared_time
   end
 
   private
