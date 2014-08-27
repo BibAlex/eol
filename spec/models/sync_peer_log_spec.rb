@@ -3151,9 +3151,8 @@ describe SyncPeerLog do
           to_uri.update_attributes(origin_id: to_uri.id, site_id: PEER_SITE_ID)
           sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id, 
                                           sync_object_type_id: SyncObjectType.known_uri_relationship.id,
-                                          user_site_object_id: user.origin_id, sync_object_id: 100,
-                                          user_site_id: user.site_id,
-                                          sync_object_site_id: PEER_SITE_ID)
+                                          user_site_object_id: user.origin_id,
+                                          user_site_id: user.site_id)
           parameters_values_hash = { created_at: Time.now, relationship_uri: "relationship_uri",
                                      from_uri_origin_id: from_uri.origin_id, 
                                      from_uri_site_id: from_uri.site_id,
@@ -3173,6 +3172,45 @@ describe SyncPeerLog do
         end
         it "has the correct 'to_known_uri_id'" do
           expect(known_uri_relationship.to_known_uri_id).to eq(to_uri.id)
+        end
+        after(:all) do
+          known_uri_relationship.destroy if known_uri_relationship
+        end
+      end
+    end
+    
+    describe ".delete_known_uri_relationship" do
+      subject(:known_uri_relationship) { KnownUriRelationship.where("from_known_uri_id = ? 
+                                                                     and to_known_uri_id = ?
+                                                                     and relationship_uri = ?",
+                                                                     from_uri.id, to_uri.id,
+                                                                     "relationship_uri").first }
+      let(:from_uri) { KnownUri.first }
+      let(:to_uri) { KnownUri.last }
+      
+      context "when successful deletion" do
+        before(:all) do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          user = User.first
+          user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
+          from_uri.update_attributes(origin_id: from_uri.id, site_id: PEER_SITE_ID)
+          to_uri.update_attributes(origin_id: to_uri.id, site_id: PEER_SITE_ID)
+          KnownUriRelationship.gen(from_known_uri: from_uri, to_known_uri: to_uri,
+                                   relationship_uri: "relationship_uri")
+          sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.delete.id, 
+                                          sync_object_type_id: SyncObjectType.known_uri_relationship.id,
+                                          user_site_object_id: user.origin_id,
+                                          user_site_id: user.site_id)
+          parameters_values_hash = { relationship_uri: "relationship_uri",
+                                     from_uri_origin_id: from_uri.origin_id, 
+                                     from_uri_site_id: from_uri.site_id,
+                                     to_uri_origin_id: to_uri.origin_id, 
+                                     to_uri_site_id: to_uri.site_id }
+          create_log_action_parameters(parameters_values_hash, sync_peer_log)
+          sync_peer_log.process_entry
+        end
+        it "deletes known uri relationship" do
+          expect(known_uri_relationship).to be_nil          
         end
         after(:all) do
           known_uri_relationship.destroy if known_uri_relationship

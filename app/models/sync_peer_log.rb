@@ -1498,4 +1498,19 @@ class SyncPeerLog < ActiveRecord::Base
       end
     end
   end
+  
+  def self.delete_known_uri_relationship(parameters)
+    from_uri = KnownUri.find_site_specific(parameters[:from_uri_origin_id], parameters[:from_uri_site_id])
+    to_uri = KnownUri.find_site_specific(parameters[:to_uri_origin_id], parameters[:to_uri_site_id])
+    if from_uri && to_uri
+      known_uri_relation_ship = KnownUriRelationship.where("from_known_uri_id = ? 
+                                                                  and to_known_uri_id = ?
+                                                                  and relationship_uri = ?",
+                                                                  from_uri.id, to_uri.id,
+                                                                  parameters[:relationship_uri]).first
+      if known_uri_relation_ship
+        known_uri_relation_ship.destroy
+      end
+    end
+  end
 end

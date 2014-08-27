@@ -23,7 +23,9 @@ class KnownUriRelationshipsController < ApplicationController
   # DELETE /known_uri_relationships/:id
   def destroy
     @known_uri_relationship = KnownUriRelationship.find(params[:id])
+    @known_uri_relationship_copy = @known_uri_relationship.dup
     @known_uri_relationship.destroy
+    sync_destroy_known_uri_relationship
     flash[:notice] = I18n.t('known_uri_relationships.deleted')
     redirect_to request.referer
   end
@@ -34,8 +36,17 @@ class KnownUriRelationshipsController < ApplicationController
     uris_sync_ids = get_uris_sync_ids(@known_uri_relationship.from_known_uri_id,
                                       @known_uri_relationship.to_known_uri_id)
     sync_params = { relationship_uri: @known_uri_relationship.relationship_uri,
-                    created_at: @known_uri_relationship.created_at, }.reverse_merge(uris_sync_ids)
+                    created_at: @known_uri_relationship.created_at }.reverse_merge(uris_sync_ids)
     options = { user: current_user, object: nil, action_id: SyncObjectAction.create.id,
+                type_id: SyncObjectType.known_uri_relationship.id, params: sync_params }       
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_destroy_known_uri_relationship
+    uris_sync_ids = get_uris_sync_ids(@known_uri_relationship_copy.from_known_uri_id,
+                                      @known_uri_relationship_copy.to_known_uri_id)
+    sync_params = { relationship_uri: @known_uri_relationship_copy.relationship_uri }.reverse_merge(uris_sync_ids)
+    options = { user: current_user, object: nil, action_id: SyncObjectAction.delete.id,
                 type_id: SyncObjectType.known_uri_relationship.id, params: sync_params }       
     SyncPeerLog.log_action(options)
   end
