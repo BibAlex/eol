@@ -1451,4 +1451,21 @@ class SyncPeerLog < ActiveRecord::Base
     end
     tocs_ids
   end
+  
+  def self.hide_known_uri(parameters)
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    uri = KnownUri.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    uri.hide(user) if uri 
+  end
+  
+  def self.show_known_uri(parameters)
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    uri = KnownUri.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    uri.show(user) if uri 
+  end
+  
+  def self.delete_known_uri(parameters)
+    uri = KnownUri.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    uri.destroy if uri 
+  end
 end

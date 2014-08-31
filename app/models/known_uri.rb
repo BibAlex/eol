@@ -98,6 +98,10 @@ class KnownUri < ActiveRecord::Base
                   { uri: Rails.configuration.uri_term_prefix + 'onetenthdegreescelsius', name: '0.1°C' },
                   { uri: Rails.configuration.uri_term_prefix + 'log10gram', name: 'log10 grams' } ]
 
+  
+  def self.visible?
+    self.visibility_id == Visibility.visible.id
+  end
   # This gets called a LOT.  ...Like... a *lot* a lot. But...
   # DO NOT make a class variable and forget about it. We will need to flush the cache frequently as we
   # add/remove accepted values for UnitOfMeasure. Use the cached_with_local_timeout method
