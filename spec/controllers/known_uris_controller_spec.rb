@@ -84,7 +84,8 @@ describe KnownUrisController do
       expect { get :autocomplete_known_uri_search }.to raise_error(EOL::Exceptions::SecurityViolation)
     end
 
-    it 'should allow access to users with data privilege' do
+    it 'should allow access t
+    endo users with data privilege' do
       expect { get :autocomplete_known_uri_search }.not_to raise_error
     end
 
@@ -297,19 +298,25 @@ describe KnownUrisController do
       @female.update_column(:visibility_id, Visibility.visible.id)
     end
   end
-
-  describe "Synchronization" do
+  
+  describe "synchronization" do
+    before(:all) do
+      SyncObjectType.create_enumerated
+      SyncObjectAction.create_enumerated
+      SpecialCollection.create_enumerated
+    end
+    
     describe "DELETE #destroy" do
       let(:type) { SyncObjectType.known_uri }
       let(:action) { SyncObjectAction.delete }
       let(:peer_log) { SyncPeerLog.find_by_sync_object_action_id_and_sync_object_type_id(action.id, type.id) }
       let(:uri) { KnownUri.gen }
       let(:current_user) { User.first }
-        
+         
       before(:all) do
         PermissionsUser.create(user_id: current_user.id, permission_id: 3)
       end
-      
+       
       before do
         uri.update_attributes(origin_id: uri.id, site_id: PEER_SITE_ID)
         current_user.update_attributes(origin_id: current_user.id, site_id: PEER_SITE_ID, admin: 1)
@@ -347,7 +354,7 @@ describe KnownUrisController do
         PermissionsUser.find_by_permission_id_and_user_id(3, current_user.id).destroy
       end
     end
-    
+     
     describe "GET #hide" do
       let(:type) { SyncObjectType.known_uri }
       let(:action) { SyncObjectAction.hide }
@@ -396,7 +403,7 @@ describe KnownUrisController do
         PermissionsUser.find_by_permission_id_and_user_id(3, current_user.id).destroy
       end
     end
-        
+         
     describe "GET #unhide" do
       let(:type) { SyncObjectType.known_uri }
       let(:action) { SyncObjectAction.show }
@@ -443,6 +450,279 @@ describe KnownUrisController do
       end
       after(:all) do
         PermissionsUser.find_by_permission_id_and_user_id(3, current_user.id).destroy
+      end
+    end
+    
+    describe "POST #create" do
+      let(:peer_log) { SyncPeerLog.first }
+      subject(:known_uri) { KnownUri.last }
+      
+      context "when successful creation" do
+        before do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          @admin.update_attributes(origin_id: @admin.id, site_id: PEER_SITE_ID)
+          session[:user_id] = @admin.id
+          post :create,  known_uri: { uri: "http://uri",
+                                      uri_type_id: "1", exclude_from_exemplars: "0",
+                                      toc_item_ids: [], 
+                                      ontology_information_url: "http://info",
+                                      ontology_source_url: "http://source",
+                                      group_by_clade: "1", clade_exemplar: "0",
+                                      value_is_text: "0", hide_from_glossary: "0",
+                                      translated_known_uris_attributes:
+                                           { "0" => { language_id: "1", name: "contributor", 
+                                                      definition: "definition", comment: "comment",
+                                                      attribution: "attribution" } } }
+        end
+        it "creates sync peer log" do
+          expect(peer_log).not_to be_nil
+        end
+        it "has correct action" do
+          expect(peer_log.sync_object_action_id).to eq(SyncObjectAction.create.id)
+        end
+        it "has correct type" do
+          expect(peer_log.sync_object_type_id).to eq(SyncObjectType.known_uri.id)
+        end
+        it "has correct 'user_site_id'" do
+          expect(peer_log.user_site_id).to eq(PEER_SITE_ID)
+        end
+        it "has correct 'user_id'" do
+          expect(peer_log.user_site_object_id).to eq(@admin.origin_id)
+        end
+        it "has correct 'object_site_id'" do
+          expect(peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
+        end
+        it "has correct 'object_id'" do
+          expect(peer_log.sync_object_id).to eq(known_uri.origin_id)
+        end
+        it "creates sync log action parameter for 'created_at'" do
+          created_at_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "created_at")
+          expect(created_at_parameter[0][:value]).to eq(known_uri.created_at.utc.to_s(:db))
+        end
+        it "creates sync log action parameter for 'position'" do
+          position_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "position")
+          expect(position_parameter[0][:value].to_i).to eq(known_uri.position)
+        end
+        it "creates sync log action parameter for 'uri'" do
+          uri_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "uri")
+          expect(uri_parameter[0][:value]).to eq("http://uri")
+        end
+        it "creates sync log action parameter for 'uri_type_id'" do
+          uri_type_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "uri_type_id")
+          expect(uri_type_id_parameter[0][:value]).to eq("1")
+        end
+        it "creates sync log action parameter for 'ontology_information_url'" do
+          ontology_information_url_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "ontology_information_url")
+          expect(ontology_information_url_parameter[0][:value]).to eq("http://info")
+        end
+        it "creates sync log action parameter for 'ontology_source_url'" do
+          ontology_source_url_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "ontology_source_url")
+          expect(ontology_source_url_parameter[0][:value]).to eq("http://source")
+        end
+        it "creates sync log action parameter for 'group_by_clade'" do
+          group_by_clade_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "group_by_clade")
+          expect(group_by_clade_parameter[0][:value]).to eq("1")
+        end
+        it "creates sync log action parameter for 'clade_exemplar'" do
+          clade_exemplar_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "clade_exemplar")
+          expect(clade_exemplar_parameter[0][:value]).to eq("0")
+        end
+        it "creates sync log action parameter for 'value_is_text'" do
+          value_is_text_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "value_is_text")
+          expect(value_is_text_parameter[0][:value]).to eq("0")
+        end
+        it "creates sync log action parameter for 'hide_from_glossary'" do
+          hide_from_glossary_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "hide_from_glossary")
+          expect(hide_from_glossary_parameter[0][:value]).to eq("0")
+        end
+        it "creates sync log action parameter for 'language_id'" do
+          language_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "language_id")
+          expect(language_id_parameter[0][:value]).to eq("1")
+        end
+        it "creates sync log action parameter for 'name'" do
+          name_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "name")
+          expect(name_parameter[0][:value]).to eq("contributor")
+        end
+        it "creates sync log action parameter for 'definition'" do
+          definition_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "definition")
+          expect(definition_parameter[0][:value]).to eq("definition")
+        end
+        it "creates sync log action parameter for 'comment'" do
+          comment_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "comment")
+          expect(comment_parameter[0][:value]).to eq("comment")
+        end
+        it "creates sync log action parameter for 'attribution'" do
+          attribution_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "attribution")
+          expect(attribution_parameter[0][:value]).to eq("attribution")
+        end
+        after do
+          translated_known_uri =  TranslatedKnownUri.where("language_id = ? and known_uri_id = ? ",
+                                                                 1, known_uri.id).first
+          translated_known_uri.destroy if translated_known_uri                                                 
+          known_uri.destroy if known_uri
+        end
+      end
+      
+      context "when the user doesn't have  privileges to create known uri" do
+        before do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          @admin.update_attributes(origin_id: @admin.id, site_id: PEER_SITE_ID)
+          expect { post :create,  known_uri: { uri: "http://uri",
+                                      uri_type_id: "1", exclude_from_exemplars: "0",
+                                      toc_item_ids: [], 
+                                      ontology_information_url: "http://info",
+                                      ontology_source_url: "http://source",
+                                      group_by_clade: "1", clade_exemplar: "0",
+                                      value_is_text: "0", hide_from_glossary: "0",
+                                      translated_known_uris_attributes:
+                                           { "0" => { language_id: "1", name: "contributor", 
+                                                      definition: "definition", comment: "comment",
+                                                      attribution: "attribution" } } } }.to raise_error(EOL::Exceptions::SecurityViolation)
+
+        end
+        it "doesn't create sync peer log" do
+          expect(SyncPeerLog.all).to be_blank
+        end
+        it "doesn't create sync log action parameters" do
+          expect(SyncLogActionParameter.all).to be_blank
+        end
+        after do
+          translated_known_uri =  TranslatedKnownUri.where("language_id = ? and known_uri_id = ? ",
+                                                             1, known_uri.id).first
+          translated_known_uri.destroy if translated_known_uri                                                 
+          known_uri.destroy if known_uri
+        end
+      end
+    end
+    
+    describe "PUT #update" do
+      let(:peer_log) { SyncPeerLog.first }
+      subject(:known_uri) { KnownUri.first }
+      
+      context "when successful update" do
+        before do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          @admin.update_attributes(origin_id: @admin.id, site_id: PEER_SITE_ID)
+          known_uri.update_attributes(origin_id: known_uri.id, site_id: PEER_SITE_ID)
+          session[:user_id] = @admin.id
+          put :update,  known_uri: { uri: "http://uri",
+                                      uri_type_id: "1", exclude_from_exemplars: "0",
+                                      toc_item_ids: [], 
+                                      ontology_information_url: "http://info",
+                                      ontology_source_url: "http://source",
+                                      group_by_clade: "1", clade_exemplar: "0",
+                                      value_is_text: "0", hide_from_glossary: "0",
+                                      translated_known_uris_attributes:
+                                           { "0" => { language_id: "1", name: "contributor", 
+                                                      definition: "definition", comment: "comment",
+                                                      attribution: "attribution",
+                                                      id: known_uri.id } } },
+                        id: known_uri.id 
+        end
+        it "creates sync peer log" do
+          expect(peer_log).not_to be_nil
+        end
+        it "has correct action" do
+          expect(peer_log.sync_object_action_id).to eq(SyncObjectAction.update.id)
+        end
+        it "has correct type" do
+          expect(peer_log.sync_object_type_id).to eq(SyncObjectType.known_uri.id)
+        end
+        it "has correct 'user_site_id'" do
+          expect(peer_log.user_site_id).to eq(PEER_SITE_ID)
+        end
+        it "has correct 'user_id'" do
+          expect(peer_log.user_site_object_id).to eq(@admin.origin_id)
+        end
+        it "has correct 'object_site_id'" do
+          expect(peer_log.sync_object_site_id).to eq(PEER_SITE_ID)
+        end
+        it "has correct 'object_id'" do
+          expect(peer_log.sync_object_id).to eq(known_uri.origin_id)
+        end
+        it "creates sync log action parameter for 'position'" do
+          position_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "position")
+          expect(position_parameter[0][:value].to_i).to eq(known_uri.position)
+        end
+        it "creates sync log action parameter for 'uri'" do
+          uri_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "uri")
+          expect(uri_parameter[0][:value]).to eq("http://uri")
+        end
+        it "creates sync log action parameter for 'uri_type_id'" do
+          uri_type_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "uri_type_id")
+          expect(uri_type_id_parameter[0][:value]).to eq("1")
+        end
+        it "creates sync log action parameter for 'ontology_information_url'" do
+          ontology_information_url_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "ontology_information_url")
+          expect(ontology_information_url_parameter[0][:value]).to eq("http://info")
+        end
+        it "creates sync log action parameter for 'ontology_source_url'" do
+          ontology_source_url_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "ontology_source_url")
+          expect(ontology_source_url_parameter[0][:value]).to eq("http://source")
+        end
+        it "creates sync log action parameter for 'group_by_clade'" do
+          group_by_clade_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "group_by_clade")
+          expect(group_by_clade_parameter[0][:value]).to eq("1")
+        end
+        it "creates sync log action parameter for 'clade_exemplar'" do
+          clade_exemplar_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "clade_exemplar")
+          expect(clade_exemplar_parameter[0][:value]).to eq("0")
+        end
+        it "creates sync log action parameter for 'value_is_text'" do
+          value_is_text_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "value_is_text")
+          expect(value_is_text_parameter[0][:value]).to eq("0")
+        end
+        it "creates sync log action parameter for 'hide_from_glossary'" do
+          hide_from_glossary_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "hide_from_glossary")
+          expect(hide_from_glossary_parameter[0][:value]).to eq("0")
+        end
+        it "creates sync log action parameter for 'language_id'" do
+          language_id_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "language_id")
+          expect(language_id_parameter[0][:value]).to eq("1")
+        end
+        it "creates sync log action parameter for 'name'" do
+          name_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "name")
+          expect(name_parameter[0][:value]).to eq("contributor")
+        end
+        it "creates sync log action parameter for 'definition'" do
+          definition_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "definition")
+          expect(definition_parameter[0][:value]).to eq("definition")
+        end
+        it "creates sync log action parameter for 'comment'" do
+          comment_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "comment")
+          expect(comment_parameter[0][:value]).to eq("comment")
+        end
+        it "creates sync log action parameter for 'attribution'" do
+          attribution_parameter = SyncLogActionParameter.where(peer_log_id: peer_log.id, parameter: "attribution")
+          expect(attribution_parameter[0][:value]).to eq("attribution")
+        end
+      end
+      
+      context "when the user doesn't have  privileges to update known uri" do
+        before do
+          truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
+          @admin.update_attributes(origin_id: @admin.id, site_id: PEER_SITE_ID)
+          known_uri.update_attributes(origin_id: known_uri.id, site_id: PEER_SITE_ID)
+          expect { put :update,  known_uri: { uri: "http://uri",
+                                      uri_type_id: "1", exclude_from_exemplars: "0",
+                                      toc_item_ids: [], 
+                                      ontology_information_url: "http://info",
+                                      ontology_source_url: "http://source",
+                                      group_by_clade: "1", clade_exemplar: "0",
+                                      value_is_text: "0", hide_from_glossary: "0",
+                                      translated_known_uris_attributes:
+                                           { "0" => { language_id: "1", name: "contributor", 
+                                                      definition: "definition", comment: "comment",
+                                                      attribution: "attribution" } } },
+                                 id: known_uri.id }.to raise_error(EOL::Exceptions::SecurityViolation)
+
+        end
+        it "doesn't create sync peer log" do
+          expect(SyncPeerLog.all).to be_blank
+        end
+        it "doesn't create sync log action parameters" do
+          expect(SyncLogActionParameter.all).to be_blank
+        end
       end
     end
   end

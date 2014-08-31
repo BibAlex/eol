@@ -105,8 +105,9 @@ class KnownUrisController < ApplicationController
       sync_create_known_uri
       if allowed_units_target_ids
         allowed_units_target_ids.each do |target_known_uri_id|
-          KnownUriRelationship.create(to_known_uri: KnownUri.find(target_known_uri_id), from_known_uri: @known_uri,
+          @known_uri_relationship = KnownUriRelationship.create(to_known_uri: KnownUri.find(target_known_uri_id), from_known_uri: @known_uri,
                                       relationship_uri: KnownUriRelationship::ALLOWED_UNIT_URI)
+          sync_create_known_uri_relationship
         end
       end
       flash[:notice] = I18n.t(:known_uri_created)
@@ -176,6 +177,8 @@ class KnownUrisController < ApplicationController
   def update
     @known_uri = KnownUri.find(params[:id])
     if @known_uri.update_attributes(params[:known_uri])
+      @known_uri.update_attributes(updated_at: Time.now)
+      sync_update_known_uri
       flash[:notice] = I18n.t(:known_uri_updated)
       redirect_back_or_default(known_uris_path(uri_type_id: @known_uri.uri_type_id))
     else
@@ -356,7 +359,8 @@ class KnownUrisController < ApplicationController
   
   # synchronization
   def sync_create_known_uri
-    sync_params = { created_at: @known_uri.created_at }.reverse_merge(params[:known_uri][:translated_known_uris_attributes]["0"])
+    sync_params = { created_at: @known_uri.created_at,
+                    position: @known_uri.position }.reverse_merge(params[:known_uri][:translated_known_uris_attributes]["0"])
     parameters = params[:known_uri]
     parameters[:toc_sync_ids] = get_toc_sync_ids(parameters[:toc_item_ids]) if parameters[:toc_item_ids]
     parameters.delete("toc_item_ids")
@@ -379,6 +383,39 @@ class KnownUrisController < ApplicationController
     options = { user: current_user, object: @known_uri, action_id: action_id,
                 type_id: SyncObjectType.known_uri.id, params: {} }       
     SyncPeerLog.log_action(options)
+  end
+  
+  def sync_update_known_uri
+    sync_params = { updated_at: @known_uri.updated_at,
+                    position: @known_uri.position }.reverse_merge(params[:known_uri][:translated_known_uris_attributes]["0"])
+    parameters = params[:known_uri]
+    parameters[:toc_sync_ids] = get_toc_sync_ids(parameters[:toc_item_ids]) if parameters[:toc_item_ids]
+    parameters.delete("toc_item_ids")
+    parameters.delete("translated_known_uris_attributes")
+    sync_params = sync_params.reverse_merge(parameters)
+    options = { user: current_user, object: @known_uri, action_id: SyncObjectAction.update.id,
+                type_id: SyncObjectType.known_uri.id, params: sync_params }       
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_create_known_uri_relationship
+    uris_sync_ids = get_uris_sync_ids(@known_uri_relationship.from_known_uri_id,
+                                      @known_uri_relationship.to_known_uri_id)
+    sync_params = { relationship_uri: @known_uri_relationship.relationship_uri,
+                    created_at: @known_uri_relationship.created_at, }.reverse_merge(uris_sync_ids)
+    options = { user: current_user, object: nil, action_id: SyncObjectAction.create.id,
+                type_id: SyncObjectType.known_uri_relationship.id, params: sync_params }       
+    SyncPeerLog.log_action(options)
+  end
+  
+  def get_uris_sync_ids(from_uri_id, to_uri_id)
+    sync_ids = {}
+    from_uri = KnownUri.find(from_uri_id)
+    to_uri = KnownUri.find(to_uri_id)
+    sync_ids = { from_uri_origin_id: from_uri.origin_id, 
+                 from_uri_site_id: from_uri.site_id,
+                 to_uri_origin_id: to_uri.origin_id, 
+                 to_uri_site_id: to_uri.site_id } if from_uri && to_uri
   end
   
   def get_toc_sync_ids(toc_ids)
