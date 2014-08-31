@@ -420,8 +420,10 @@ protected
   end
 
   def meta_open_graph_image_url
-    @meta_open_graph_image_url ||= @user ?
-      view_context.image_tag(@user.logo_url('large', $SINGLE_DOMAIN_CONTENT_SERVER)) : nil
+    @meta_open_graph_image_url ||= @user &&
+      view_context.image_tag(
+        @user.logo_url(linked?: true)
+      )
   end
 
   def clear_session_partial
