@@ -182,7 +182,7 @@ class SyncPeerLog < ActiveRecord::Base
       if download_file?(file_url, file_name, object_file_type)
         if parameters[:is_file]
           update_file_parameters(object, parameters[:logo_file_name], parameters[:logo_content_type],
-                                 parameters[:logo_file_size])
+                                 parameters[:logo_file_size], parameters[:attachment_extension])
         else
           delete_object_file(object, directory_name, file_type)
           update_logo_parameters(object, parameters[:logo_file_name], parameters[:logo_content_type],
@@ -201,10 +201,12 @@ class SyncPeerLog < ActiveRecord::Base
     object.update_column(:logo_file_size, logo_file_size)
   end
   
-  def self.update_file_parameters(object, attachment_name, attachment_content_type, attachment_file_size)
+  def self.update_file_parameters(object, attachment_name, attachment_content_type, attachment_file_size,
+                                  attachment_extension)
     object.update_column(:attachment_file_name, attachment_name)
     object.update_column(:attachment_content_type, attachment_content_type)
     object.update_column(:attachment_file_size, attachment_file_size)
+    object.update_column(:attachment_extension, attachment_extension)
   end
   
   def self.upload_object_file(object, object_file_type)
@@ -1009,12 +1011,16 @@ class SyncPeerLog < ActiveRecord::Base
   
   def self.create_content_upload(parameters)
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    local_content_upload = ContentUpload.where("link_name = ? ", parameters[:link_name]).first
+    if local_content_upload
+      parameters[:link_name] = "N#{parameters[:sync_object_site_id]}_#{parameters[:link_name]}"
+    end
     content_upload = ContentUpload.create!(description: parameters[:description],
                                            link_name: parameters[:link_name],
                                            created_at: parameters[:action_taken_at],
                                            origin_id: parameters[:sync_object_id],
-                                           site_id: parameters[:sync_object_site_id])
-    content_upload.update_attributes(user_id: user.id)
+                                           site_id: parameters[:sync_object_site_id],
+                                           user_id: user.id)
     base_url = parameters[:base_url]
     parameters[:is_file] = true
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
@@ -1023,6 +1029,10 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.update_content_upload(parameters)
+    local_content_upload = ContentUpload.where("link_name = ? ", parameters[:link_name]).first
+    if local_content_upload
+      parameters[:link_name] = "N#{parameters[:sync_object_site_id]}_#{parameters[:link_name]}"
+    end
     content_upload = ContentUpload.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     content_upload.update_attributes(description: parameters[:description],
                                      link_name: parameters[:link_name],)
