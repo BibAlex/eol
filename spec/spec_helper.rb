@@ -121,6 +121,12 @@ def truncate_tables(tables)
   end
 end
 
+def create_log_action_parameters(parameters_values_hash, sync_peer_log)
+  parameters_values_hash.each do |param, value|
+    SyncLogActionParameter.gen(sync_peer_log: sync_peer_log, parameter: param.to_s, value: value.to_s)
+  end
+end
+
 module RSpec
   module Rails
     module Example

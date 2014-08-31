@@ -30,6 +30,8 @@ GEM
       rack-cache (~> 1.2)
       rack-test (~> 0.6.1)
       sprockets (~> 2.2.1)
+    active_type (0.2.1)
+      activerecord (>= 3.2)
     activemodel (3.2.18)
       activesupport (= 3.2.18)
       builder (~> 3.0.0)
@@ -246,7 +248,10 @@ GEM
       cocaine (~> 0.5.3)
       mime-types
     parallel (0.9.1)
+    pluginator (1.1.0)
     polyglot (0.3.4)
+    pre-commit (0.17.0)
+      pluginator (~> 1.1)
     pry (0.9.12.2)
       coderay (~> 1.0.5)
       method_source (~> 0.8)
@@ -398,6 +403,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  active_type (~> 0.2)
   acts_as_list (= 0.3.0)
   acts_as_tree_rails3 (= 0.1.0)
   ar-octopus (= 0.4.0)!
@@ -446,6 +452,7 @@ DEPENDENCIES
   oauth2 (= 0.8.0)
   optiflag (= 0.7)
   paperclip (= 4.1.1)
+  pre-commit (~> 0.17)
   pry-rails
   pry-rescue
   pry-stack_explorer

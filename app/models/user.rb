@@ -1,12 +1,16 @@
-# Note that email is NOT a unique field: one email address is allowed to have multiple accounts.
-# NOTE this inherits from MASTER.  All queries against a user need to be up-to-date, since this contains config information
-# which can change quickly.  There is a similar clause in the execute() method in the connection proxy for masochism.
+# Note that email is NOT a unique field: one email address is allowed to have
+# multiple accounts. 
+# NOTE this inherits from MASTER.  All queries against a user need to be 
+# up-to-date, since this contains config information which can change quickly.
+# There is a similar clause in the execute() method in the connection proxy for 
+# masochism.
 
 require 'eol/activity_loggable'
 
 # NOTE - Curator loads a bunch of other relationships and validations.
-# Also worth noting that #full_name (and the methods that count on it) need to know about
-# curators, so you will see references to curator methods, there. They didn't seem worth moving.
+# Also worth noting that #full_name (and the methods that count on it) need to
+# know about curators, so you will see references to curator methods, there. 
+# They didn't seem worth moving.
 class User < ActiveRecord::Base
   establish_connection(Rails.env)
 
@@ -28,6 +32,7 @@ class User < ActiveRecord::Base
   has_many :permissions_users
   has_many :permissions, through: :permissions_users
   has_many :communities, through: :members
+  # TODO - These GA attributes should be moved to ContentPartner. (WEB-2995)
   has_many :google_analytics_partner_summaries
   has_many :google_analytics_partner_taxa
   has_many :resources, through: :content_partners
@@ -103,25 +108,10 @@ class User < ActiveRecord::Base
   attr_accessor :curator_request
 
 # END CURATOR CLASS DECLARATIONS
-
-
-  # TODO: remove the :if condition after migrations are run in production
-  has_attached_file :logo,
-    path: $LOGO_UPLOAD_DIRECTORY,
-    url: $LOGO_UPLOAD_PATH,
-    default_url: "/assets/blank.gif",
-    if: Proc.new { |s| s.class.column_names.include?('logo_file_name') }
-  
-  # TODO - these :if procs are probably really old (from an old migration) and can go:
-  # TODO - I18n is wrong here
-  validates_attachment_content_type :logo,
-    content_type: ['image/pjpeg','image/jpeg','image/png','image/gif', 'image/x-png'],
-    message: "image is not a valid image type",
-    if: Proc.new { |s| s.class.column_names.include?('logo_file_name') }
-  validates_attachment_size :logo, in: 0..$LOGO_UPLOAD_MAX_SIZE,
-    if: Proc.new { |s| s.class.column_names.include?('logo_file_name') }
-
+ 
   index_with_solr keywords: [:username, :full_name]
+
+  include EOL::Logos
 
   attr_accessor :entered_password, :entered_password_confirmation, :email_confirmation
 
@@ -265,8 +255,21 @@ class User < ActiveRecord::Base
       gsub(/__amp__/, '&')
   end
 
+  # TODO - test this. Wire this up to a controller. A user should be able to
+  # "destroy" his account with this method (as of this writing, cannot).
+  def deactivate
+    # Using update_column instead of updates_attributes to by pass validation
+    # errors.
+    update_column(:active, false)
+    update_column(:validation_code, nil)
+    # This one is perhaps contentious, but I think it's the right thing to do.
+    update_column(:email, nil)
+    remove_from_index
+  end
+
   def activate
-    # Using update_column instead of updates_attributes to by pass validation errors.
+    # Using update_column instead of updates_attributes to by pass validation
+    # errors.
     update_column(:active, true)
     update_column(:validation_code, nil)
     add_to_index
@@ -603,17 +606,6 @@ class User < ActiveRecord::Base
     self.members.select {|m| m.community_id == community.id}.first
   end
 
-  # override the logo_url column in the database to contruct the path on the content server
-  def logo_url(size = 'large', specified_content_host = nil, options = {})
-    if logo_cache_url.blank?
-      return "v2/logos/user_default.png"
-    elsif size.to_s == 'small'
-      DataObject.image_cache_path(logo_cache_url, '88_88', specified_content_host: specified_content_host)
-    else
-      DataObject.image_cache_path(logo_cache_url, '130_130', specified_content_host: specified_content_host)
-    end
-  end
-
   # NOTE - This REMOVES the watchlist (using #shift)!
   def published_collections(as_user = nil)
     @published_collections ||= all_collections(as_user).shift && all_collections(as_user).select { |c| c.published? }
@@ -845,6 +837,7 @@ private
   end
 
   def destroy_comments
+    # TODO - generalize
     # remove comments from solr first
     begin
       solr_connection = SolrAPI.new($SOLR_SERVER, $SOLR_ACTIVITY_LOGS_CORE)

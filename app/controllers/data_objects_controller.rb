@@ -312,18 +312,21 @@ class DataObjectsController < ApplicationController
     curations = []
     associations = []
     comments = []
-    @data_object.data_object_taxa.each do |association|
-      associations << association
-      comment = curation_comment(params["curation_comment_#{association.id}"]) # Note, this gets saved regardless!
-      comments << comment
-      curations << Curation.new(
-        association: association,
-        user: current_user,
-        vetted: Vetted.find(params["vetted_id_#{association.id}"]),
-        visibility: visibility_from_params(association),
-        comment: comment,
-        untrust_reason_ids: params["untrust_reasons_#{association.id}"],
-        hide_reason_ids: params["hide_reasons_#{association.id}"] )
+    # You need to pull the LATEST info from master, otherwise this could fail:
+    DataObject.with_master do
+      @data_object.data_object_taxa.each do |association|
+        associations << association
+        comment = curation_comment(params["curation_comment_#{association.id}"]) # Note, this gets saved regardless!
+        comments << comment
+        curations << Curation.new(
+          association: association,
+          user: current_user,
+          vetted: Vetted.find(params["vetted_id_#{association.id}"]),
+          visibility: visibility_from_params(association),
+          comment: comment,
+          untrust_reason_ids: params["untrust_reasons_#{association.id}"],
+          hide_reason_ids: params["hide_reasons_#{association.id}"] )
+      end
     end
     if any_errors_in_curations?(curations)
       flash[:error] = all_curation_errors_to_sentence(curations)

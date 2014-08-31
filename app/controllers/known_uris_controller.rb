@@ -160,6 +160,7 @@ class KnownUrisController < ApplicationController
     @known_uri = KnownUri.find(params[:id])
     if current_user.is_admin?
       @known_uri.show(current_user)
+      sync_hide_or_unhide_known_uri("show")
     end
     redirect_to action: 'index', uri_type_id: @known_uri.uri_type_id
   end
@@ -168,6 +169,7 @@ class KnownUrisController < ApplicationController
     @known_uri = KnownUri.find(params[:id])
     if current_user.is_admin?
       @known_uri.hide(current_user)
+      sync_hide_or_unhide_known_uri("hide")
     end
     redirect_to action: 'index', uri_type_id: @known_uri.uri_type_id
   end
@@ -187,6 +189,7 @@ class KnownUrisController < ApplicationController
   def destroy
     @known_uri = KnownUri.find(params[:id])
     @known_uri.destroy
+    sync_delete_known_uri
     redirect_to known_uris_path
   end
 
@@ -318,7 +321,7 @@ class KnownUrisController < ApplicationController
               attributes_from_ontology.each do |attribute_metadata|
                 language_iso = attribute_metadata[:language] || 'en'
                 if language = Language::find_closest_by_iso(language_iso)
-                  attributes_by_language[language] ||= {}
+                  attributes_by_sync_delete_known_urilanguage[language] ||= {}
                   attributes_by_language[language][field_name] = attribute_metadata[:text]
                 end
               end
@@ -365,6 +368,20 @@ class KnownUrisController < ApplicationController
     sync_params = sync_params.reverse_merge(parameters)
     options = { user: current_user, object: @known_uri, action_id: SyncObjectAction.create.id,
                 type_id: SyncObjectType.known_uri.id, params: sync_params }       
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_delete_known_uri
+    options = { user: current_user, object: @known_uri, action_id: SyncObjectAction.delete.id,
+                type_id: SyncObjectType.known_uri.id, params: {} }       
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_hide_or_unhide_known_uri(action)
+    action_id = SyncObjectAction.hide.id if action == "hide"
+    action_id = SyncObjectAction.show.id if action == "show"
+    options = { user: current_user, object: @known_uri, action_id: action_id,
+                type_id: SyncObjectType.known_uri.id, params: {} }       
     SyncPeerLog.log_action(options)
   end
   

@@ -1488,6 +1488,7 @@ class SyncPeerLog < ActiveRecord::Base
     tocs_ids
   end
   
+
   #known uris relationship
   def self.create_known_uri_relationship(parameters)
     from_uri = KnownUri.find_site_specific(parameters[:from_uri_origin_id], parameters[:from_uri_site_id])
@@ -1522,5 +1523,21 @@ class SyncPeerLog < ActiveRecord::Base
         known_uri_relation_ship.destroy
       end
     end
+  end
+  def self.hide_known_uri(parameters)
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    uri = KnownUri.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    uri.hide(user) if uri 
+  end
+  
+  def self.show_known_uri(parameters)
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    uri = KnownUri.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    uri.show(user) if uri 
+  end
+  
+  def self.delete_known_uri(parameters)
+    uri = KnownUri.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    uri.destroy if uri 
   end
 end
