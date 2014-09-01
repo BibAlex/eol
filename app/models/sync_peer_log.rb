@@ -182,7 +182,7 @@ class SyncPeerLog < ActiveRecord::Base
       if download_file?(file_url, file_name, object_file_type)
         if parameters[:is_file]
           update_file_parameters(object, parameters[:logo_file_name], parameters[:logo_content_type],
-                                 parameters[:logo_file_size])
+                                 parameters[:logo_file_size], parameters[:attachment_extension])
         else
           delete_object_file(object, directory_name, file_type)
           update_logo_parameters(object, parameters[:logo_file_name], parameters[:logo_content_type],
@@ -201,10 +201,12 @@ class SyncPeerLog < ActiveRecord::Base
     object.update_column(:logo_file_size, logo_file_size)
   end
   
-  def self.update_file_parameters(object, attachment_name, attachment_content_type, attachment_file_size)
+  def self.update_file_parameters(object, attachment_name, attachment_content_type, attachment_file_size,
+                                  attachment_extension)
     object.update_column(:attachment_file_name, attachment_name)
     object.update_column(:attachment_content_type, attachment_content_type)
     object.update_column(:attachment_file_size, attachment_file_size)
+    object.update_column(:attachment_extension, attachment_extension)
   end
   
   def self.upload_object_file(object, object_file_type)
@@ -662,30 +664,31 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.create_content_page(parameters)
-    if(parameters[:parent_content_page_origin_id] != nil && parameters[:parent_content_page_site_id != nil])
+    if(parameters[:parent_content_page_origin_id] && parameters[:parent_content_page_site_id])
       parent_content_page = ContentPage.find_site_specific(parameters[:parent_content_page_origin_id], parameters[:parent_content_page_site_id])
       parent_content_page_id = parent_content_page.id
     else
       parent_content_page_id = nil  
     end
     local_content_page = ContentPage.find_by_page_name(parameters[:page_name])
-    if local_content_page.nil? || local_content_page.older_than?(parameters[:created_at], "created_at")
-      content_page = ContentPage.new(parent_content_page_id: parent_content_page_id,
-                                     page_name: parameters[:page_name], active: parameters[:active],
-                                     sort_order: parameters[:sort_order], origin_id: parameters[:sync_object_id],
-                                     site_id: parameters[:sync_object_site_id],
-                                     created_at: parameters[:created_at])
-                                     
-      content_page.translations.build(language_id: parameters[:language].id,
-                           title: parameters[:title], main_content: parameters[:main_content],
-                           left_content: parameters[:left_content], 
-                           meta_keywords: parameters[:meta_keywords],
-                           meta_description: parameters[:meta_description],
-                           active_translation: parameters[:active_translation])
-      content_page.save
-      user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
-      content_page.update_attributes(last_update_user_id: user.id) unless content_page.nil?
+    if local_content_page
+      parameters[:page_name] = "N#{parameters[:sync_object_site_id]}_#{parameters[:page_name]}"
     end
+    content_page = ContentPage.new(parent_content_page_id: parent_content_page_id,
+                                   page_name: parameters[:page_name], active: parameters[:active],
+                                   sort_order: parameters[:sort_order], origin_id: parameters[:sync_object_id],
+                                   site_id: parameters[:sync_object_site_id],
+                                   created_at: parameters[:created_at])
+                                   
+    content_page.translations.build(language_id: parameters[:language].id,
+                                    title: parameters[:title], main_content: parameters[:main_content],
+                                    left_content: parameters[:left_content], 
+                                    meta_keywords: parameters[:meta_keywords],
+                                    meta_description: parameters[:meta_description],
+                                    active_translation: parameters[:active_translation])
+    content_page.save
+    user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    content_page.update_attributes(last_update_user_id: user.id) unless content_page.nil?
   end
   
   def self.delete_content_page(parameters)
@@ -718,6 +721,10 @@ class SyncPeerLog < ActiveRecord::Base
     else
       parent_content_page_id = nil  
     end
+    local_content_page = ContentPage.find_by_page_name(parameters[:page_name])
+    if local_content_page
+      parameters[:page_name] = "N#{parameters[:sync_object_site_id]}_#{parameters[:page_name]}"
+    end
     content_page = ContentPage.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     if content_page
       if content_page.older_than?(parameters[:updated_at], "updated_at")
@@ -735,8 +742,12 @@ class SyncPeerLog < ActiveRecord::Base
                               :action_taken_at, :language],parameters)
     if content_page
       local_translated_content_page = TranslatedContentPage.find_by_content_page_id_and_language_id(content_page.id, parameters[:language_id])
-      if local_translated_content_page.nil? || local_translated_content_page.older_than?(parameters[:created_at], "created_at")
+      if local_translated_content_page.nil?
         translated_content_page = content_page.translations.build(parameters)
+        content_page.last_update_user_id = user.id
+        content_page.save
+      elsif local_translated_content_page.older_than?(parameters[:created_at], "created_at")
+        local_translated_content_page.update_attributes(parameters)
         content_page.last_update_user_id = user.id
         content_page.save
       end
@@ -987,7 +998,6 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.create_agreement(parameters)
-    # TODO upload file
     parameters[:origin_id] = parameters[:sync_object_id]
     parameters[:site_id] = parameters[:sync_object_site_id]
     parameters[:created_at] = parameters[:action_taken_at]
@@ -999,7 +1009,6 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.update_agreement(parameters)
-    # TODO upload file
     agreement = ContentPartnerAgreement.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     parameters[:updated_at] = parameters[:action_taken_at]
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
@@ -1009,12 +1018,16 @@ class SyncPeerLog < ActiveRecord::Base
   
   def self.create_content_upload(parameters)
     user = User.find_site_specific(parameters[:user_site_object_id], parameters[:user_site_id])
+    local_content_upload = ContentUpload.where("link_name = ? ", parameters[:link_name]).first
+    if local_content_upload
+      parameters[:link_name] = "N#{parameters[:sync_object_site_id]}_#{parameters[:link_name]}"
+    end
     content_upload = ContentUpload.create!(description: parameters[:description],
                                            link_name: parameters[:link_name],
                                            created_at: parameters[:action_taken_at],
                                            origin_id: parameters[:sync_object_id],
-                                           site_id: parameters[:sync_object_site_id])
-    content_upload.update_attributes(user_id: user.id)
+                                           site_id: parameters[:sync_object_site_id],
+                                           user_id: user.id)
     base_url = parameters[:base_url]
     parameters[:is_file] = true
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
@@ -1023,6 +1036,10 @@ class SyncPeerLog < ActiveRecord::Base
   end
   
   def self.update_content_upload(parameters)
+    local_content_upload = ContentUpload.where("link_name = ? ", parameters[:link_name]).first
+    if local_content_upload
+      parameters[:link_name] = "N#{parameters[:sync_object_site_id]}_#{parameters[:link_name]}"
+    end
     content_upload = ContentUpload.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     content_upload.update_attributes(description: parameters[:description],
                                      link_name: parameters[:link_name],)
@@ -1423,29 +1440,46 @@ class SyncPeerLog < ActiveRecord::Base
   #known uris
   def self.create_known_uri(parameters)
     local_known_uri = KnownUri.where("uri = ? ", parameters[:uri]).first
-    if local_known_uri.nil? || local_known_uri.older_than?(parameters[:created_at], "created_at")
-      local_known_uri.destroy if local_known_uri
-      parameters[:site_id] = parameters[:sync_object_site_id]
-      parameters[:origin_id] = parameters[:sync_object_id] 
-      parameters[:toc_item_ids] = get_toc_ids(parameters[:toc_sync_ids]) if parameters[:toc_sync_ids]
-      
-      translated_known_uris_attributes = { "0" =>  { name: parameters[:name], 
-                                           language_id: parameters[:language_id],
-                                           definition: parameters[:definition],
-                                           comment: parameters[:comment],
-                                           attribution: parameters[:attribution] } }
-      parameters[:translated_known_uris_attributes] = translated_known_uris_attributes
-      parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, 
-                                :sync_object_id, :action_taken_at, :language, :name, 
-                                :comment, :language_id, :definition,
-                                :attribution, :toc_sync_ids],parameters)
+    parameters[:site_id] = parameters[:sync_object_site_id]
+    parameters[:origin_id] = parameters[:sync_object_id] 
+    parameters[:toc_item_ids] = get_toc_ids(parameters[:toc_sync_ids]) if parameters[:toc_sync_ids]
+    
+    translated_known_uris_attributes = { "0" =>  { name: parameters[:name], 
+                                         language_id: parameters[:language_id],
+                                         definition: parameters[:definition],
+                                         comment: parameters[:comment],
+                                         attribution: parameters[:attribution] } }
+    parameters[:translated_known_uris_attributes] = translated_known_uris_attributes
+    parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, 
+                              :sync_object_id, :action_taken_at, :language, :name, 
+                              :comment, :language_id, :definition,
+                              :attribution, :toc_sync_ids],parameters)
+    if local_known_uri.nil?
       KnownUri.create(parameters)
+    elsif local_known_uri.older_than?(parameters[:created_at], "created_at") &&
+          local_known_uri.older_than?(parameters[:created_at], "updated_at")
+      local_translated_known_uri = TranslatedKnownUri.where("language_id = ? and known_uri_id = ? ",
+                                                             parameters[:translated_known_uris_attributes]["0"][:language_id], local_known_uri.id).first
+      local_translated_known_uri.destroy if local_translated_known_uri
+      local_known_uri.update_attributes(parameters)
     end
   end
   
   def self.update_known_uri(parameters)
     known_uri = KnownUri.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    if known_uri.older_than?(parameters[:updated_at], "updated_at")
+    if known_uri.uri != parameters[:uri]
+      local_known_uri = KnownUri.where("uri = ? ", parameters[:uri]).first
+      if local_known_uri
+        KnownUri.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id]).destroy
+      end
+      if local_known_uri.older_than?(parameters[:updated_at], "created_at") &&
+            local_known_uri.older_than?(parameters[:updated_at], "updated_at")
+        known_uri = local_known_uri
+      else
+        known_uri = nil
+      end
+    end
+    if known_uri && known_uri.older_than?(parameters[:updated_at], "updated_at")
       parameters[:toc_item_ids] = get_toc_ids(parameters[:toc_sync_ids]) if parameters[:toc_sync_ids]
       
       translated_known_uris_attributes = { name: parameters[:name], 

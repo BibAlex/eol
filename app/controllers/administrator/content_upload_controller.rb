@@ -63,7 +63,8 @@ private
                     logo_file_name: @content_upload.attachment_file_name,
                     logo_content_type: @content_upload.attachment_content_type,
                     logo_file_size: @content_upload.attachment_file_size,
-                    base_url: "#{$CONTENT_SERVER}content/" }
+                    base_url: "#{$CONTENT_SERVER}content/",
+                    attachment_extension: @content_upload.attachment_extension }
     options = { user: current_user, object: @content_upload, action_id: SyncObjectAction.create.id,
                type_id: SyncObjectType.content_upload.id, params: sync_params }
     SyncPeerLog.log_action(options)

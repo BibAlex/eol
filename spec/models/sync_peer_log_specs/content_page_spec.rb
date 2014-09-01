@@ -80,30 +80,6 @@ describe SyncPeerLog do
         translated_content_page.destroy if translated_content_page
       end
     end
-    # last create wins
-    context "when creation fails because there is a newer creation" do
-      before(:all) do
-        truncate_tables(["sync_peer_logs","sync_log_action_parameters"])
-        @local_content_page = ContentPage.gen(page_name: "page_name")
-        user.update_attributes(origin_id: user.id, site_id: PEER_SITE_ID)
-        sync_peer_log = SyncPeerLog.gen(sync_object_action_id: SyncObjectAction.create.id, sync_object_type_id: SyncObjectType.content_page.id,
-                                      user_site_object_id: user.origin_id, user_site_id: PEER_SITE_ID,
-                                      sync_object_id: 100, sync_object_site_id: PEER_SITE_ID)
-        parameters_values_hash = { language_id: language.id, title: "title", main_content: "main_content",
-          left_content: "left_content", meta_keywords: "meta_keywords", meta_description: "meta_description", 
-          active_translation: 1, page_name: "page_name", active: "1", sort_order: "1",
-          created_at: @local_content_page.created_at - 2 }
-        create_log_action_parameters(parameters_values_hash, sync_peer_log)
-        sync_peer_log.process_entry
-      end
-      
-      it "doesn't create new content page with the same name" do
-        expect(content_page).to be_nil
-      end
-      after(:all) do
-        @local_content_page.destroy if @local_content_page
-      end
-    end
   end
   
   describe ".update_content_page" do
