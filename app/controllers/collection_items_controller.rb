@@ -99,7 +99,7 @@ class CollectionItemsController < ApplicationController
       unless params[:references].blank?
         params[:references] = params[:references].split("\n")
         params[:references].each do |reference|
-          @collection_item.add_ref(reference)
+          @collection_item.add_ref(reference, current_user)
         end
       end
       sync_add_refs_to_collection_item
@@ -115,7 +115,7 @@ class CollectionItemsController < ApplicationController
     references
   end
 
-  def create_from_collection_ids
+  def create_from_collection_ids(sync_params)
     Array(params[:collection_id]).each do |collection_id|
       create_collection_item(params[:collection_item].
                              merge(collection_id: collection_id))
