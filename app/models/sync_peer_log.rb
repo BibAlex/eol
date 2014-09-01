@@ -1530,4 +1530,22 @@ class SyncPeerLog < ActiveRecord::Base
     uri = KnownUri.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     uri.destroy if uri 
   end
+  
+  # Members
+  def self.grant_member(parameters)
+    member = Member.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    member.grant_manager
+  end
+  
+  def self.revoke_member(parameters)
+    member = Member.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    member.revoke_manager
+  end
+  
+  def self.delete_member(parameters)
+    member = Member.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    community = Community.find_site_specific(parameters[:community_origin_id], 
+      parameters[:community_site_id])
+    community.remove_member(member)
+  end
 end

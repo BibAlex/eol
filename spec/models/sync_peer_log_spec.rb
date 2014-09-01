@@ -17,7 +17,7 @@ describe SyncPeerLog do
     ContentPartnerStatus.create_enumerated
     TocItem.gen_if_not_exists(:label => 'overview')
   end
-  
+ 
   describe "Known Uris" do
     describe ".delete_known_uri" do
       let(:uri) { KnownUri.gen }

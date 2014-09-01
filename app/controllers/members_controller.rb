@@ -42,18 +42,21 @@ class MembersController < ApplicationController
 
   def destroy
     @community.remove_member(@member)
+    sync_delete_member
     flash[:notice] = I18n.t(:you_removed_the_member_from_the_community)
     redirect_to action: 'index',status: :moved_permanently
   end
 
   def grant_manager
     @member.grant_manager
+    sync_grant_or_revoke_manager("grant")
     log_action(:add_manager)
     redirect_to action: 'index', status: :moved_permanently
   end
 
   def revoke_manager
     @member.revoke_manager
+    sync_grant_or_revoke_manager("revoke")
     redirect_to action: 'index', status: :moved_permanently
   end
 
@@ -118,5 +121,18 @@ private
     )
   end
 
+  def sync_delete_member
+    sync_params = { community_origin_id: @community.origin_id, community_site_id: @community.site_id }
+    options = { user: current_user, object: @member, action_id: SyncObjectAction.delete.id,
+                type_id: SyncObjectType.member.id, params: sync_params }       
+    SyncPeerLog.log_action(options)
+  end
+  
+  def sync_grant_or_revoke_manager(action)
+    action_id = SyncObjectAction.grant.id if action == "grant"
+    action_id = SyncObjectAction.revoke.id if action == "revoke"
+    options = { user: current_user, object: @member, action_id: action_id,
+                type_id: SyncObjectType.member.id, params: {} }       
+    SyncPeerLog.log_action(options)
+  end
 end
-

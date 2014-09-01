@@ -1,5 +1,6 @@
 class Member < ActiveRecord::Base
 
+  extend SiteSpecific
   belongs_to :community
   belongs_to :user
 

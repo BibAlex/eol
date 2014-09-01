@@ -6,7 +6,7 @@ class SyncObjectType < ActiveRecord::Base
                         data_object collection_job dummy_type translated_content_page glossary_term search_suggestion
                         agreement contact news_item translated_news_item content_upload forum topic post
                         category content_partner resource search_log hierarchy known_uri
-                        known_uri_relationship)
+                        known_uri_relationship member)
   def is_dummy?
     self.object_type == 'dummy_type'
   end 
