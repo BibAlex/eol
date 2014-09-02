@@ -58,6 +58,7 @@ class Community < ActiveRecord::Base
   # Returns the new member.
   def add_member(user, opts = {})
     member = Member.create!(user_id: user.id, community_id: id)
+    member.update_attributes(origin_id: member.id, site_id: PEER_SITE_ID)
     members << member
     member
   end
