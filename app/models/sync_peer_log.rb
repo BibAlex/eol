@@ -195,7 +195,7 @@ class SyncPeerLog < ActiveRecord::Base
         end
         upload_object_file(object, object_file_type)
       else
-        log_failed_download(file_url, file_name, file_type, object_type, object, parameters)
+        log_failed_download(file_url, file_name, file_type, object_type, object, parameters, object_file_type)
       end
     end
   end
@@ -222,9 +222,22 @@ class SyncPeerLog < ActiveRecord::Base
     delete_file(object, directory_name, file_type)
   end
   
-  def self.log_failed_download(file_url, logo_name, file_type, object_type, object, parameters)
+  def self.log_failed_download(file_url, logo_name, file_type, object_type, object, parameters,
+                               object_file_type)
     failed_file = FailedFiles.create(file_url: file_url, output_file_name: logo_name, file_type: file_type ,
-                object_type: object_type , object_id: object.id)
+                object_type: object_type , object_id: object.id, object_file_type: object_file_type)
+    object_file_type == "file" ? create_failed_file_parameter(failed_file, parameters) :
+                                 create_failed_logo_parameter(failed_file, parameters)
+  end
+  
+  def self.create_failed_file_parameter(failed_file, parameters)
+    FailedFilesParameters.create(failed_files_id: failed_file.id, parameter: "attachment_file_name", value: parameters[:logo_file_name])
+    FailedFilesParameters.create(failed_files_id: failed_file.id, parameter: "attachment_content_type", value: parameters[:logo_content_type])
+    FailedFilesParameters.create(failed_files_id: failed_file.id, parameter: "attachment_file_size", value: parameters[:logo_file_size])
+    FailedFilesParameters.create(failed_files_id: failed_file.id, parameter: "attachment_extension", value: parameters[:attachment_extension])
+  end
+  
+  def self.create_failed_logo_parameter(failed_file, parameters)
     FailedFilesParameters.create(failed_files_id: failed_file.id, parameter: "logo_file_name", value: parameters[:logo_file_name])
     FailedFilesParameters.create(failed_files_id: failed_file.id, parameter: "logo_content_type", value: parameters[:logo_content_type])
     FailedFilesParameters.create(failed_files_id: failed_file.id, parameter: "logo_file_size", value: parameters[:logo_file_size])
@@ -1037,7 +1050,7 @@ class SyncPeerLog < ActiveRecord::Base
     parameters[:is_file] = true
     parameters = delete_keys([:user_site_id, :user_site_object_id, :sync_object_site_id, :sync_object_id,
                               :action_taken_at, :language],parameters)
-    download_object_file("content_upload", content_upload, parameters, "file")
+    download_object_file("ContentUpload", content_upload, parameters, "file")
   end
   
   def self.update_content_upload(parameters)

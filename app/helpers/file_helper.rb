@@ -3,6 +3,7 @@ module FileHelper
       
       include ImageManipulation
       
+      # file_type: file or logo
       def download_file?(file_url, output_file_name, file_type)
        if file_type == "logo"
         download_logo?(file_url, output_file_name) 
