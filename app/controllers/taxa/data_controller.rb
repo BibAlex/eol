@@ -10,7 +10,6 @@ class Taxa::DataController < TaxaController
 
   # GET /pages/:taxon_id/data/index
   def index
-    debugger
     @assistive_section_header = I18n.t(:assistive_data_header)
     @recently_used = KnownUri.where(['uri IN (?)', session[:rec_uris]]) if session[:rec_uris]
     @selected_data_point_uri_id = params.delete(:data_point_uri_id)

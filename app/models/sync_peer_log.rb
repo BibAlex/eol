@@ -1572,13 +1572,11 @@ class SyncPeerLog < ActiveRecord::Base
   
   # Members
   def self.grant_member(parameters)
-    debugger
     member = Member.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     member.grant_manager if member
   end
   
   def self.revoke_member(parameters)
-    debugger
     member = Member.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     member.revoke_manager if member
   end

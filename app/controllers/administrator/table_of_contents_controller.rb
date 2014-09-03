@@ -27,7 +27,6 @@ class Administrator::TableOfContentsController < AdminController
   end
 
   def create
-    debugger
     if !params[:parent_id].blank? && !params[:label].blank?
       if params[:parent_id] == '0'
         TocItem.add_major_chapter(params[:label])
