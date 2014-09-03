@@ -312,6 +312,7 @@ class ApplicationController < ActionController::Base
   end
 
   def check_authentication
+    
     must_log_in unless logged_in?
     return false
   end
