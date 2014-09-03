@@ -17,5 +17,9 @@ class SyncObjectAction < ActiveRecord::Base
   
   def is_show?
     self.object_action == 'show'
-  end                      
+  end  
+  
+  def is_revoke?
+    self.object_action == 'revoke'
+  end                    
 end

@@ -1,5 +1,5 @@
 class DataSearchFile < ActiveRecord::Base
-
+  extend SiteSpecific
   attr_accessible :from, :known_uri, :known_uri_id, :language, :language_id, :q, :sort, :to, :uri, :user, :user_id,
     :completed_at, :hosted_file_url, :row_count, :unit_uri, :taxon_concept_id
   attr_accessor :results

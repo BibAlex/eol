@@ -96,14 +96,19 @@ class SyncPeerLog < ActiveRecord::Base
     sync_peer_logs = []
     if (action.is_delete?)  
       sync_peer_logs = SyncPeerLog.where("sync_object_id = ? and sync_object_site_id = ? 
-                                          and sync_event_id IS NULL", sync_object_id, sync_object_site_id) 
-    
+        and sync_event_id IS NULL", sync_object_id, sync_object_site_id) 
+    elsif (action.is_revoke?)  
+      sync_peer_logs = SyncPeerLog.where("sync_object_id = ? and sync_object_site_id = ? 
+        and sync_object_action_id = ? and sync_event_id IS NULL", sync_object_id, 
+          sync_object_site_id, SyncObjectAction.grant.id)
     elsif (action.is_remove?)
-      sync_peer_logs = SyncPeerLog.joins(:sync_log_action_parameter).where("sync_object_id = ? and sync_object_site_id = ? and parameter = ? and value = ? and sync_event_id IS NULL", sync_object_id, sync_object_site_id, 'item_id', parameters["item_id"])
+      sync_peer_logs = SyncPeerLog.joins(:sync_log_action_parameter).where("sync_object_id = ? 
+        and sync_object_site_id = ? and parameter = ? and value = ? and sync_event_id IS NULL",
+          sync_object_id, sync_object_site_id, 'item_id', parameters["item_id"])
     elsif (action.is_show?)
       sync_peer_logs = SyncPeerLog.where("sync_object_id = ? and sync_object_site_id = ? 
-                                          and sync_object_action_id = ?  and sync_event_id IS NULL", sync_object_id, sync_object_site_id,
-                                          SyncObjectAction.hide.id) 
+        and sync_object_action_id = ? and sync_event_id IS NULL", sync_object_id,
+          sync_object_site_id, SyncObjectAction.hide.id) 
     end     
      sync_peer_logs
   end
@@ -1567,19 +1572,27 @@ class SyncPeerLog < ActiveRecord::Base
   
   # Members
   def self.grant_member(parameters)
+    debugger
     member = Member.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    member.grant_manager
+    member.grant_manager if member
   end
   
   def self.revoke_member(parameters)
+    debugger
     member = Member.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
-    member.revoke_manager
+    member.revoke_manager if member
   end
   
   def self.delete_member(parameters)
     member = Member.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
     community = Community.find_site_specific(parameters[:community_origin_id], 
       parameters[:community_site_id])
-    community.remove_member(member)
+    community.remove_member(member) if member
+  end
+  
+  # data downloads (data_search_file)
+  def self.delete_data_search_file(parameters)
+    dsf = DataSearchFile.find_site_specific(parameters[:sync_object_id], parameters[:sync_object_site_id])
+    dsf.destroy if dsf
   end
 end

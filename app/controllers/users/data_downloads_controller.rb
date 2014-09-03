@@ -17,6 +17,7 @@ class Users::DataDownloadsController < UsersController
     @data_search_file = DataSearchFile.find(params[:id])
     if @data_search_file.user == current_user || current_user.is_admin? || current_user.min_curator_level?(:master)
       @data_search_file.destroy
+      sync_delete_data_search_file
       flash[:notice] = I18n.t(:data_search_destroyed)
     else
       # TODO - second argument to constructor should be an I18n key for a human-readable error.
@@ -27,6 +28,12 @@ class Users::DataDownloadsController < UsersController
 
   private
 
+  def sync_delete_data_search_file
+    options = { user: current_user, object: @data_search_file, action_id: SyncObjectAction.delete.id,
+                type_id: SyncObjectType.data_search_file.id, params: {} }       
+    SyncPeerLog.log_action(options)
+  end
+  
   def instantiate_user
     @user = User.find(params[:user_id])
     redirect_if_user_is_inactive
